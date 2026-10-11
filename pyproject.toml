@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "room-ac-control-hon"
+version = "0.1.0"
+description = "An independent Windows air-conditioner controller for hOn accounts"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+license-files = ["LICENSE", "THIRD_PARTY_NOTICES.md"]
+authors = [{name = "Room AC Control contributors"}]
+dynamic = ["dependencies"]
+
+[project.gui-scripts]
+room-ac-control = "room_ac_control.app:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+room_ac_control = ["assets/*.png", "assets/*.ico"]
+
+[tool.setuptools.dynamic]
+dependencies = {file = ["requirements.txt"]}
