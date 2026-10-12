@@ -1,10 +1,10 @@
 [build-system]
-requires = ["setuptools>=69"]
+requires = ["setuptools==80.9.0", "wheel==0.45.1"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "room-ac-control-hon"
-version = "0.1.2"
+version = "0.1.3"
 description = "An independent Windows air-conditioner controller for hOn accounts"
 readme = "README.md"
 requires-python = ">=3.11"

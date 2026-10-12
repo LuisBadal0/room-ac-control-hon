@@ -1,5 +1,6 @@
 """Restore only supported parameters, keeping each mode/preset independent."""
 import hashlib
+from .diagnostics import diagnostics
 
 from .controller import code, function_group
 
@@ -45,7 +46,8 @@ class ProgramMemory:
         try:
             self.state.save_profile(self.account,device,program,values)
             self.save_error=False
-        except OSError:
+        except OSError as error:
+            diagnostics.record("state_save_failed", error)
             self.save_error=True
 
     def use_account(self, email):

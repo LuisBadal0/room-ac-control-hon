@@ -8,7 +8,13 @@ Keep cloud work on the worker thread and UI changes on Tk's main thread. Preserv
 
 For a portable release run `tools/Build.ps1`. Inspect the app, the runtime self-test report and the ZIP before publishing. Include generated dependency notices and the complete runtime folder.
 
-Optional CI is available in `packaging/github-workflow.yml`. It is a template rather than an active workflow; enabling it requires GitHub workflow permissions.
+Use the hash-verified setup/build scripts rather than unverified `pip install -e .`.
+Dependency changes must update all transitive pins and approved wheel hashes in
+`requirements.lock` and `packaging/requirements-build.lock`. Review hashes against
+the official package index and test in a fresh Windows virtual environment.
+Action changes must use full upstream commit SHAs. See `docs/BUILD_VERIFICATION.md`.
+
+CI is active in `.github/workflows/windows.yml`. Pull requests run the offline checks and portable Windows build. Workflow changes require GitHub workflow permissions; actions must remain pinned to full upstream commit SHAs.
 
 Do not commit credentials, device serial numbers, cloud payload dumps, personal screenshots, local shortcuts, virtual environments or generated binaries. Issue reports should describe steps to reproduce and sanitize any logs or screenshots.
 

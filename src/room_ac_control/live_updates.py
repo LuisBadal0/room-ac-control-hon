@@ -4,6 +4,7 @@ import secrets
 from awscrt import mqtt5
 from awsiot import mqtt5_client_builder
 from pyhon import const
+from .diagnostics import diagnostics
 
 
 class CloudUpdates:
@@ -37,8 +38,8 @@ class CloudUpdates:
             try:
                 # Asynchronous subscription; never block an AWS callback thread.
                 self.client.subscribe(mqtt5.SubscribePacket([mqtt5.Subscription(topic)]))
-            except Exception:
-                pass  # Periodic REST refresh continues if notifications are unavailable.
+            except Exception as error:
+                diagnostics.record("subscription_failed", error)
         for device_id in set().union(*self.topics.values()) if self.topics else ():
             self.changed(device_id)
 

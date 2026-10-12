@@ -20,6 +20,11 @@ with tempfile.TemporaryDirectory() as directory:
         coroutine.close()
         submissions.append((callback,operation,on_error))
     app.worker.submit=submit
+    assert not app.remember_account.get()
+    app.sign_in("sample@example.test","fake-desktop-test-password")
+    submissions[-1][0]([demo_device()])
+    assert app.storage.credentials() is None  # default sign-in never saves a password
+    app.remember_account.set(True)
     app.sign_in("sample@example.test","fake-desktop-test-password")
     assert app.storage.credentials() is None  # not stored before successful login
     app.memory.use_account("sample@example.test")
@@ -39,6 +44,7 @@ with tempfile.TemporaryDirectory() as directory:
     assert not reopened.busy
     assert "Automatic sign-in failed" in reopened.status.get()
     assert reopened.storage.credentials() is not None
+    assert reopened.remember_account.get()  # preserve the original opt-in across auto sign-in
 
     # Minimize only withdraws after the tray confirms it is available.
     class FakeTray:

@@ -39,7 +39,7 @@ Windows 10/11 x64, an hOn email/password account, and internet access on both th
 
 Social-provider login is not supported. Features available only on a physical remote or absent from the cloud service's API cannot be exposed here. Cloud/network delays can affect when reported changes appear. Confirm refreshed status after a command timeout before retrying.
 
-Remembered credentials and settings use Windows DPAPI for the current user and are stored in `%LOCALAPPDATA%\RoomACControl\state.dpapi`, outside this project. Tokens stay in memory. Sign out clears remembered credentials. No telemetry, local web server or router port forwarding is used. See [Security and privacy](SECURITY.md).
+Remember me is off by default for new sign-ins. Enabling it saves your actual hOn email and password, encrypted with Windows DPAPI in `%LOCALAPPDATA%\RoomACControl\state.dpapi`. Programs running as your Windows user can decrypt them. Existing remembered accounts keep automatic sign-in; Sign out removes saved credentials. Your password is passed to the third-party pyhOn authentication library; session tokens stay in memory. No telemetry, local web server or router port forwarding is used. See [Security and privacy](SECURITY.md).
 
 ## Project layout
 
@@ -66,9 +66,11 @@ Runtime builds, local environments, shortcuts and account files are excluded fro
 .\tools\Build.ps1
 ```
 
-The preview uses fictional rooms and does not load saved credentials. Use `--preview login` to review the welcome screen. `tools/Build.ps1` produces `releases/Room-AC-Control-for-hOn-0.1.2-Windows-x64.zip` and a local app-icon shortcut. The build checks bundled assets, Windows encryption, tray imports and MQTT libraries without contacting an account.
+The preview uses fictional rooms and does not load saved credentials. Use `--preview login` to review the welcome screen. `tools/Build.ps1` produces `releases/Room-AC-Control-for-hOn-0.1.3-Windows-x64.zip` and a local app-icon shortcut. The build checks bundled assets, Windows encryption, tray imports and MQTT libraries without contacting an account.
 
-Windows UI checks: `tests/ui_smoke.py`, `tests/refresh_smoke.py`, `tests/desktop_smoke.py`, and `tests/window_header_smoke.py`. An optional GitHub build workflow is supplied in `packaging/github-workflow.yml`. To enable it, copy that file to `.github/workflows/windows.yml` using credentials permitted to manage workflows. It runs offline checks, builds a portable artifact and can publish tagged releases. Release tags should match the app version, such as `v0.1.2`.
+Setup and build install full hash-verified Windows dependency locks. `Setup.ps1` prepares source execution; `Build.ps1` produces the portable executable. See [build verification](docs/BUILD_VERIFICATION.md) for checksums, source manifests, optional signing and CI attestations. Binaries remain unsigned until a valid signing certificate is supplied.
+
+Windows UI checks: `tests/ui_smoke.py`, `tests/refresh_smoke.py`, `tests/desktop_smoke.py`, and `tests/window_header_smoke.py`. Active CI in `.github/workflows/windows.yml` pins actions to immutable commits, runs offline checks, and builds a portable Windows artifact for pull requests and pushes to main. Tagged releases are built and attested. Release tags should match the app version, such as `v0.1.3`.
 
 See [Contributing](CONTRIBUTING.md) and the [user guide](docs/USER_GUIDE.md) for more detail.
 
