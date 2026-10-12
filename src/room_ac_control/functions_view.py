@@ -124,6 +124,7 @@ class FunctionsView:
         self.apply_button = ttk.Button(self.footer, text="Apply changes", style="Accent.TButton", command=self.apply)
         self.apply_button.pack(side="left", expand=True, fill="x", padx=(0, 10))
         ttk.Button(self.footer, text="Close", command=self.close).pack(side="right")
+        ttk.Button(self.footer, text="Diagnostics", command=app.export_diagnostics).pack(side="right", padx=(0, 8))
         self.search.trace_add("write", lambda *args: self.render_section())
         self.render_section()
         self.window.after_idle(self.focus_search)

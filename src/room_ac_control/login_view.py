@@ -26,9 +26,14 @@ class LoginView:
         app.password = self.field(form, "Password", password=True)
         app.login_button = ttk.Button(form, text="Sign in  →", style="Login.Accent.TButton", command=app.connect)
         app.login_button.pack(fill="x", pady=(3, 11))
-        app.remember_account = tk.BooleanVar(value=True)
+        app.remember_account = tk.BooleanVar(value=False)
         ttk.Checkbutton(form, text="Remember me on this computer", style="Login.TCheckbutton", variable=app.remember_account).pack(anchor="w")
-        tk.Label(self.frame, text="Saved sign-in is encrypted by Windows.", bg=BG, fg=MUTED, font=("Segoe UI", 9)).pack()
+        tk.Label(self.frame, text="Remember me saves your email and password, encrypted by Windows.\nPrograms running as your Windows user can decrypt them.",
+                 bg=BG, fg=MUTED, font=("Segoe UI", 9), wraplength=480).pack()
+        diagnostic_link = tk.Label(self.frame, text="Export diagnostics", bg=BG, fg=MUTED,
+                                   font=("Segoe UI", 9), cursor="hand2")
+        diagnostic_link.pack(pady=(5,0))
+        diagnostic_link.bind("<Button-1>", lambda event: app.export_diagnostics())
         app.password.bind("<Return>", lambda event: app.connect())
         app.email.bind("<Return>", lambda event: app.password.focus_set())
 

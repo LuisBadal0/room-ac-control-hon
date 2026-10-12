@@ -2,6 +2,8 @@
 
 Launch with **Start Room AC Control.cmd** or the local app-icon shortcut. Sign in using the cloud account email/password account that already controls the AC on your phone. **Remember me on this computer** enables encrypted automatic sign-in after the first successful login.
 
+Remember me is off by default. Enabling it saves your actual email and password using Windows encryption; other programs running as your Windows user can decrypt them. Existing remembered accounts retain their previous choice. Your password is passed to pyhOn for authentication.
+
 ## Select an AC
 
 The room card shows the active AC's name and model. Accounts with several units have a **Switch** button: choose a room tile to load its status. A single unit displays its connection status directly. Room names come from your cloud account.
@@ -33,5 +35,7 @@ Drag the integrated header to move the window, double-click to maximize/restore,
 ## Sign out and privacy
 
 **Sign out** removes remembered credentials but retains your program preferences. Credentials and preferences are protected by Windows DPAPI in `%LOCALAPPDATA%\RoomACControl\state.dpapi`. They are separate from the application folder and are not part of a source upload or portable release.
+
+For troubleshooting, use **Export diagnostics** on the login screen or **Diagnostics** in All functions. You choose the local JSON file; no report is automatically saved or uploaded. It contains the app version and up to 100 event times, event codes and error categories from this session. It excludes credentials, account/device names, identifiers and raw cloud responses. Review it before sharing. Report vulnerabilities through the [private security form](https://github.com/LuisBadal0/room-ac-control-hon/security/advisories/new).
 
 Opening the app, login, menus and status refresh do not send AC control commands. An offline preview uses fictional rooms and never loads a saved account. If a command times out, refresh and check the physical unit before retrying: cloud acceptance does not guarantee that the unit has acted.

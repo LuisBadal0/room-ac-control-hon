@@ -1,5 +1,6 @@
 # Local environments and generated portable builds
 .venv/
+.venv-*/
 private/
 venv/
 runtime/
@@ -21,6 +22,7 @@ docs/PROJECT_PREVIEW.md
 .env.*
 !.env.example
 *.log
+*diagnostics*.json
 *.tmp
 *.key
 *.pem

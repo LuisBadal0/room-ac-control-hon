@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 import secrets
 import threading
+from .diagnostics import diagnostics
 
 
 class DataBlob(ctypes.Structure):
@@ -58,7 +59,8 @@ class SecureState:
                     for programs in devices.values():
                         if not isinstance(programs,dict) or not all(isinstance(values,dict) for values in programs.values()):
                             raise ValueError("Invalid saved profiles")
-            except (OSError, ValueError, UnicodeError, AttributeError, TypeError):
+            except (OSError, ValueError, UnicodeError, AttributeError, TypeError) as error:
+                diagnostics.record("state_load_failed", error)
                 self.data = {"version": 1, "profiles": {}}
                 self.load_error = True
 

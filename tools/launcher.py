@@ -3,6 +3,8 @@ from pathlib import Path
 import subprocess
 import sys
 import venv
+import hashlib
+import json
 
 
 def main():
@@ -15,9 +17,11 @@ def main():
         print("Preparing Room AC Control. This first setup needs internet access.",flush=True)
         venv.EnvBuilder(with_pip=True).create(environment)
     marker=environment/"room-ac-ready"
-    if not marker.exists():
-        subprocess.run([str(python),"-m","pip","install","--disable-pip-version-check","-e",str(root)],check=True,cwd=root)
-        marker.write_text("0.1.2\n",encoding="utf-8")
+    expected=hashlib.sha256((root/"requirements.lock").read_bytes()).hexdigest()
+    try:ready=json.loads(marker.read_text(encoding="utf-8")).get("runtime")==expected
+    except (OSError,ValueError,AttributeError):ready=False
+    if not ready:
+        subprocess.run([str(python),str(root/"tools"/"install_dependencies.py")],check=True,cwd=root)
     subprocess.Popen([str(python.with_name("pythonw.exe")),str(root/"tools"/"run.py"),*sys.argv[1:]],cwd=root)
 
 

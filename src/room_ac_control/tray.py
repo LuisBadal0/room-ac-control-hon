@@ -3,6 +3,7 @@ import queue
 from PIL import Image
 from pathlib import Path
 import pystray
+from .diagnostics import diagnostics
 
 
 class SystemTray:
@@ -22,7 +23,8 @@ class SystemTray:
         try:
             self.icon.visible = True
             return True
-        except Exception:
+        except Exception as error:
+            diagnostics.record("tray_show_failed", error)
             return False
 
     def hide(self):

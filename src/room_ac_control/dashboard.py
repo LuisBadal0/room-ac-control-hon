@@ -1,6 +1,6 @@
 """Dark desktop dashboard with live-discovered appliance controls."""
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import ttk, messagebox, filedialog
 import queue
 
 from .controller import code, readable, mode_choices, mode_label
@@ -14,6 +14,7 @@ from .program_memory import ProgramMemory
 from .airflow import AirflowAnimation
 from pathlib import Path
 from .device_picker import DevicePicker
+from .diagnostics import diagnostics
 
 
 def equal(left, right):
@@ -35,8 +36,8 @@ class App:
             try:
                 from .tray import SystemTray
                 self.tray = SystemTray()
-            except Exception:
-                pass
+            except Exception as error:
+                diagnostics.record("tray_start_failed", error)
         self.devices, self.selected = [], None
         self.busy, self.dirty = False, {}
         self.hits = []
@@ -122,6 +123,7 @@ class App:
         self.status_label=ttk.Label(self.body,textvariable=self.status,wraplength=500,style="Muted.TLabel")
         self.status_label.pack(fill="x",pady=(16,0))
         self.root.protocol("WM_DELETE_WINDOW",self.close)
+        self.root.report_callback_exception = self.callback_failed
         self.root.bind("<Unmap>",self.on_minimize,add="+")
         root.after(100,self.poll)
         if not demo:root.after(200,self.auto_sign_in)
@@ -193,6 +195,8 @@ class App:
         if self.closing or self.busy or self.selected:return
         login=self.storage.credentials()
         if login:
+            # Existing saved accounts retain their previously chosen auto sign-in.
+            self.remember_account.set(True)
             self.email.delete(0,"end")
             self.email.insert(0,login[0])
             self.sign_in(*login,automatic=True)
@@ -207,7 +211,8 @@ class App:
             try:
                 if self.remember_account.get():self.storage.save_credentials(email,password)
                 else:self.storage.forget_credentials()
-            except OSError:
+            except OSError as error:
+                diagnostics.record("credential_save_failed", error)
                 persistence_error=True
             self.connected(devices)
             if persistence_error:self.status.set("Connected, but Windows could not save the encrypted sign-in.")
@@ -540,6 +545,7 @@ class App:
             self.airflow.set_state(None,260,144,275,47)
             self.panel.pack_forget()
             self.login_frame.pack(fill="x",pady=(5,0),before=self.status_label)
+            self.remember_account.set(False)
             self.status.set("Signed out.")
             self.set_busy(False)
         self.worker.submit(self.worker.controller.close(),done,"logout")
@@ -549,7 +555,9 @@ class App:
         self.closing=True
         self.reset_auto()
         self.airflow.close()
-        if self.tray:self.tray.close()
+        if self.tray:
+            try:self.tray.close()
+            except Exception as error:diagnostics.record("tray_close_failed",error)
         self.worker.close()
         self.root.destroy()
 
@@ -567,7 +575,9 @@ class App:
 
     def restore_window(self):
         if self.closing:return
-        if self.tray:self.tray.hide()
+        if self.tray:
+            try:self.tray.hide()
+            except Exception as error:diagnostics.record("tray_hide_failed",error)
         self.root.deiconify()
         self.root.lift()
         active=self.root.grab_current()
@@ -576,3 +586,14 @@ class App:
             active.lift()
             active.focus_force()
         else:self.root.focus_force()
+
+    def callback_failed(self, kind, error, traceback):
+        diagnostics.record("ui_callback_failed", error)
+        self.status.set("An interface action failed. You can export diagnostics for troubleshooting.")
+
+    def export_diagnostics(self):
+        destination=filedialog.asksaveasfilename(parent=self.root, title="Save diagnostics",
+                initialfile="room-ac-diagnostics.json", defaultextension=".json", filetypes=[("JSON report","*.json")])
+        if destination:
+            try:diagnostics.export(Path(destination))
+            except OSError:self.status.set("Could not save the diagnostic report. Choose a writable folder.")

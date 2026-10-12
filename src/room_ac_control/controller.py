@@ -290,8 +290,9 @@ class Controller:
         if self.memory:
             try:
                 self.memory.remember_mode(snapshot,explicit)
-            except OSError:
-                pass  # Storage errors must not turn an accepted AC command into a failure.
+            except OSError as error:
+                from .diagnostics import diagnostics
+                diagnostics.record("state_save_failed", error)
 
     async def connect(self, email, password):
         await self.close()
@@ -385,12 +386,15 @@ class Controller:
                 retry = 0
             except asyncio.CancelledError:
                 raise
-            except Exception:
-                pass  # Notification failure must not break sign-in or fallback refreshes.
+            except Exception as error:
+                from .diagnostics import diagnostics
+                diagnostics.record("notification_failed", error)
             finally:
                 if listener is not None:
-                    with suppress(Exception):
-                        listener.close()
+                    try:listener.close()
+                    except Exception as error:
+                        from .diagnostics import diagnostics
+                        diagnostics.record("notification_close_failed", error)
             await asyncio.sleep(retry)
 
     async def close(self):
