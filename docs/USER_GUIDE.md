@@ -10,6 +10,8 @@ The room card shows the active AC's name and model. Accounts with several units 
 
 Move the temperature slider, use plus/minus, or select Mode, Fan speed, Sleep and Airflow. Changes are staged until you click **Apply changes**. Applying changes preserves the AC's power state.
 
+Airflow position icons show the louver opening progressively: Position 1 is the most closed and Position 5 is the most open. Swing uses an up/down double arrow. Only positions exposed by your unit are offered. All functions uses the same control cards and mode selector as the dashboard.
+
 The circular power control turns the unit on or off. Turning on applies the selected mode and its remembered configuration; explicit pending values override remembered ones. Each AC and mode has its own saved settings. Cool Night and Heat Night use cooling/heating with the unit's Sleep feature; selecting a standard mode disables Sleep when supported.
 
 Animated airflow follows reported operation, with blue for cooling, amber for heating, and neutral for other modes. It stops when the unit is reported off. Pending edits do not change the animation before the AC reports its status.

@@ -4,7 +4,8 @@ from tkinter import ttk
 
 from .controller import function_group, readable, mode_choices, mode_label
 from .choice_widgets import ChoicePanel
-from .theme import BG, CARD, HOVER, TEXT, MUTED, ACCENT, GREEN, rounded, icon, ac_art, unit_photo
+from .control_choices import mode_icon, airflow_icon, airflow_choices
+from .theme import BG, CARD, HOVER, TEXT, MUTED, ACCENT, GREEN, rounded, ac_art, unit_photo, control_card
 from .canvas_hover import CanvasHover
 from .airflow import AirflowAnimation
 
@@ -37,6 +38,7 @@ def section_items(device, section):
 
 def glyph_for(name):
     name = name.lower()
+    if name in {"auto","cool","dry","heat","fan","cool night","heat night"}: return mode_icon(name)
     if "fan" in name: return "fan"
     if "airflow" in name or "wind" in name: return "wind"
     if "sleep" in name or "night" in name or "quiet" in name: return "moon"
@@ -167,17 +169,14 @@ class FunctionsView:
             card.event_generate("<<RedrawCard>>")
 
     def card(self, item):
-        card = tk.Canvas(self.inner, bg=BG, highlightthickness=0, width=200, height=144, cursor="hand2", takefocus=True)
+        card = tk.Canvas(self.inner, bg=BG, highlightthickness=0, width=200, height=103, cursor="hand2", takefocus=True)
         card.hover_style = CanvasHover(card)
         def draw(event=None):
             card.delete("all")
             width = max(card.winfo_width(), 150)
             card.hover_style.reset()
-            surface=rounded(card, 1, 1, width-1, 143, 13, fill=CARD, outline="")
-            card.hover_style.add((0,0,width,144),surface,{"fill":CARD,"outline":""},{"fill":HOVER,"outline":ACCENT})
-            icon(card, glyph_for(item["label"]), 24, 26)
-            if item["kind"] != "setting":card.create_text(width-15, 25, text="↗", anchor="e", fill=MUTED, font=("Segoe UI", 12))
-            card.create_text(15, 59, text=item["label"], anchor="nw", width=width-27, fill=MUTED, font=("Segoe UI", 10))
+            glyph=glyph_for(item["label"])
+            heading=item["label"]
             if item["kind"] == "setting":
                 spec = item["spec"]
                 value = self.setting_value(spec)
@@ -187,13 +186,18 @@ class FunctionsView:
                 else:
                     label = "Unknown" if value is None else f"{float(value):g}"
                 if spec["key"] == "tempSel" and value is not None: label += "°C"
-                if spec["key"] == "machMode": label = mode_label(self.app.selected,self.settings_changes)
-                card.create_text(15, 102, text=label, anchor="nw", width=width-28, fill=TEXT, font=("Segoe UI", 12, "bold"))
-                if spec["key"] in self.settings_changes:
-                    card.create_oval(width-22, 126, width-16, 132, fill=ACCENT, outline="")
+                if spec["key"] == "machMode":
+                    label = mode_label(self.app.selected,self.settings_changes)
+                    glyph = mode_icon(label)
+                elif spec["key"] in {"windDirectionVertical","windDirectionHorizontal"}:
+                    glyph = airflow_icon(label)
             else:
-                label = "Maintenance routine" if self.section == "maintenance" else "Start preset" if item.get("command") == "startProgram" or item["kind"] == "night" else "Run function"
-                card.create_text(15, 106, text=label, anchor="nw", fill=ACCENT, font=("Segoe UI", 9))
+                heading = "Maintenance routine" if self.section == "maintenance" else "Preset" if item.get("command") == "startProgram" or item["kind"] == "night" else "Function"
+                label = item["label"]
+            surface=control_card(card,1,1,width-2,heading,label,glyph)
+            card.hover_style.add((0,0,width,103),surface,{"fill":CARD,"outline":""},{"fill":HOVER,"outline":ACCENT})
+            if item["kind"] == "setting" and item["spec"]["key"] in self.settings_changes:
+                card.create_oval(width-22, 21, width-16, 27, fill=ACCENT, outline="")
             card.hover_style.update()
         def choose(event=None):
             if item["kind"] != "setting": self.configure_function(item)
@@ -225,7 +229,8 @@ class FunctionsView:
                 def selected(patch):
                     for key,value in self.app.memory.mode_values(self.app.selected,patch).items(): self.change_setting(key,value)
             else:
-                options = [{"label":label,"value":value,"glyph":glyph_for(spec["label"])} for label,value in spec["options"].items()]
+                options = (airflow_choices(spec) if spec["key"] in {"windDirectionVertical","windDirectionHorizontal"}
+                           else [{"label":label,"value":value,"glyph":glyph_for(spec["label"])} for label,value in spec["options"].items()])
                 current = self.setting_value(spec)
                 def selected(value):
                     patch={spec["key"]:value}

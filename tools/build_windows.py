@@ -58,7 +58,7 @@ def main():
         raise RuntimeError('Portable runtime self-test failed. See build/portable-self-test.json.')
     releases=ROOT/'releases'
     releases.mkdir(exist_ok=True)
-    archive=releases/'Room-AC-Control-for-hOn-0.1.0-Windows-x64.zip'
+    archive=releases/'Room-AC-Control-for-hOn-0.1.1-Windows-x64.zip'
     with zipfile.ZipFile(archive,'w',zipfile.ZIP_DEFLATED) as bundle:
         prefix=Path('Room AC Control')
         for name in ['Start Room AC Control.cmd','README.md','LICENSE','THIRD_PARTY_NOTICES.md','SECURITY.md','CONTRIBUTING.md']:

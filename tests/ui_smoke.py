@@ -40,6 +40,25 @@ if __name__ == "__main__":
     app.set_busy(True)
     assert not app.device_picker.enabled
     app.set_busy(False)
+    app.airflow_menu()
+    assert len(app.choice_panel.tiles)==6
+    position5=next(option for option in app.choice_panel.options if option["label"]=="Position 5")
+    app.choice_panel.choose(position5["value"])
+    assert app.dirty["windDirectionVertical"]=="7"
+    app.choice_menu("machMode")
+    main_modes=app.choice_panel.options
+    app.choice_panel.close()
+    app.open_functions()
+    view=app.functions_view
+    view.edit_setting(app.selected["controls"]["machMode"],None)
+    assert view.choice_panel.options==main_modes
+    view.choice_panel.choose(next(option["value"] for option in main_modes if option["label"]=="Heat Night"))
+    assert view.settings_changes["machMode"]=="4"
+    assert view.settings_changes["silentSleepStatus"]=="1"
+    view.edit_setting(app.selected["controls"]["windDirectionVertical"],None)
+    view.choice_panel.choose(next(option["value"] for option in view.choice_panel.options if option["label"]=="Position 1"))
+    assert view.settings_changes["windDirectionVertical"]=="2"
+    view.close()
     assert app.password.cget("show")=="•"
     assert matches({"machMode":"1","silentSleepStatus":"0"},{"machMode":1.0,"silentSleepStatus":0.0})
     app.connected([demo_device()])

@@ -17,7 +17,7 @@ def main():
     marker=environment/"room-ac-ready"
     if not marker.exists():
         subprocess.run([str(python),"-m","pip","install","--disable-pip-version-check","-e",str(root)],check=True,cwd=root)
-        marker.write_text("0.1.0\n",encoding="utf-8")
+        marker.write_text("0.1.1\n",encoding="utf-8")
     subprocess.Popen([str(python.with_name("pythonw.exe")),str(root/"tools"/"run.py"),*sys.argv[1:]],cwd=root)
 
 

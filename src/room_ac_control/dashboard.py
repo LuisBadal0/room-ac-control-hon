@@ -5,7 +5,8 @@ import queue
 
 from .controller import code, readable, mode_choices, mode_label
 from .choice_widgets import ChoicePanel, SelectField
-from .theme import BG, CARD, HOVER, TEXT, MUTED, ACCENT, GREEN, rounded, icon, ac_art, unit_photo
+from .control_choices import mode_icon, airflow_choices
+from .theme import BG, CARD, HOVER, TEXT, MUTED, ACCENT, GREEN, rounded, icon, ac_art, unit_photo, control_card
 from .canvas_hover import CanvasHover
 from .worker import Worker, degrees
 from .secure_state import SecureState
@@ -321,15 +322,12 @@ class App:
             text(68,366,f"{min(values):g}°",9,MUTED)
             text(449,366,f"{max(values):g}°",9,MUTED,"e")
             hit((68,305,449,349),self.slider_from_event)
-        mode_glyph={"Cool":"snow","Heat":"sun","Dry":"drop","Fan":"fan","Auto":"leaf"}.get(self.mode.get().split(" ")[0],"wind")
+        mode_glyph=mode_icon(self.mode.get())
         cards=[("Mode",self.mode.get(),mode_glyph,lambda:self.choice_menu("machMode")),("Fan speed",self.fan.get(),"fan",lambda:self.choice_menu("windSpeed")),("Sleep",self.toggle_label("silentSleepStatus"),"moon",lambda:self.choice_menu("silentSleepStatus")),("Airflow",self.airflow_label(),"wind",self.airflow_menu)]
         for i,(label,value,glyph,fn) in enumerate(cards):
             x=6+i*130
-            card=rounded(c,x,393,x+122,494,12,fill=CARD,outline="")
+            card=control_card(c,x,393,122,label,value,glyph)
             if value!="Unavailable":hover((x,393,x+122,494),card)
-            icon(c,glyph,x+25,417)
-            text(x+13,452,label,9,MUTED)
-            text(x+13,475,value,11,TEXT,bold=True)
             hit((x,393,x+122,494),fn)
         text(8,521,("●  Changes pending" if self.dirty else "●  "+self.selected["power"]),9,ACCENT if self.dirty else GREEN)
         all_link=text(510,521,"All functions  ↗",10,MUTED,"e")
@@ -416,8 +414,7 @@ class App:
             spec=self.selected.get("controls",{}).get(key)
             if not spec:continue
             current[key]=self.current(key)
-            for label,value in spec.get("options",{}).items():
-                options.append({"label":label,"value":{key:value},"description":spec["label"],"glyph":"wind"})
+            options.extend(airflow_choices(spec,patch=True))
         def selected(patch):
             for key,value in patch.items():self.staged(key,value)
         if options:self.choice_panel=ChoicePanel(self.root,"Airflow",options,current,selected)
@@ -512,7 +509,12 @@ class App:
         if spec["kind"]=="enum":
             options=spec["options"]
             variable=tk.StringVar(value=next((k for k,v in options.items() if equal(v,value)),"Choose…"))
-            widget=SelectField(row,variable,options,spec["label"])
+            choices=None
+            if spec["key"] in {"windDirectionVertical","windDirectionHorizontal"}:
+                choices=[dict(option,value=option["label"]) for option in airflow_choices(spec)]
+            elif spec["key"]=="machMode":
+                choices=[{"label":label,"value":label,"glyph":mode_icon(label)} for label in options]
+            widget=SelectField(row,variable,options,spec["label"],choices=choices)
             getter=lambda:options.get(variable.get())
         else:
             variable=tk.StringVar(value=f"{float(value):g}" if value!="" else "")

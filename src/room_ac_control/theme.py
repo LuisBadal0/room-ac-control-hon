@@ -26,7 +26,17 @@ def rounded(canvas, x1, y1, x2, y2, radius=12, **options):
 
 def icon(canvas, name, x, y, color=ACCENT):
     line = lambda *p: canvas.create_line(*p, fill=color, width=1.6, capstyle="round")
-    if name == "unit":
+    if name.startswith("vane_"):
+        # The louver progressively opens away from the fixed top edge.
+        angle = math.radians((4, 21, 38, 55, 72)[int(name[-1])-1])
+        line(x-12, y-9, x+12, y-9)
+        line(x-12, y-9, x-12, y-4)
+        line(x-10, y-4, x-10+23*math.cos(angle), y-4+23*math.sin(angle))
+        canvas.create_oval(x-12, y-6, x-8, y-2, fill=color, outline="")
+    elif name == "swing":
+        canvas.create_line(x, y-12, x, y+12, fill=color, width=1.8,
+                           arrow="both", arrowshape=(6, 7, 4))
+    elif name == "unit":
         rounded(canvas,x-13,y-8,x+13,y+8,3,fill="",outline=color,width=1.4)
         line(x-9,y+4,x+9,y+4)
     elif name == "snow":
@@ -62,6 +72,17 @@ def icon(canvas, name, x, y, color=ACCENT):
     elif name == "drop":
         canvas.create_polygon(x,y-13,x-9,y+1,x-8,y+10,x,y+13,x+8,y+10,x+9,y+1,
                               fill="",outline=color,width=1.5,smooth=True)
+
+
+def control_card(canvas, x, y, width, label, value, glyph):
+    """The same compact control surface on both screens."""
+    surface = rounded(canvas, x, y, x+width, y+101, 12, fill=CARD, outline="")
+    icon(canvas, glyph, x+25, y+24)
+    canvas.create_text(x+13, y+59, text=label, anchor="w", width=width-26,
+                       fill=MUTED, font=("Segoe UI", 9))
+    canvas.create_text(x+13, y+82, text=value, anchor="w", width=width-26,
+                       fill=TEXT, font=("Segoe UI", 11, "bold"))
+    return surface
 
 
 def ac_art(canvas, x, y, running=False, target="23", photo=None):

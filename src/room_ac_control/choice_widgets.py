@@ -82,9 +82,10 @@ class ChoicePanel:
 
 
 class SelectField(tk.Canvas):
-    def __init__(self, parent, variable, options, title):
+    def __init__(self, parent, variable, options, title, choices=None):
         super().__init__(parent, width=236, height=40, bg=BG, highlightthickness=0, cursor="hand2", takefocus=True)
         self.variable, self.options, self.title = variable, options, title
+        self.choices = choices
         self.hover = False
         variable.trace_add("write", lambda *args: self.draw())
         self.bind("<Button-1>", lambda event: self.open())
@@ -106,5 +107,5 @@ class SelectField(tk.Canvas):
         self.draw()
 
     def open(self):
-        ChoicePanel(self, self.title, [{"label": label, "value": label} for label in self.options],
+        ChoicePanel(self, self.title, self.choices or [{"label": label, "value": label} for label in self.options],
                     self.variable.get(), self.variable.set)

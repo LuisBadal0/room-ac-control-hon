@@ -13,7 +13,7 @@ def devices():
         "windSpeed":enum("windSpeed","Fan speed",fans,"0"),
         "silentSleepStatus":enum("silentSleepStatus","Sleep",toggle,"0"),
         "ecoMode":enum("ecoMode","Eco Mode",toggle,"0"),
-        "windDirectionVertical":enum("windDirectionVertical","Vertical airflow",{"Fixed":"0","Swing":"8"},"8"),
+        "windDirectionVertical":enum("windDirectionVertical","Vertical airflow",{**{f"Position {n}":v for n,v in enumerate(("2","4","5","6","7"),1)},"Swing":"8"},"8"),
         "tempSel":{"key":"tempSel","label":"Target temperature","kind":"range","min":16,"max":32,"step":1,"value":23,"reported":True},
     }
     room = {"id":"preview-living-room","name":"Living room","model":"DEMO-AC","power":"On","mode":"Cool",
