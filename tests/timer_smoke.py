@@ -1,5 +1,5 @@
-"""Timer UI and background dispatch checked without network or real credentials."""
-from datetime import datetime
+"""Inline timer controls: preview only until a persistent hOn endpoint is verified."""
+from datetime import datetime, timedelta
 from pathlib import Path
 import sys
 import tkinter as tk
@@ -7,75 +7,61 @@ import tkinter as tk
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from room_ac_control.dashboard import App
 from room_ac_control.demo import devices
+from room_ac_control.inline_timers import ACTIVE
+from room_ac_control.theme import CARD
 
 root = tk.Tk()
 root.withdraw()
 app = App(root, demo=True, enable_tray=False)
-fixtures = devices()
-for device in fixtures:
-    device.update(can_on=True, can_off=True)
-app.connected(fixtures)
+app.connected(devices())
+root.update_idletasks()
+assert not hasattr(app, "timer_button")
+assert not hasattr(app, "timer_job")
+assert not hasattr(app, "check_timers")
+card = app.inline_timers.cards["off"]
+assert card.winfo_manager() == "grid"
+assert card.winfo_toplevel() is root
+card.hour.value = 23
+card.hour.step(1)
+assert card.hour.value == 0
+card.minute.value = 0
+card.minute.step(-1)
+assert card.minute.value == 59
 app.staged("tempSel", "26")
-app.open_functions()
-view = app.functions_view
-view.search.set("schedule")
-assert [item["kind"] for item in view.visible_items] == ["timer"]
-view.close()
-app.open_timers()
-editor = app.timer_view
-assert all(fields["repeat"].get() == "once" for fields in editor.fields.values())
-editor.fields["on"]["enabled"].set(True)
-editor.fields["on"]["time"].set("25:00")
-editor.save()
-assert "24-hour" in editor.note.get()
-assert not app.timers.get(app.memory.account, fixtures[0]["id"])["on"]["enabled"]
-editor.fields["on"]["time"].set("08:00")
-editor.fields["off"]["enabled"].set(True)
-editor.save()
-assert "Timers saved" in editor.note.get()
-assert "Next:" in editor.saved_labels["on"].get()
+card.run()
+assert card.active
+assert card.hour.surface == ACTIVE
+assert app.preview_timers[app.selected["id"]]["off"] is not None
+assert app.dirty == {"tempSel": "26"}
+card.hour.step(1)
+assert card.draft
+card.run(stop=True)
+assert not card.active
+assert card.hour.surface == CARD
+assert app.preview_timers[app.selected["id"]]["off"] is None
+app.change_timer("on", datetime.now() + timedelta(hours=1))
 app.show_device(app.selected, preserve_edits=True)
-assert app.dirty["tempSel"] == "26"
-editor.disable()
-assert not app.timers.get(app.memory.account, fixtures[0]["id"])["on"]["enabled"]
-editor.close()
-
-# Background timer targets an unselected device without consuming the UI draft.
-account = app.memory.account
-now = datetime.now()
-due = now.replace(second=0, microsecond=0).strftime("%H:%M")
-app.timers.save(account, fixtures[1]["id"], {
-    "on": {"enabled": True, "time": due, "repeat": "once"},
-    "off": {"enabled": False, "time": "22:00", "repeat": "daily"}}, now)
-# Set a deterministic due marker regardless of the wall-clock minute.
-records = app.storage.schedules(account)
-records[fixtures[1]["id"]]["on"]["next"] = now.replace(second=0, microsecond=0).isoformat()
-app.storage.save_schedules(account, records)
+assert app.inline_timers.cards["on"].active
+app.device_picker.current(1)
+app.select_device()
+assert not app.inline_timers.cards["on"].active
+app.set_busy(True)
+before = card.hour.value
+card.hour.step(1)
+assert card.hour.value == before
+app.set_busy(False)
+# Unsupported native scheduling cannot fall back to a PC timer or send commands.
 submissions = []
 def submit(coroutine, callback, operation, on_error=None):
     coroutine.close()
-    submissions.append((callback, operation, on_error))
+    submissions.append(operation)
 app.worker.submit = submit
 app.demo = False
-app.check_timers()
-assert submissions[-1][1] == "timer-command"
-assert app.busy
-assert app.selected["id"] == fixtures[0]["id"]
-submissions[-1][0]("Fixture accepted")
-assert not app.busy
-assert app.dirty == {"tempSel": "26"}
-assert app.auto_job is not None
-assert app.timers.get(account, fixtures[1]["id"])["on"]["last_result"] == "accepted"
-count = len(submissions)
-app.check_timers()
-assert len(submissions) == count
-# Scheduled errors use their callback, without a modal or a lost refresh.
-app.busy = True
-app.worker.results.put((submissions[-1][2], None, "Fixture timeout", "timer-command"))
-app.poll()
-assert not app.busy
-assert "outcome is unknown" in app.status.get()
-assert app.timers.get(account, fixtures[1]["id"])["on"]["last_result"] == "failed"
-assert app.dirty == {"tempSel": "26"}
+app.draw()
+assert not app.inline_timers.cards["on"].supported
+app.change_timer("on", datetime.now() + timedelta(hours=1))
+assert "cannot save or cancel" in app.status.get()
+assert not submissions
+assert not app.dialog
 app.close()
-print("Timer editor, search, disable, background dispatch and draft preservation passed.")
+print("Inline time wheels, one-time preview, active color, Stop and unavailable native backend checks passed.")

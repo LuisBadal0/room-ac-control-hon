@@ -77,7 +77,7 @@ if __name__ == "__main__":
     view = app.functions_view
     everyday = section_items(app.selected, "everyday")
     maintenance = section_items(app.selected, "maintenance")
-    assert len(everyday) == 5
+    assert len(everyday) == 4
     assert {item["label"] for item in everyday if item["kind"] == "night"} == {"Cool Night", "Heat Night"}
     assert len(maintenance) == 1
     assert maintenance[0]["form"]["category"] == "iot_self_clean"
@@ -113,7 +113,7 @@ if __name__ == "__main__":
     view.section = "everyday"
     view.render_section()
     root.update_idletasks()
-    assert len(view.card_widgets) == 5
+    assert len(view.card_widgets) == 4
     view.configure_function(next(item for item in everyday if item["kind"] == "function"))
     root.update_idletasks()
     assert view.selected_function["form"]["category"] == "iot_cool"

@@ -28,15 +28,11 @@ Select a preset to inspect its options, then explicitly start it. A preset may t
 
 ## On / off timers
 
-Open **On / off timers** in the main menu, or search for **timer** / **schedule** in All functions → Everyday use. Each AC has independent **Turn on** and **Turn off** timers. Enable either or both, enter a 24-hour time (HH:MM), choose **Every day** or **Once**, and select **Save timers**. Equal enabled on/off times are rejected. **Disable all** saves both timers as disabled. Times at or before the current time run at the next occurrence, usually tomorrow; overnight schedules are supported.
+**Start at** and **End at** are embedded directly below the temperature slider. Scroll the hour and minute numbers, use the Up/Down keys, or click the neighbouring numbers to select a time. They are one-time controls only. A verified active schedule should appear green with a **Stop** button inside its card; editing its time retains a separate Stop action.
 
-New timers default to **Once**: they run at the next selected time, then disable automatically. Select **Every day** explicitly to repeat.
+**Persistent hOn scheduling is not implemented in this draft.** The connected AC exposes power and comfort controls, but the phone app's Start at / End at schedule is not present in the pyhOn command/status data. Live controls therefore show **Unavailable**, rather than claiming a schedule was saved to the appliance. Set and cancel actual schedules in the hOn phone app for now. Existing phone schedules are not changed by this controller.
 
-These are PC timers, not schedules stored on the appliance. Keep Windows awake, the application running (the system tray is fine), internet access available, and the correct account signed in. Closing the app, signing out, or sleeping the PC stops dispatch. Schedules are stored alongside your encrypted preferences, separately for each account and AC, and resume after signing in again. The editor shows the next occurrence and the latest command result.
-
-Times use the PC's local clock, including changes to its time zone. Missed occurrences more than 60 seconds late are skipped, including after sleep/restart or when another command keeps the application busy. Daily timers move to their next occurrence; one-time timers disable after execution or a missed time. Failed or timed-out commands are not automatically retried. Check the AC before retrying manually. Cloud acceptance is not confirmation of physical operation.
-
-Turning on uses the unit's freshly reported mode and its remembered configuration. Timers never apply unsaved dashboard edits, and work for all units in the signed-in account, including units not currently selected. Saving or disabling timers sends no immediate AC command. Offline previews do not execute timers.
+This draft removes the previous PC scheduler entirely. Previously saved PC timers do not execute. It does not substitute a PC timer for a persistent hOn schedule. The offline preview demonstrates the wheels, green active state and Stop interaction using fictional in-memory schedules; it sends no AC commands and saves no real schedule.
 
 ## Status and tray
 
@@ -50,4 +46,4 @@ Drag the integrated header to move the window, double-click to maximize/restore,
 
 For troubleshooting, use **Export diagnostics** on the login screen or **Diagnostics** in All functions. You choose the local JSON file; no report is automatically saved or uploaded. It contains the app version and up to 100 event times, event codes and error categories from this session. It excludes credentials, account/device names, identifiers and raw cloud responses. Review it before sharing. Report vulnerabilities through the [private security form](https://github.com/LuisBadal0/room-ac-control-hon/security/advisories/new).
 
-Login, menus and status refresh do not send AC control commands. Previously enabled timers can send commands after sign-in when their time is due. An offline preview uses fictional rooms and never loads a saved account. If a command times out, refresh and check the physical unit before retrying: cloud acceptance does not guarantee that the unit has acted.
+Login, menus, inline timer previews and status refresh do not send AC control commands. An offline preview uses fictional rooms and never loads a saved account. If a command times out, refresh and check the physical unit before retrying: cloud acceptance does not guarantee that the unit has acted.

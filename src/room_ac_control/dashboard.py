@@ -15,7 +15,7 @@ from .airflow import AirflowAnimation
 from pathlib import Path
 from .device_picker import DevicePicker
 from .diagnostics import diagnostics
-from .timers import TimerBook
+from .inline_timers import InlineTimers
 
 
 def equal(left, right):
@@ -30,7 +30,7 @@ class App:
         self.root, self.demo = root, demo
         self.storage = state if state is not None else SecureState(persistent=not demo)
         self.memory = ProgramMemory(self.storage)
-        self.timers = TimerBook(self.storage)
+        self.preview_timers = {}
         self.worker = Worker(memory=self.memory)
         self.tray = None
         self.closing = False
@@ -45,7 +45,6 @@ class App:
         self.hits = []
         self.dialog = None
         self.dialog_view = None
-        self.timer_job = None
         self.auto_job = None
         self.auto_inflight = False
         self.auto_pending = False
@@ -57,8 +56,8 @@ class App:
         self.app_icon = tk.PhotoImage(master=root, file=str(assets / "app-icon.png"))
         root.iconphoto(True, self.app_icon)
         root.title("Room AC Control for hOn" + (" · Design preview" if demo else ""))
-        root.geometry("560x840")
-        root.minsize(540, 800)
+        root.geometry("560x960")
+        root.minsize(540, 920)
         root.configure(bg=BG)
         style = ttk.Style(root)
         style.theme_use("clam")
@@ -98,11 +97,12 @@ class App:
         self.panel=ttk.Frame(self.body)
         self.device_picker=DevicePicker(self.panel,self.select_device)
         self.device_picker.pack(fill="x",pady=(0,10))
-        self.canvas=tk.Canvas(self.panel,bg=BG,highlightthickness=0,height=540)
+        self.canvas=tk.Canvas(self.panel,bg=BG,highlightthickness=0,height=660)
         self.canvas.pack(fill="x")
         self.canvas.bind("<Configure>",lambda e:self.draw())
         self.canvas_hover = CanvasHover(self.canvas)
         self.airflow = AirflowAnimation(self.canvas)
+        self.inline_timers = InlineTimers(self)
         self.canvas.bind("<Button-1>",self.click)
         self.canvas.bind("<B1-Motion>",self.drag_temperature)
         self.canvas.bind("<Left>",lambda e:self.step_temp(-1) if not self.busy and self.selected else None)
@@ -113,8 +113,6 @@ class App:
         controls.pack(fill="x",pady=(6,12))
         self.apply_button=ttk.Button(controls,text="Apply changes",style="Accent.TButton",command=lambda:self.action("apply"))
         self.apply_button.pack(side="left",fill="x",expand=True,padx=(0,8))
-        self.timer_button=ttk.Button(controls,text="On / off timers",command=self.open_timers)
-        self.timer_button.pack(side="left",fill="x",expand=True,padx=(0,8))
         self.all_button=ttk.Button(controls,text="All functions",command=self.open_functions)
         self.all_button.pack(side="left",fill="x",expand=True)
         footer=ttk.Frame(self.panel)
@@ -132,7 +130,6 @@ class App:
         self.root.report_callback_exception = self.callback_failed
         self.root.bind("<Unmap>",self.on_minimize,add="+")
         root.after(100,self.poll)
-        self.timer_job = root.after(1000, self.check_timers)
         if not demo:root.after(200,self.auto_sign_in)
 
     def poll(self):
@@ -143,7 +140,7 @@ class App:
                 if operation != "auto-refresh":
                     self.set_busy(False)
                 if error:
-                    if operation in {"auto-refresh", "login", "timer-command"}:
+                    if operation in {"auto-refresh", "login"}:
                         callback(error)
                     else:
                         self.status.set(error)
@@ -182,7 +179,7 @@ class App:
         for widget in (self.email,self.password,self.login_button):
             widget.configure(state=state)
         available=self.selected is not None and not value
-        for widget in (self.refresh_button,self.logout_button,self.all_button,self.timer_button):
+        for widget in (self.refresh_button,self.logout_button,self.all_button):
             widget.configure(state="normal" if available else "disabled")
         self.apply_button.configure(state="normal" if available and self.dirty else "disabled")
         self.device_picker.set_enabled(available)
@@ -334,19 +331,21 @@ class App:
             text(68,366,f"{min(values):g}°",9,MUTED)
             text(449,366,f"{max(values):g}°",9,MUTED,"e")
             hit((68,305,449,349),self.slider_from_event)
+        self.inline_timers.refresh(self.selected, self.busy)
+        c.create_window(6, 382, window=self.inline_timers, anchor="nw", width=508*s, height=114)
         mode_glyph=mode_icon(self.mode.get())
         cards=[("Mode",self.mode.get(),mode_glyph,lambda:self.choice_menu("machMode")),("Fan speed",self.fan.get(),"fan",lambda:self.choice_menu("windSpeed")),("Sleep",self.toggle_label("silentSleepStatus"),"moon",lambda:self.choice_menu("silentSleepStatus")),("Airflow",self.airflow_label(),"wind",self.airflow_menu)]
         for i,(label,value,glyph,fn) in enumerate(cards):
             x=6+i*130
-            card=control_card(c,x,393,122,label,value,glyph)
-            if value!="Unavailable":hover((x,393,x+122,494),card)
-            hit((x,393,x+122,494),fn)
-        text(8,521,("●  Changes pending" if self.dirty else "●  "+self.selected["power"]),9,ACCENT if self.dirty else GREEN)
-        all_link=text(510,521,"All functions  ↗",10,MUTED,"e")
-        self.canvas_hover.add((375,501,515,539),all_link,{"fill":MUTED},{"fill":TEXT})
-        hit((375,501,515,539),self.open_functions)
+            card=control_card(c,x,513,122,label,value,glyph)
+            if value!="Unavailable":hover((x,513,x+122,614),card)
+            hit((x,513,x+122,614),fn)
+        text(8,641,("●  Changes pending" if self.dirty else "●  "+self.selected["power"]),9,ACCENT if self.dirty else GREEN)
+        all_link=text(510,641,"All functions  ↗",10,MUTED,"e")
+        self.canvas_hover.add((375,621,515,659),all_link,{"fill":MUTED},{"fill":TEXT})
+        hit((375,621,515,659),self.open_functions)
         if s!=1:c.scale("all",0,0,s,s)
-        self.canvas.configure(height=int(540*s))
+        self.canvas.configure(height=int(660*s))
         self.airflow.set_state(self.selected,260,144,275,47,s)
         self.canvas_hover.update()
         if self.busy:
@@ -512,44 +511,16 @@ class App:
         from .functions_view import FunctionsView
         self.functions_view = FunctionsView(self)
 
-    def open_timers(self):
+    def change_timer(self, action, due):
         if self.busy or not self.selected:
             return
-        if self.dialog and self.dialog.winfo_exists():
-            self.dialog.lift()
+        if not self.demo:
+            self.status.set("This controller cannot save or cancel hOn schedules yet. Use Start at / End at in hOn. No PC timer is running.")
             return
-        from .timer_view import TimerView
-        self.timer_view = TimerView(self)
-
-    def check_timers(self):
-        self.timer_job = None
-        if self.closing:
-            return
-        if not self.demo and self.selected:
-            account = self.memory.account
-            try:
-                event = self.timers.poll(account, [device["id"] for device in self.devices],
-                                         ready=not self.busy and not self.auto_inflight)
-            except OSError as error:
-                diagnostics.record("state_save_failed", error)
-                self.status.set("Timer paused: its state could not be saved.")
-                event = None
-            if event:
-                self.set_busy(True)
-                self.status.set(f"Timer: sending turn {event.action}…")
-                def finish(result, failed=False):
-                    try:
-                        self.timers.finish(account, event, "failed" if failed else "accepted")
-                    except OSError as error:
-                        diagnostics.record("state_save_failed", error)
-                    self.set_busy(False)
-                    self.status.set("Timer failed or its outcome is unknown. Check AC status before retrying." if failed else result)
-                    self.schedule_auto(750)
-                    if self.dialog and self.dialog.winfo_exists():
-                        self.dialog_view.refresh_status()
-                self.worker.submit(self.worker.controller.timer_action(event.device, event.action, event.due),
-                                   finish, "timer-command", on_error=lambda error: finish(error, True))
-        self.timer_job = self.root.after(1000, self.check_timers)
+        self.preview_timers.setdefault(self.selected["id"], {})[action] = due
+        self.inline_timers.cards[action].draft = False
+        self.status.set("Offline timer preview only. No schedule or AC command was sent.")
+        self.draw()
 
     def field(self,parent,spec,override=None,use_reported=False):
         row=ttk.Frame(parent,padding=(0,7))
@@ -599,9 +570,6 @@ class App:
     def close(self):
         if self.closing:return
         self.closing=True
-        if self.timer_job is not None:
-            self.root.after_cancel(self.timer_job)
-            self.timer_job = None
         self.reset_auto()
         self.airflow.close()
         if self.tray:
