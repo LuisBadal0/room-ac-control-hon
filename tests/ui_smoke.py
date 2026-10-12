@@ -77,7 +77,7 @@ if __name__ == "__main__":
     view = app.functions_view
     everyday = section_items(app.selected, "everyday")
     maintenance = section_items(app.selected, "maintenance")
-    assert len(everyday) == 4
+    assert len(everyday) == 5
     assert {item["label"] for item in everyday if item["kind"] == "night"} == {"Cool Night", "Heat Night"}
     assert len(maintenance) == 1
     assert maintenance[0]["form"]["category"] == "iot_self_clean"
@@ -113,8 +113,8 @@ if __name__ == "__main__":
     view.section = "everyday"
     view.render_section()
     root.update_idletasks()
-    assert len(view.card_widgets) == 4
-    view.configure_function(everyday[0])
+    assert len(view.card_widgets) == 5
+    view.configure_function(next(item for item in everyday if item["kind"] == "function"))
     root.update_idletasks()
     assert view.selected_function["form"]["category"] == "iot_cool"
     view.section = "maintenance"
@@ -146,4 +146,8 @@ if __name__ == "__main__":
         app.show_device(demo_device())
         app.status.set("Offline design preview. No AC commands are sent.")
         root.mainloop()
-    else:app.close()
+    else:
+        app.close()
+        # Keep timer UI coverage in the existing CI UI entry point.
+        import subprocess
+        subprocess.run([sys.executable, str(Path(__file__).with_name("timer_smoke.py"))], check=True)

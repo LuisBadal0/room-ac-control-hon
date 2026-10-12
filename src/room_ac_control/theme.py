@@ -36,6 +36,9 @@ def icon(canvas, name, x, y, color=ACCENT):
     elif name == "swing":
         canvas.create_line(x, y-12, x, y+12, fill=color, width=1.8,
                            arrow="both", arrowshape=(6, 7, 4))
+    elif name == "clock":
+        canvas.create_oval(x-11,y-11,x+11,y+11,outline=color,width=1.5)
+        line(x,y-7,x,y,x+6,y+3)
     elif name == "unit":
         rounded(canvas,x-13,y-8,x+13,y+8,3,fill="",outline=color,width=1.4)
         line(x-9,y+4,x+9,y+4)

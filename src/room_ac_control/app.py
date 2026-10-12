@@ -25,7 +25,13 @@ def self_test(output):
         encrypted = protect(b"offline-package-check")
         assert protect(encrypted,decrypt=True) == b"offline-package-check"
         assert app.unit_image.width()>200
-        result = {"ok":True,"version":__version__,"assets":True,"encryption":True,"tray":True,"mqtt":True}
+        from .demo import devices
+        app.connected(devices())
+        app.open_timers()
+        root.update_idletasks()
+        assert set(app.timer_view.fields) == {"on", "off"}
+        app.timer_view.close()
+        result = {"ok":True,"version":__version__,"assets":True,"encryption":True,"tray":True,"mqtt":True,"timers":True}
     except Exception as error:
         result = {"ok":False,"error":type(error).__name__}
     finally:
