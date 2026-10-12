@@ -44,7 +44,7 @@ class TimerBook:
                 result[action] = dict(entry)
             except (KeyError, ValueError, TypeError):
                 result[action] = {"enabled": False, "time": "08:00" if action == "on" else "22:00",
-                                  "repeat": "daily", "next": "", "last_result": ""}
+                                  "repeat": "once", "next": "", "last_result": ""}
         return result
 
     def save(self, account, device, settings, now=None):

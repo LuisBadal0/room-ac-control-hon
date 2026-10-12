@@ -23,6 +23,7 @@ assert [item["kind"] for item in view.visible_items] == ["timer"]
 view.close()
 app.open_timers()
 editor = app.timer_view
+assert all(fields["repeat"].get() == "once" for fields in editor.fields.values())
 editor.fields["on"]["enabled"].set(True)
 editor.fields["on"]["time"].set("25:00")
 editor.save()

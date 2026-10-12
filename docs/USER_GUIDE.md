@@ -30,6 +30,8 @@ Select a preset to inspect its options, then explicitly start it. A preset may t
 
 Open **On / off timers** in the main menu, or search for **timer** / **schedule** in All functions → Everyday use. Each AC has independent **Turn on** and **Turn off** timers. Enable either or both, enter a 24-hour time (HH:MM), choose **Every day** or **Once**, and select **Save timers**. Equal enabled on/off times are rejected. **Disable all** saves both timers as disabled. Times at or before the current time run at the next occurrence, usually tomorrow; overnight schedules are supported.
 
+New timers default to **Once**: they run at the next selected time, then disable automatically. Select **Every day** explicitly to repeat.
+
 These are PC timers, not schedules stored on the appliance. Keep Windows awake, the application running (the system tray is fine), internet access available, and the correct account signed in. Closing the app, signing out, or sleeping the PC stops dispatch. Schedules are stored alongside your encrypted preferences, separately for each account and AC, and resume after signing in again. The editor shows the next occurrence and the latest command result.
 
 Times use the PC's local clock, including changes to its time zone. Missed occurrences more than 60 seconds late are skipped, including after sleep/restart or when another command keeps the application busy. Daily timers move to their next occurrence; one-time timers disable after execution or a missed time. Failed or timed-out commands are not automatically retried. Check the AC before retrying manually. Cloud acceptance is not confirmation of physical operation.
