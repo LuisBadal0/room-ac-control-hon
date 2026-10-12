@@ -1,5 +1,6 @@
 """Encrypted account and program state, protected by the current Windows user."""
 import ctypes
+from copy import deepcopy
 from ctypes import wintypes
 import json
 import os
@@ -51,6 +52,8 @@ class SecureState:
                 self.data = json.loads(protect(self.path.read_bytes(), decrypt=True).decode("utf-8"))
                 if self.data.get("version") != 1 or not isinstance(self.data.get("profiles"), dict):
                     raise ValueError("Unsupported saved state")
+                if not isinstance(self.data.get("schedules", {}), dict):
+                    raise ValueError("Invalid saved timers")
                 login=self.data.get("login")
                 if login is not None and (not isinstance(login,dict) or not all(isinstance(login.get(k),str) for k in ("email","password"))):
                     raise ValueError("Invalid saved account")
@@ -87,6 +90,27 @@ class SecureState:
             if login.get("email") and login.get("password"):
                 return login["email"], login["password"]
         return None
+
+    def schedules(self, account):
+        with self.lock:
+            accounts = self.data.get("schedules", {})
+            records = accounts.get(account, {}) if isinstance(accounts, dict) else {}
+            return deepcopy(records) if isinstance(records, dict) else {}
+
+    def save_schedules(self, account, records):
+        if not account:
+            raise ValueError("Sign in before saving timers.")
+        with self.lock:
+            previous = deepcopy(self.data.get("schedules", {}))
+            dirty = self.dirty
+            self.data.setdefault("schedules", {})[account] = deepcopy(records)
+            self.dirty = True
+            try:
+                self.write()
+            except OSError:
+                self.data["schedules"] = previous
+                self.dirty = dirty
+                raise
 
     def save_credentials(self, email, password):
         with self.lock:

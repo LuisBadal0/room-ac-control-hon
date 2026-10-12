@@ -42,6 +42,8 @@ def section_items(device, section):
                 items.append({"kind": "function", "command": command, "form": form,
                               "label": form["label"], "command_label": entry["label"]})
     if section == "everyday":
+        items.append({"kind": "timer", "label": "On / off timers",
+                      "description": "Schedule turn on and turn off times daily or once on this PC"})
         existing = {item["label"].lower().replace(" ", "") for item in items}
         for option in mode_choices(device):
             if option["label"].endswith(" Night") and option["label"].lower().replace(" ", "") not in existing:
@@ -65,6 +67,7 @@ class FunctionsView:
         self.app = app
         self.window = tk.Toplevel(app.root)
         app.dialog = self.window
+        app.dialog_view = self
         self.window.title("Room AC Control · All functions")
         self.window.geometry("740x820")
         self.window.minsize(620, 700)
@@ -254,15 +257,20 @@ class FunctionsView:
                 elif spec["key"] in {"windDirectionVertical","windDirectionHorizontal"}:
                     glyph = airflow_icon(label)
             else:
-                heading = "Maintenance routine" if item.get("section", self.section) == "maintenance" else "Preset" if item.get("command") == "startProgram" or item["kind"] == "night" else "Function"
+                heading = "Schedule" if item["kind"] == "timer" else "Maintenance routine" if item.get("section", self.section) == "maintenance" else "Preset" if item.get("command") == "startProgram" or item["kind"] == "night" else "Function"
                 label = item["label"]
+                if item["kind"] == "timer":
+                    glyph = "clock"
             surface=control_card(card,1,1,width-2,heading,label,glyph)
             card.hover_style.add((0,0,width,103),surface,{"fill":CARD,"outline":""},{"fill":HOVER,"outline":ACCENT})
             if item["kind"] == "setting" and item["spec"]["key"] in self.settings_changes:
                 card.create_oval(width-22, 21, width-16, 27, fill=ACCENT, outline="")
             card.hover_style.update()
         def choose(event=None):
-            if item["kind"] != "setting": self.configure_function(item)
+            if item["kind"] == "timer":
+                self.close()
+                self.app.open_timers()
+            elif item["kind"] != "setting": self.configure_function(item)
             else: self.edit_setting(item["spec"], card)
         card.bind("<Configure>", draw)
         card.bind("<<RedrawCard>>", draw)
@@ -376,5 +384,6 @@ class FunctionsView:
 
     def close(self):
         self.app.dialog = None
+        self.app.dialog_view = None
         self.airflow.close()
         self.window.destroy()

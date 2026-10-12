@@ -2,7 +2,7 @@
 import asyncio
 import re
 from contextlib import suppress
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import aiohttp
 from pyhon.appliance import HonAppliance
@@ -187,7 +187,7 @@ def describe(device):
     }
 
 
-async def send_action(device, action, requested=None):
+async def send_action(device, action, requested=None, deadline=None):
     """Refresh first; change only explicitly selected parameters."""
     if action not in {"on", "off", "apply", "configure", "execute"}:
         raise ControlError("Unknown action.")
@@ -203,6 +203,8 @@ async def send_action(device, action, requested=None):
         command = device.commands.get("stopProgram")
         if command is None:
             raise ControlError("This AC does not expose a power-off command.")
+        if deadline is not None and datetime.now() > deadline:
+            raise ControlError("The timer's time was missed. No command was sent.")
         if not await command.send():
             raise ControlError("The cloud service did not accept the command. Sign in again.")
         return
@@ -229,6 +231,8 @@ async def send_action(device, action, requested=None):
         validate(parameter, value)
     for key, value in changes.items():
         command.settings[key].value = str(value)
+    if deadline is not None and datetime.now() > deadline:
+        raise ControlError("The timer's time was missed. No command was sent.")
     if not await command.send_specific(list(changes)):
         raise ControlError("The cloud service did not accept the command. Sign in again.")
 
@@ -345,9 +349,20 @@ class Controller:
                 self.active_functions.pop(device_id,None)
         return snapshot
 
-    async def action(self, device_id, action, requested):
+    async def timer_action(self, device_id, action, due=None):
+        if action not in {"on", "off"}:
+            raise ControlError("Unsupported timer action.")
+        requested = {}
+        if action == "on":
+            snapshot = await self.refresh(device_id)
+            if self.memory:
+                requested = self.memory.mode_values(snapshot, {})
+        deadline = datetime.fromisoformat(due) + timedelta(seconds=60) if due else None
+        return await self.action(device_id, action, requested, deadline=deadline)
+
+    async def action(self, device_id, action, requested, deadline=None):
         device = self.devices[device_id]
-        await send_action(device, action, requested)
+        await send_action(device, action, requested, deadline=deadline)
         snapshot = describe(device)
         self.remember(snapshot,requested if action in {"on","apply","configure"} else None)
         if action == "execute" and self.memory:

@@ -15,6 +15,7 @@ from .airflow import AirflowAnimation
 from pathlib import Path
 from .device_picker import DevicePicker
 from .diagnostics import diagnostics
+from .timers import TimerBook
 
 
 def equal(left, right):
@@ -29,6 +30,7 @@ class App:
         self.root, self.demo = root, demo
         self.storage = state if state is not None else SecureState(persistent=not demo)
         self.memory = ProgramMemory(self.storage)
+        self.timers = TimerBook(self.storage)
         self.worker = Worker(memory=self.memory)
         self.tray = None
         self.closing = False
@@ -42,6 +44,8 @@ class App:
         self.busy, self.dirty = False, {}
         self.hits = []
         self.dialog = None
+        self.dialog_view = None
+        self.timer_job = None
         self.auto_job = None
         self.auto_inflight = False
         self.auto_pending = False
@@ -109,6 +113,8 @@ class App:
         controls.pack(fill="x",pady=(6,12))
         self.apply_button=ttk.Button(controls,text="Apply changes",style="Accent.TButton",command=lambda:self.action("apply"))
         self.apply_button.pack(side="left",fill="x",expand=True,padx=(0,8))
+        self.timer_button=ttk.Button(controls,text="On / off timers",command=self.open_timers)
+        self.timer_button.pack(side="left",fill="x",expand=True,padx=(0,8))
         self.all_button=ttk.Button(controls,text="All functions",command=self.open_functions)
         self.all_button.pack(side="left",fill="x",expand=True)
         footer=ttk.Frame(self.panel)
@@ -126,6 +132,7 @@ class App:
         self.root.report_callback_exception = self.callback_failed
         self.root.bind("<Unmap>",self.on_minimize,add="+")
         root.after(100,self.poll)
+        self.timer_job = root.after(1000, self.check_timers)
         if not demo:root.after(200,self.auto_sign_in)
 
     def poll(self):
@@ -177,7 +184,7 @@ class App:
         for widget in (self.email,self.password,self.login_button):
             widget.configure(state=state)
         available=self.selected is not None and not value
-        for widget in (self.refresh_button,self.logout_button,self.all_button):
+        for widget in (self.refresh_button,self.logout_button,self.all_button,self.timer_button):
             widget.configure(state="normal" if available else "disabled")
         self.apply_button.configure(state="normal" if available and self.dirty else "disabled")
         self.device_picker.set_enabled(available)
@@ -222,6 +229,8 @@ class App:
         self.worker.submit(self.worker.controller.connect(email,password),done,"login",on_error=failed)
 
     def connected(self,devices):
+        if self.demo and not self.memory.account:
+            self.memory.use_account("preview@example.test")
         self.reset_auto()
         self.devices=devices
         self.login_frame.pack_forget()
@@ -246,7 +255,7 @@ class App:
         self.connection.set(f"◇ {label} · {device['fetched']}" + (" · Auto" if not self.demo else ""))
         self.set_busy(self.busy if preserve_edits else False)
         if self.dialog and self.dialog.winfo_exists():
-            self.functions_view.refresh_status()
+            self.dialog_view.refresh_status()
 
     def select_device(self,event=None):
         if not self.busy:
@@ -505,6 +514,45 @@ class App:
         from .functions_view import FunctionsView
         self.functions_view = FunctionsView(self)
 
+    def open_timers(self):
+        if self.busy or not self.selected:
+            return
+        if self.dialog and self.dialog.winfo_exists():
+            self.dialog.lift()
+            return
+        from .timer_view import TimerView
+        self.timer_view = TimerView(self)
+
+    def check_timers(self):
+        self.timer_job = None
+        if self.closing:
+            return
+        if not self.demo and self.selected:
+            account = self.memory.account
+            try:
+                event = self.timers.poll(account, [device["id"] for device in self.devices],
+                                         ready=not self.busy and not self.auto_inflight)
+            except OSError as error:
+                diagnostics.record("state_save_failed", error)
+                self.status.set("Timer paused: its state could not be saved.")
+                event = None
+            if event:
+                self.set_busy(True)
+                self.status.set(f"Timer: sending turn {event.action}…")
+                def finish(result, failed=False):
+                    try:
+                        self.timers.finish(account, event, "failed" if failed else "accepted")
+                    except OSError as error:
+                        diagnostics.record("state_save_failed", error)
+                    self.set_busy(False)
+                    self.status.set("Timer failed or its outcome is unknown. Check AC status before retrying." if failed else result)
+                    self.schedule_auto(750)
+                    if self.dialog and self.dialog.winfo_exists():
+                        self.dialog_view.refresh_status()
+                self.worker.submit(self.worker.controller.timer_action(event.device, event.action, event.due),
+                                   finish, "timer-command", on_error=lambda error: finish(error, True))
+        self.timer_job = self.root.after(1000, self.check_timers)
+
     def field(self,parent,spec,override=None,use_reported=False):
         row=ttk.Frame(parent,padding=(0,7))
         row.pack(fill="x")
@@ -553,6 +601,9 @@ class App:
     def close(self):
         if self.closing:return
         self.closing=True
+        if self.timer_job is not None:
+            self.root.after_cancel(self.timer_job)
+            self.timer_job = None
         self.reset_auto()
         self.airflow.close()
         if self.tray:
