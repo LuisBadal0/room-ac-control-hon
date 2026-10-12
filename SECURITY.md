@@ -47,9 +47,9 @@ proof that a binary corresponds to its source. Older releases are unsigned and
 have no build attestation. New local builds also remain unsigned unless a valid
 code-signing certificate is supplied.
 
-The prepared workflow pins actions to full commit SHAs and can attest tagged
-release ZIPs with GitHub build provenance. **It must be activated separately**;
-a template or a local build does not create an attestation. Verify an attested
+The active Windows workflow pins actions to full commit SHAs and attests tagged
+release ZIPs with GitHub build provenance. A PR build or local build does not
+create a release attestation. Verify an attested
 release with `gh attestation verify <zip> --repo LuisBadal0/room-ac-control-hon`.
 Attestation establishes build provenance, not a complete security audit or
 byte-for-byte reproducibility.

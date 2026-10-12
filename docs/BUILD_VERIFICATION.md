@@ -36,15 +36,15 @@ publisher or prove correspondence to the source. Inspect the executable with
 
 ## CI and attestations
 
-`packaging/github-workflow.yml` is the reviewed workflow template. Copy it to
-`.github/workflows/windows.yml` through an account permitted to manage workflows.
-The current CLI credential lacks the `workflow` scope, so this activation cannot
-be published through that credential. Activation is separate from merging the
-security fixes. The workflow uses immutable action commit IDs, hash-verified
-installs, offline checks, and read-only permissions for PR builds. Only tag
-releases use temporary write permissions for attestations and release assets.
+`.github/workflows/windows.yml` is the active Windows CI workflow. It runs
+offline tests, UI checks and portable packaging for pull requests and pushes to
+`main`. The workflow uses immutable action commit IDs, hash-verified installs,
+and read-only permissions for PR builds. Only tag releases use temporary write
+permissions for attestations and release assets. Editing workflows through the
+CLI requires a credential permitted to manage them; the GitHub web editor is
+also supported. No credentials or signing secrets are stored in the workflow.
 
-After activation and merge, push a version tag matching the app's version to
+After merge, push a version tag matching the app's version to
 build and attest a release. Existing published assets are retained; they are
 not retroactively attested or replaced. For a newly attested ZIP:
 
@@ -69,4 +69,4 @@ self-signed certificate or change Windows trust settings. The signing path
 requires verification with your actual certificate before a signed release.
 
 Never commit certificates, private keys, credentials or signing secrets. No
-certificate or secret is embedded in the workflow template.
+certificate or secret is embedded in the workflow.
