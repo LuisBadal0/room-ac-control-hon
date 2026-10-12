@@ -66,9 +66,9 @@ Runtime builds, local environments, shortcuts and account files are excluded fro
 .\tools\Build.ps1
 ```
 
-The preview uses fictional rooms and does not load saved credentials. Use `--preview login` to review the welcome screen. `tools/Build.ps1` produces `releases/Room-AC-Control-for-hOn-0.1.1-Windows-x64.zip` and a local app-icon shortcut. The build checks bundled assets, Windows encryption, tray imports and MQTT libraries without contacting an account.
+The preview uses fictional rooms and does not load saved credentials. Use `--preview login` to review the welcome screen. `tools/Build.ps1` produces `releases/Room-AC-Control-for-hOn-0.1.2-Windows-x64.zip` and a local app-icon shortcut. The build checks bundled assets, Windows encryption, tray imports and MQTT libraries without contacting an account.
 
-Windows UI checks: `tests/ui_smoke.py`, `tests/refresh_smoke.py`, `tests/desktop_smoke.py`, and `tests/window_header_smoke.py`. An optional GitHub build workflow is supplied in `packaging/github-workflow.yml`. To enable it, copy that file to `.github/workflows/windows.yml` using credentials permitted to manage workflows. It runs offline checks, builds a portable artifact and can publish tagged releases. Release tags should match the app version, such as `v0.1.1`.
+Windows UI checks: `tests/ui_smoke.py`, `tests/refresh_smoke.py`, `tests/desktop_smoke.py`, and `tests/window_header_smoke.py`. An optional GitHub build workflow is supplied in `packaging/github-workflow.yml`. To enable it, copy that file to `.github/workflows/windows.yml` using credentials permitted to manage workflows. It runs offline checks, builds a portable artifact and can publish tagged releases. Release tags should match the app version, such as `v0.1.2`.
 
 See [Contributing](CONTRIBUTING.md) and the [user guide](docs/USER_GUIDE.md) for more detail.
 
