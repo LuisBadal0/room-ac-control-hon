@@ -20,6 +20,8 @@ Animated airflow follows reported operation, with blue for cooling, amber for he
 
 **Settings** contains ordinary adjustable controls. **Everyday use** contains comfort functions and presets. **Maintenance** contains cleaning and service functions. Options are discovered from the selected AC's hOn capabilities; unavailable or unreported values are identified in the interface.
 
+Use **Search** (or **Ctrl+F**) to find settings and presets across all three sections. Results stay grouped by their section, including maintenance. Search matches names, descriptions and option names; multiple words narrow the results. **Clear** or **Escape** returns to the current section. Selecting a section also clears the search. Search pauses while a preset's detail form is open; **Back to cards** restores your results.
+
 Select a preset to inspect its options, then explicitly start it. A preset may turn the AC on and replace its configuration. Maintenance routines can interrupt current operation. Saved program preferences never start cleaning or service routines automatically.
 
 ## Status and tray

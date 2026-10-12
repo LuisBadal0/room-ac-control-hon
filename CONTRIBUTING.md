@@ -11,3 +11,9 @@ For a portable release run `tools/Build.ps1`. Inspect the app, the runtime self-
 Optional CI is available in `packaging/github-workflow.yml`. It is a template rather than an active workflow; enabling it requires GitHub workflow permissions.
 
 Do not commit credentials, device serial numbers, cloud payload dumps, personal screenshots, local shortcuts, virtual environments or generated binaries. Issue reports should describe steps to reproduce and sanitize any logs or screenshots.
+
+## Branch naming
+
+Start each new feature on `feature/<descriptive-name>` and each bug fix on
+`fix/<descriptive-name>`. Use lowercase, hyphenated names and submit a focused
+pull request; keep implementation changes off `main`.

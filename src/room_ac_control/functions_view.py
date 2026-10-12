@@ -9,6 +9,19 @@ from .theme import BG, CARD, HOVER, TEXT, MUTED, ACCENT, GREEN, rounded, ac_art,
 from .canvas_hover import CanvasHover
 from .airflow import AirflowAnimation
 
+SECTIONS = (("settings", "Settings"), ("everyday", "Everyday use"), ("maintenance", "Maintenance"))
+
+
+def matches_search(item, query):
+    """Match words in names, descriptions and user-facing adjustable options."""
+    parts = [item["label"], item.get("description", ""), item.get("command_label", "")]
+    specs = [item["spec"]] if item["kind"] == "setting" else item.get("form", {}).get("parameters", [])
+    for spec in specs:
+        parts.append(spec["label"])
+        parts.extend(spec.get("options", {}))
+    text = " ".join(parts).casefold()
+    return all(word in text for word in query.casefold().split())
+
 
 def section_items(device, section):
     items = []
@@ -77,6 +90,21 @@ class FunctionsView:
         self.navigation.pack(fill="x", pady=(0, 12))
         self.navigation.bind("<Configure>", lambda event: self.draw_navigation())
         self.navigation.bind("<Button-1>", self.navigate)
+        self.search = tk.StringVar()
+        search_bar = tk.Frame(self.body, bg=CARD, highlightthickness=1, highlightbackground="#394035")
+        search_bar.pack(fill="x", pady=(0, 12))
+        tk.Label(search_bar, text="Search", bg=CARD, fg=MUTED, font=("Segoe UI", 10)).pack(side="left", padx=(12, 8))
+        self.search_entry = tk.Entry(search_bar, textvariable=self.search, bg=CARD, fg=TEXT,
+                                     insertbackground=TEXT, relief="flat", font=("Segoe UI", 11))
+        self.search_entry.pack(side="left", fill="x", expand=True, pady=11)
+        self.clear_search = tk.Button(search_bar, text="Clear", command=lambda: self.search.set(""),
+                                      bg=CARD, fg=MUTED, activebackground=HOVER, activeforeground=TEXT,
+                                      relief="flat", font=("Segoe UI", 10), cursor="hand2", padx=12)
+        self.clear_search.pack(side="right", padx=(8, 4))
+        self.search_entry.bind("<FocusIn>", lambda event: search_bar.configure(highlightbackground=ACCENT))
+        self.search_entry.bind("<FocusOut>", lambda event: search_bar.configure(highlightbackground="#394035"))
+        self.search_entry.bind("<Escape>", self.reset_search)
+        self.window.bind("<Control-f>", self.focus_search)
         self.note = tk.StringVar()
         ttk.Label(self.body, textvariable=self.note, style="Muted.TLabel", wraplength=680).pack(anchor="w", pady=(0, 14))
         area = ttk.Frame(self.body)
@@ -96,7 +124,9 @@ class FunctionsView:
         self.apply_button = ttk.Button(self.footer, text="Apply changes", style="Accent.TButton", command=self.apply)
         self.apply_button.pack(side="left", expand=True, fill="x", padx=(0, 10))
         ttk.Button(self.footer, text="Close", command=self.close).pack(side="right")
+        self.search.trace_add("write", lambda *args: self.render_section())
         self.render_section()
+        self.window.after_idle(self.focus_search)
 
     def draw_hero(self):
         c = self.hero
@@ -113,9 +143,9 @@ class FunctionsView:
         c.delete("all")
         width = max(c.winfo_width(), 550)
         self.navigation_hover.reset()
-        for index, (key, label) in enumerate((("settings", "Settings"), ("everyday", "Everyday use"), ("maintenance", "Maintenance"))):
+        for index, (key, label) in enumerate(SECTIONS):
             x = index*width/3
-            selected = key == self.section
+            selected = key == self.section and not self.search.get().strip()
             surface=rounded(c, x+2, 3, x+width/3-6, 47, 12, fill=ACCENT if selected else CARD, outline="")
             self.navigation_hover.add((x+2,3,x+width/3-6,47),surface,{"fill":ACCENT if selected else CARD,"outline":""},
                                       {"fill":"#cbc6ad" if selected else HOVER,"outline":ACCENT})
@@ -125,7 +155,18 @@ class FunctionsView:
     def navigate(self, event):
         index = min(2, int(event.x / max(self.navigation.winfo_width(), 550) * 3))
         self.section = ("settings", "everyday", "maintenance")[index]
-        self.render_section()
+        if self.search.get(): self.search.set("")
+        else: self.render_section()
+
+    def focus_search(self, event=None):
+        if self.selected_function is None:
+            self.search_entry.focus_set()
+            self.search_entry.selection_range(0, "end")
+        return "break"
+
+    def reset_search(self, event=None):
+        self.search.set("")
+        return "break"
 
     def resize(self, event):
         self.scroll.itemconfigure(self.inner_id, width=event.width)
@@ -139,6 +180,8 @@ class FunctionsView:
         for child in self.inner.winfo_children(): child.destroy()
         self.card_widgets = []
         self.selected_function = None
+        self.search_entry.configure(state="normal")
+        self.clear_search.configure(state="normal" if self.search.get() else "disabled")
         self.draw_navigation()
         self.scroll.yview_moveto(0)
         notes = {
@@ -146,14 +189,32 @@ class FunctionsView:
             "everyday": "Presets for normal use. Select a card to review and start a preset.",
             "maintenance": "Cleaning and service routines. Select a card to review its controls.",
         }
-        self.note.set(notes[self.section])
-        items = section_items(self.app.selected, self.section)
+        query = self.search.get().strip()
+        groups = []
+        for section, title in SECTIONS:
+            if query or section == self.section:
+                items = [dict(item, section=section) for item in section_items(self.app.selected, section)
+                         if matches_search(item, query)]
+                groups.append((title, items))
+        count = sum(len(items) for _, items in groups)
+        self.note.set(f"{count} {'result' if count == 1 else 'results'} across all functions" if query else notes[self.section])
         for column in range(3): self.inner.columnconfigure(column, weight=1, uniform="cards")
-        for index, item in enumerate(items):
-            card = self.card(item)
-            card.grid(row=index//3, column=index%3, sticky="nsew", padx=(0, 10), pady=(0, 12))
-        if not items:
-            ttk.Label(self.inner, text="No functions in this section are exposed by your AC.", style="Muted.TLabel").grid(row=0, column=0, columnspan=3, pady=40)
+        row = 0
+        self.visible_items = []
+        for title, items in groups:
+            if not items: continue
+            if query:
+                ttk.Label(self.inner, text=title, style="Muted.TLabel", font=("Segoe UI", 10, "bold")).grid(
+                    row=row, column=0, columnspan=3, sticky="w", pady=(4, 10))
+                row += 1
+            self.visible_items.extend(items)
+            for index, item in enumerate(items):
+                card = self.card(item)
+                card.grid(row=row+index//3, column=index%3, sticky="nsew", padx=(0, 10), pady=(0, 12))
+            row += (len(items)+2)//3
+        if not count:
+            text = "No matching functions. Try another word or clear the search." if query else "No functions in this section are exposed by your AC."
+            ttk.Label(self.inner, text=text, style="Muted.TLabel", wraplength=520).grid(row=0, column=0, columnspan=3, pady=40)
         self.update_apply()
 
     def setting_value(self, spec):
@@ -192,7 +253,7 @@ class FunctionsView:
                 elif spec["key"] in {"windDirectionVertical","windDirectionHorizontal"}:
                     glyph = airflow_icon(label)
             else:
-                heading = "Maintenance routine" if self.section == "maintenance" else "Preset" if item.get("command") == "startProgram" or item["kind"] == "night" else "Function"
+                heading = "Maintenance routine" if item.get("section", self.section) == "maintenance" else "Preset" if item.get("command") == "startProgram" or item["kind"] == "night" else "Function"
                 label = item["label"]
             surface=control_card(card,1,1,width-2,heading,label,glyph)
             card.hover_style.add((0,0,width,103),surface,{"fill":CARD,"outline":""},{"fill":HOVER,"outline":ACCENT})
@@ -266,6 +327,10 @@ class FunctionsView:
 
     def configure_function(self, item):
         self.selected_function = item
+        maintenance = item.get("section", self.section) == "maintenance"
+        # Preserve an open preset's draft until the user returns to the cards.
+        self.search_entry.configure(state="disabled")
+        self.clear_search.configure(state="disabled")
         for child in self.inner.winfo_children(): child.destroy()
         self.card_widgets = []
         # Reset equal-width card columns for the full-width detail form.
@@ -275,7 +340,7 @@ class FunctionsView:
         detail.grid(row=0, column=0, sticky="ew", columnspan=3)
         ttk.Button(detail, text="‹ Back to cards", command=self.render_section).pack(anchor="w", pady=(0, 18))
         ttk.Label(detail, text=item["label"], font=("Segoe UI", 19, "bold")).pack(anchor="w", pady=(0, 6))
-        description = "Cleaning / service routine" if self.section == "maintenance" else "Everyday comfort preset"
+        description = "Cleaning / service routine" if maintenance else "Everyday comfort preset"
         ttk.Label(detail, text=description, style="Muted.TLabel").pack(anchor="w", pady=(0, 20))
         saved=self.app.memory.function_values(self.app.selected["id"],item["command"],item["form"]) if item["kind"]=="function" else {}
         fields = {spec["key"]: self.app.field(detail, spec, saved.get(spec["key"])) for spec in item.get("form", {}).get("parameters", [])}
@@ -283,7 +348,7 @@ class FunctionsView:
             ttk.Label(detail,text=item["description"],style="Muted.TLabel").pack(anchor="w",pady=14)
         if not fields:
             ttk.Label(detail, text="This routine has no adjustable options.", style="Muted.TLabel").pack(anchor="w", pady=14)
-        text = "This routine may interrupt the current operation." if self.section == "maintenance" else "Starting this preset may turn the AC on and replace its settings."
+        text = "This routine may interrupt the current operation." if maintenance else "Starting this preset may turn the AC on and replace its settings."
         ttk.Label(detail, text=text, wraplength=580, style="Muted.TLabel").pack(anchor="w", pady=20)
         def run():
             if item["kind"] == "night":
@@ -294,7 +359,7 @@ class FunctionsView:
                        "parameters": {key: get() for key, (get, initial) in fields.items() if get() is not None}}
             self.close()
             self.app.action("execute", request)
-        button = "Start maintenance routine" if self.section == "maintenance" else "Start preset" if item.get("command") == "startProgram" or item["kind"] == "night" else "Run function"
+        button = "Start maintenance routine" if maintenance else "Start preset" if item.get("command") == "startProgram" or item["kind"] == "night" else "Run function"
         ttk.Button(detail, text=button, style="Accent.TButton", command=run).pack(fill="x")
         self.scroll.yview_moveto(0)
         self.update_apply()

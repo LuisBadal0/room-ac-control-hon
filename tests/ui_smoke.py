@@ -81,6 +81,35 @@ if __name__ == "__main__":
     assert {item["label"] for item in everyday if item["kind"] == "night"} == {"Cool Night", "Heat Night"}
     assert len(maintenance) == 1
     assert maintenance[0]["form"]["category"] == "iot_self_clean"
+    view.search.set("  NIGHT  ")
+    root.update_idletasks()
+    assert {item["label"] for item in view.visible_items} == {"Cool Night", "Heat Night"}
+    assert len(view.card_widgets) == 2
+    assert all(item["section"] == "everyday" for item in view.visible_items)
+    assert view.settings_changes["tempSel"] == "24.0"
+    view.search.set("heat night")
+    assert len(view.visible_items) == 1
+    view.configure_function(view.visible_items[0])
+    assert str(view.search_entry.cget("state")) == "disabled"
+    view.refresh_status()
+    assert view.selected_function["label"] == "Heat Night"
+    view.render_section()
+    assert view.search.get() == "heat night"
+    assert len(view.visible_items) == 1
+    assert str(view.search_entry.cget("state")) == "normal"
+    view.search.set("clean")
+    assert len(view.visible_items) == 1
+    assert view.visible_items[0]["section"] == "maintenance"
+    view.configure_function(view.visible_items[0])
+    root.update_idletasks()
+    assert "Start maintenance routine" in [widget.cget("text") for widget in view.inner.winfo_children()[0].winfo_children() if widget.winfo_class() == "TButton"]
+    view.render_section()
+    view.search.set("zzzz-no-such-function")
+    assert not view.visible_items
+    assert not view.card_widgets
+    view.reset_search()
+    assert view.search.get() == ""
+    assert view.visible_items
     view.section = "everyday"
     view.render_section()
     root.update_idletasks()
