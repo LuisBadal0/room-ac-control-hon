@@ -38,18 +38,26 @@ def build_manifest(runtime):
     dirty=bool(git('status','--porcelain'))
     if os.environ.get('GITHUB_ACTIONS')=='true' and dirty:
         raise RuntimeError('CI release builds must use a clean source checkout.')
-    signature_command=['powershell','-NoProfile','-File',str(ROOT/'tools'/'Sign-Executable.ps1'),
+    powershell=shutil.which('pwsh') or shutil.which('powershell')
+    if not powershell:raise RuntimeError('PowerShell is required to verify executable signatures.')
+    signature_command=[powershell,'-NoProfile','-File',str(ROOT/'tools'/'Sign-Executable.ps1'),
                        '-Path',str(runtime/'RoomACControl.exe')]
     certificate=os.environ.get('ROOM_AC_SIGNING_CERT_THUMBPRINT')
     if certificate:
         signature_command += ['-Thumbprint',certificate]
         if timestamp:=os.environ.get('ROOM_AC_TIMESTAMP_SERVER'):
             signature_command += ['-TimestampServer',timestamp]
-    signature=json.loads(subprocess.check_output(signature_command,text=True))
+        signature=json.loads(subprocess.check_output(signature_command,text=True))
+    else:
+        # A read-only cmdlet query needs no script execution-policy changes.
+        quoted=str(runtime/'RoomACControl.exe').replace("'","''")
+        status=subprocess.check_output([powershell,'-NoProfile','-NonInteractive','-Command',
+            f"(Get-AuthenticodeSignature -LiteralPath '{quoted}').Status.ToString()"],text=True).strip()
+        signature={'status':status}
     files={name:hashlib.sha256((ROOT/name).read_bytes()).hexdigest()
            for name in git('ls-files').splitlines() if (ROOT/name).is_file()}
     manifest={'source_commit':source,'source_dirty':dirty,'source_sha256':files,
-              'python_version':platform.python_version(),'platform':'Windows x64',
+              'python_version':platform.python_version(),'pip_version':metadata.version('pip'),'platform':'Windows x64',
               'build_provider':'github-actions' if os.environ.get('GITHUB_ACTIONS')=='true' else 'local',
               'authenticode_status':signature['status'],
               'executable_sha256':hashlib.sha256((runtime/'RoomACControl.exe').read_bytes()).hexdigest(),
@@ -59,7 +67,7 @@ def build_manifest(runtime):
 
 def licenses(destination):
     destination.mkdir(parents=True,exist_ok=True)
-    pending=['pyhOn','pystray','Pillow','setuptools','packaging','pyinstaller']
+    pending=['pyhOn','pystray','Pillow','setuptools','wheel','packaging','pyinstaller']
     seen=set()
     manifest=[]
     while pending:
