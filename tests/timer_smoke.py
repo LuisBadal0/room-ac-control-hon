@@ -68,5 +68,13 @@ assert app.timers.get(account, fixtures[1]["id"])["on"]["last_result"] == "accep
 count = len(submissions)
 app.check_timers()
 assert len(submissions) == count
+# Scheduled errors use their callback, without a modal or a lost refresh.
+app.busy = True
+app.worker.results.put((submissions[-1][2], None, "Fixture timeout", "timer-command"))
+app.poll()
+assert not app.busy
+assert "outcome is unknown" in app.status.get()
+assert app.timers.get(account, fixtures[1]["id"])["on"]["last_result"] == "failed"
+assert app.dirty == {"tempSel": "26"}
 app.close()
 print("Timer editor, search, disable, background dispatch and draft preservation passed.")

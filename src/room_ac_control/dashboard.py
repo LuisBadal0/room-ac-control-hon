@@ -143,9 +143,7 @@ class App:
                 if operation != "auto-refresh":
                     self.set_busy(False)
                 if error:
-                    if operation == "auto-refresh":
-                        callback(error)
-                    elif operation == "login":
+                    if operation in {"auto-refresh", "login", "timer-command"}:
                         callback(error)
                     else:
                         self.status.set(error)
