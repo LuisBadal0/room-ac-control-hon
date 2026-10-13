@@ -8,5 +8,5 @@ VSVersionInfo(
     StringStruct('LegalCopyright','Copyright 2026 Room AC Control contributors'),
     StringStruct('OriginalFilename','RoomACControl.exe'),
     StringStruct('ProductName','Room AC Control for hOn'),
-    StringStruct('ProductVersion','0.1.5.dev0')])]),
+    StringStruct('ProductVersion','0.1.5')])]),
     VarFileInfo([VarStruct('Translation',[1033,1200])])])

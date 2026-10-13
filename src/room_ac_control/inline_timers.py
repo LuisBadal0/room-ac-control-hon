@@ -60,6 +60,7 @@ class TimerCard(tk.Canvas):
         self.action, self.changed = action, changed
         self.active, self.supported, self.busy, self.draft = False, False, False, False
         self.hover, self.due = False, None
+        self.hint, self.preview = "", False
         self.hour = NumberWheel(self, 24, 8 if action == "on" else 22, self.edited)
         self.minute = NumberWheel(self, 60, 0, self.edited)
         self.bind("<Configure>", lambda e: self.draw())
@@ -74,8 +75,9 @@ class TimerCard(tk.Canvas):
         self.draft = True
         self.draw()
 
-    def set_status(self, supported, due, busy):
+    def set_status(self, supported, due, busy, hint="", preview=False):
         self.supported, self.busy = supported, busy
+        self.hint, self.preview = hint, preview
         self.due = due
         self.active = due is not None and due > datetime.now()
         if due and not self.draft:
@@ -120,7 +122,7 @@ class TimerCard(tk.Canvas):
                 outline=GREEN if self.active else "")
         self.create_text(width-48, 60, text=button, fill=TEXT if enabled else MUTED,
                          font=("Segoe UI", 9, "bold"))
-        hint = ("Preview · " + self.due.strftime("%a %d %b")) if self.active else "Select a time" if self.supported else "hOn timer connection needed"
+        hint = (("Preview · " if self.preview else "Saved · ") + self.due.strftime("%a %d %b")) if self.active else "Select a time" if self.supported else self.hint or "Timers unavailable · Refresh"
         self.create_text(13, 99, text=hint, anchor="w", fill=GREEN if self.active else MUTED, font=("Segoe UI", 8))
         # An edited active timer retains an independent Stop button.
         if self.active and self.draft:
@@ -147,6 +149,9 @@ class InlineTimers(tk.Frame):
                 card.draft = False
                 card.hour.value, card.minute.value = (8 if action == "on" else 22), 0
             self.device = device
-        status = self.app.preview_timers.get(device, {}) if self.app.demo else {}
+        status = self.app.preview_timers.get(device, {}) if self.app.demo else snapshot.get("timers", {}).get("values", {})
         for action, card in self.cards.items():
-            card.set_status(self.app.demo, status.get(action), busy)
+            item = status.get(action, {}) if not self.app.demo else {}
+            supported = self.app.demo or (snapshot.get("timers", {}).get("available", False) and item.get("supported", False))
+            hint = "Manage timers in hOn" if item.get("count", 0) > 1 else snapshot.get("timers", {}).get("error", "Timers unavailable · Refresh")
+            card.set_status(supported, status.get(action) if self.app.demo else item.get("due"), busy, hint, self.app.demo)

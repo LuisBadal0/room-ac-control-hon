@@ -285,6 +285,7 @@ class Controller:
         self.watch_task = None
         self.memory = memory
         self.active_functions = {}
+        self.cloud_timers = None
 
     def remember(self, snapshot, explicit=None):
         if self.memory:
@@ -299,6 +300,8 @@ class Controller:
         self.session = aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=35))
         try:
             self.api = await HonAPI(email, password, session=self.session).create()
+            from .cloud_timers import CloudTimers
+            self.cloud_timers = CloudTimers(self.api._hon)
             for info in await self.api.load_appliances():
                 if info.get("applianceTypeName") != "AC":
                     continue
@@ -316,7 +319,12 @@ class Controller:
                     self.remember(describe(device))
             if self.on_change:
                 self.watch_task = asyncio.create_task(self.watch_updates())
-            return [describe(device) for device in self.devices.values()]
+            snapshots = []
+            for device in self.devices.values():
+                snapshot = describe(device)
+                snapshot["timers"] = await self.timer_status(device)
+                snapshots.append(snapshot)
+            return snapshots
         except BaseException:
             await self.close()
             raise
@@ -326,6 +334,7 @@ class Controller:
         device.attributes.clear()
         await device.update(force=True)
         snapshot = describe(device)
+        snapshot["timers"] = await self.timer_status(device)
         self.remember(snapshot)
         active = self.active_functions.get(device_id)
         if active and snapshot["power"] == "On" and self.memory and active.get("group")!="maintenance":
@@ -343,6 +352,26 @@ class Controller:
                         self.memory.remember_function(device_id,active["command"],active["category"],values)
             elif active.get("confirmed"):
                 self.active_functions.pop(device_id,None)
+        return snapshot
+
+    async def timer_status(self, device):
+        if self.cloud_timers is None:
+            return {"available": False, "error": "Timers unavailable"}
+        try:
+            state, _ = await asyncio.wait_for(self.cloud_timers.read(device), timeout=10)
+            return {"available": True, "values": state}
+        except Exception as error:
+            from .diagnostics import diagnostics
+            diagnostics.record("timer_status_failed", error)
+            return {"available": False, "error": "Timers unavailable · Refresh"}
+
+    async def change_timer(self, device_id, action, due, expected=None, requested=None):
+        if self.cloud_timers is None:
+            raise ControlError("The hOn timer connection is unavailable. Sign in again.")
+        device = self.devices[device_id]
+        values = await self.cloud_timers.change(device, action, due, expected, requested)
+        snapshot = describe(device)
+        snapshot["timers"] = {"available": True, "values": values}
         return snapshot
 
     async def action(self, device_id, action, requested):
@@ -406,6 +435,7 @@ class Controller:
         self.devices.clear()
         self.active_functions.clear()
         self.api = None
+        self.cloud_timers = None
         if self.session:
             await self.session.close()
             self.session = None

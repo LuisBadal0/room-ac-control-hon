@@ -1,4 +1,4 @@
-"""Inline timer controls: preview only until a persistent hOn endpoint is verified."""
+"""Inline timer controls with offline preview and cloud-result fixtures."""
 from datetime import datetime, timedelta
 from pathlib import Path
 import sys
@@ -60,8 +60,40 @@ app.demo = False
 app.draw()
 assert not app.inline_timers.cards["on"].supported
 app.change_timer("on", datetime.now() + timedelta(hours=1))
-assert "cannot save or cancel" in app.status.get()
+assert "Timers unavailable" in app.status.get()
 assert not submissions
 assert not app.dialog
+# Cloud fixtures show the saved timer, preserve edits, and route failures to a
+# status refresh. Coroutine recording guarantees no real request is executed.
+from copy import deepcopy
+new = deepcopy(app.selected)
+due = datetime.now() + timedelta(hours=2)
+new["timers"] = {"available": True, "values": {
+    "on": {"supported": True, "due": due, "expected": ["fixture-1", "fixture-date"], "count": 1},
+    "off": {"supported": True, "due": None, "expected": None, "count": 0}}}
+app.show_device(new, preserve_edits=True)
+assert app.inline_timers.cards["on"].active
+assert app.inline_timers.cards["on"].supported
+assert app.inline_timers.cards["on"].hour.surface == ACTIVE
+callbacks = []
+def native_submit(coroutine, callback, operation, on_error=None):
+    coroutine.close()
+    callbacks.append((callback, operation, on_error))
+app.worker.submit = native_submit
+app.staged("tempSel", "26")
+app.change_timer("on", None)
+assert app.busy and callbacks[-1][1] == "timer"
+new["timers"]["values"]["on"].update(due=None, expected=None, count=0)
+app.set_busy(False)
+callbacks[-1][0](new)
+assert not app.inline_timers.cards["on"].active
+assert app.dirty == {"tempSel": "26"}
+assert "stopped in hOn" in app.status.get()
+app.change_timer("off", due)
+app.worker.results.put((callbacks[-1][2], None, "fixture error", "timer"))
+app.poll()
+assert not app.busy
+assert app.status.get() == "fixture error"
+assert app.auto_job is not None
 app.close()
-print("Inline time wheels, one-time preview, active color, Stop and unavailable native backend checks passed.")
+print("Inline wheels, cloud state, active color, Stop, draft preservation and failure refresh passed offline.")

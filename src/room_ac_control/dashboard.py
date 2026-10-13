@@ -140,7 +140,7 @@ class App:
                 if operation != "auto-refresh":
                     self.set_busy(False)
                 if error:
-                    if operation in {"auto-refresh", "login"}:
+                    if operation in {"auto-refresh", "login", "timer"}:
                         callback(error)
                     else:
                         self.status.set(error)
@@ -515,7 +515,26 @@ class App:
         if self.busy or not self.selected:
             return
         if not self.demo:
-            self.status.set("This controller cannot save or cancel hOn schedules yet. Use Start at / End at in hOn. No PC timer is running.")
+            timers = self.selected.get("timers", {})
+            item = timers.get("values", {}).get(action, {})
+            if not timers.get("available") or not item.get("supported"):
+                self.status.set("Timers unavailable. Refresh, or manage them in hOn.")
+                return
+            device_id, epoch = self.selected["id"], self.refresh_epoch
+            requested = self.memory.mode_values(self.selected, dict(self.dirty)) if action == "on" and due else {}
+            self.set_busy(True)
+            self.status.set("Saving timer to hOn…" if due else "Stopping timer in hOn…")
+            def done(snapshot):
+                if epoch != self.refresh_epoch or not self.selected or self.selected["id"] != device_id:
+                    return
+                self.inline_timers.cards[action].draft = False
+                self.show_device(snapshot, preserve_edits=True)
+                self.status.set("Timer saved in hOn. It works with your PC off." if due else "Timer stopped in hOn.")
+                self.schedule_auto(750)
+            def failed(error):
+                self.status.set(error)
+                self.schedule_auto(750)
+            self.worker.submit(self.worker.controller.change_timer(device_id, action, due, item.get("expected"), requested), done, "timer", on_error=failed)
             return
         self.preview_timers.setdefault(self.selected["id"], {})[action] = due
         self.inline_timers.cards[action].draft = False

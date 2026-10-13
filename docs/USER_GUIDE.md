@@ -28,11 +28,13 @@ Select a preset to inspect its options, then explicitly start it. A preset may t
 
 ## On / off timers
 
-**Start at** and **End at** are embedded directly below the temperature slider. Scroll the hour and minute numbers, use the Up/Down keys, or click the neighbouring numbers to select a time. They are one-time controls only. A verified active schedule should appear green with a **Stop** button inside its card; editing its time retains a separate Stop action.
+**Start at** and **End at** are embedded directly below the temperature slider. Scroll the hour and minute numbers, use the Up/Down keys, or click the neighbouring numbers to select a time. Click **Set** to save the next occurrence of that time, today or tomorrow, using your Windows local time zone. They are one-time controls only. A confirmed active schedule appears green with a **Stop** button inside its card; editing its time retains a separate Stop action.
 
-**Persistent hOn scheduling is not implemented in this draft.** The connected AC exposes power and comfort controls, but the phone app's Start at / End at schedule is not present in the pyhOn command/status data. Live controls therefore show **Unavailable**, rather than claiming a schedule was saved to the appliance. Set and cancel actual schedules in the hOn phone app for now. Existing phone schedules are not changed by this controller.
+Schedules are saved to **hOn's cloud service** and read back before success is displayed. You can switch the computer off after saving; the AC and router still need power and internet. This does not claim that a timer is stored physically inside the AC. Start at captures the selected mode, remembered configuration and pending edits, without applying them immediately. End at schedules a future power-off. Refresh also reads one-time timers created in hOn. You can change or stop a single supported timer from either app; if it changed since the last refresh, refresh again before editing it.
 
-This draft removes the previous PC scheduler entirely. Previously saved PC timers do not execute. It does not substitute a PC timer for a persistent hOn schedule. The offline preview demonstrates the wheels, green active state and Stop interaction using fictional in-memory schedules; it sends no AC commands and saves no real schedule.
+Stopping one half of a paired timer preserves the other half. Maintenance and recurring schedules are not exposed here. If several one-time schedules overlap or the cloud returns an unfamiliar format, the affected control becomes unavailable; manage those records in hOn. A failed or timed-out request may have reached the service: refresh and check hOn before retrying. There is no automatic retry of a timer mutation.
+
+The previous PC scheduler is removed entirely, and old saved PC timers do not execute. Closing the application or signing out does not cancel cloud timers; use **Stop** explicitly. The offline preview uses fictional in-memory schedules and sends no requests. The cloud scheduling adapter was checked against hOn 2.30.7; future service changes may affect compatibility.
 
 ## Status and tray
 
