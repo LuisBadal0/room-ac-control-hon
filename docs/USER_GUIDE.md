@@ -4,6 +4,8 @@ Launch with **Start Room AC Control.cmd** or the local app-icon shortcut. Sign i
 
 Remember me is off by default. Enabling it saves your actual email and password using Windows encryption; other programs running as your Windows user can decrypt them. Existing remembered accounts retain their previous choice. Your password is passed to pyhOn for authentication.
 
+During manual or automatic sign-in, a rotating loading ring appears while your account connects and AC settings load. The form returns if sign-in fails, so you can retry. Closing the application stops the animation.
+
 ## Select an AC
 
 The room card shows the active AC's name and model. Accounts with several units have a **Switch** button: choose a room tile to load its status. A single unit displays its connection status directly. Room names come from your cloud account.

@@ -25,6 +25,11 @@ def self_test(output):
         encrypted = protect(b"offline-package-check")
         assert protect(encrypted,decrypt=True) == b"offline-package-check"
         assert app.unit_image.width()>200
+        app.login_view.set_loading(True)
+        root.update_idletasks()
+        assert app.login_view.animation.active and app.login_view.animation.job is not None
+        app.login_view.set_loading(False)
+        assert app.login_view.animation.job is None
         from .demo import devices
         app.connected(devices())
         root.update_idletasks()
@@ -32,7 +37,7 @@ def self_test(output):
         from .cloud_timers import select_timers
         timers, _ = select_timers({"scheduledPrograms": [], "scheduleRunningProgramEnd": []})
         assert all(value["due"] is None for value in timers.values())
-        result = {"ok":True,"version":__version__,"assets":True,"encryption":True,"tray":True,"mqtt":True,"timers":True}
+        result = {"ok":True,"version":__version__,"assets":True,"encryption":True,"tray":True,"mqtt":True,"timers":True,"login_animation":True}
     except Exception as error:
         result = {"ok":False,"error":type(error).__name__}
     finally:

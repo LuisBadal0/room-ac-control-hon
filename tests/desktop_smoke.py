@@ -21,8 +21,15 @@ with tempfile.TemporaryDirectory() as directory:
         submissions.append((callback,operation,on_error))
     app.worker.submit=submit
     assert not app.remember_account.get()
+    app.connect()
+    assert not app.login_view.loading  # Empty fields do not start a spinner.
     app.sign_in("sample@example.test","fake-desktop-test-password")
+    assert app.login_view.loading and app.login_view.animation.job is not None
+    assert app.login_view.surface.itemcget(app.login_view.form_id, "state") == "hidden"
+    app.sign_in("sample@example.test","fake-desktop-test-password")
+    assert len(submissions) == 1  # Repeated login cannot create a second worker.
     submissions[-1][0]([demo_device()])
+    assert not app.login_view.loading and app.login_view.animation.job is None
     assert app.storage.credentials() is None  # default sign-in never saves a password
     app.remember_account.set(True)
     app.sign_in("sample@example.test","fake-desktop-test-password")
@@ -40,7 +47,10 @@ with tempfile.TemporaryDirectory() as directory:
     assert submissions[-1][1]=="login"
     assert reopened.password.get()==""
     assert reopened.busy
+    assert reopened.login_view.loading and reopened.login_view.animation.job is not None
     submissions[-1][2]("test connection failed")
+    assert not reopened.login_view.loading and reopened.login_view.animation.job is None
+    assert reopened.login_view.surface.itemcget(reopened.login_view.form_id, "state") == "normal"
     assert not reopened.busy
     assert "Automatic sign-in failed" in reopened.status.get()
     assert reopened.storage.credentials() is not None
@@ -69,6 +79,10 @@ with tempfile.TemporaryDirectory() as directory:
     assert reopened.root.current=="normal" and reopened.root.raised and not reopened.tray.shown
     reopened.root=real_root
     tray=reopened.tray
+    reopened.sign_in("sample@example.test", "fake-desktop-test-password")
+    assert reopened.login_view.animation.active
     reopened.close()
+    assert reopened.login_view.animation.closed
+    assert reopened.login_view.animation.job is None
     assert tray.stopped
-print("Encrypted remember/automatic sign-in and tray minimize/restore/exit checks passed.")
+print("Login animation success/failure/close, encrypted auto sign-in and tray lifecycle checks passed offline.")
