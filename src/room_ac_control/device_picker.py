@@ -1,4 +1,5 @@
 """A device card and theme-matched room chooser."""
+from .i18n import tr, refresh_on_language
 import tkinter as tk
 from tkinter import font as tkfont
 
@@ -23,6 +24,7 @@ class DevicePicker(tk.Canvas):
         self.bind("<Leave>",lambda event:self.highlight(False))
         self.bind("<FocusIn>",lambda event:self.highlight(True))
         self.bind("<FocusOut>",lambda event:self.highlight(False))
+        refresh_on_language(self,self.draw)
 
     def set_devices(self, devices):
         self.devices = devices
@@ -67,17 +69,17 @@ class DevicePicker(tk.Canvas):
         self.create_text(72,47,text=device["model"],anchor="w",fill=MUTED,font=("Segoe UI",9))
         if selectable:
             rounded(self,width-108,18,width-14,50,9,fill="#414a39" if self.hover else "#2d352b",outline="")
-            self.create_text(width-61,34,text="Switch",fill=ACCENT,font=("Segoe UI",10))
+            self.create_text(width-61,34,text=tr(self, "Switch"),fill=ACCENT,font=("Segoe UI",10))
         else:
             connected = device.get("connection")=="CONNECTED"
             self.create_oval(width-111,29,width-105,35,fill=GREEN if connected else MUTED,outline="")
-            self.create_text(width-18,32,text="Connected" if connected else "Offline" if device.get("connection")=="DISCONNECTED" else "Unknown",
+            self.create_text(width-18,32,text=tr(self, "Connected" if connected else "Offline" if device.get("connection")=="DISCONNECTED" else "Unknown"),
                              anchor="e",fill=GREEN if connected else MUTED,font=("Segoe UI",9))
 
     def open(self):
         if not self.enabled or len(self.devices)<2:
             return
-        options = [{"label":device["name"],"description":device["model"],"value":index,"glyph":"unit"}
+        options = [{"label":device["name"],"description":device["model"],"value":index,"glyph":"unit","translate_label":False}
                    for index,device in enumerate(self.devices)]
         def choose(index):
             self.current(index)

@@ -14,7 +14,7 @@ from tests.ui_smoke import demo_device
 with tempfile.TemporaryDirectory() as directory:
     path=Path(directory)/"state.dpapi"
     root=tk.Tk();root.withdraw()
-    app=App(root,demo=True,state=SecureState(path),enable_tray=False)
+    app=App(root,demo=True,state=SecureState(path),enable_tray=False,language="en")
     submissions=[]
     def submit(coroutine,callback,operation,on_error=None):
         coroutine.close()
@@ -40,7 +40,7 @@ with tempfile.TemporaryDirectory() as directory:
     app.close()
 
     root=tk.Tk();root.withdraw()
-    reopened=App(root,demo=True,state=SecureState(path),enable_tray=False)
+    reopened=App(root,demo=True,state=SecureState(path),enable_tray=False,language="en")
     submissions=[]
     reopened.worker.submit=submit
     reopened.auto_sign_in()

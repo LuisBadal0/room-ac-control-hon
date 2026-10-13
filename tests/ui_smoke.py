@@ -28,7 +28,7 @@ def demo_device():
 if __name__ == "__main__":
     root=tk.Tk()
     if "--preview" not in sys.argv:root.withdraw()
-    app=App(root,demo=True)
+    app=App(root,demo=True,language="en")
     from room_ac_control.demo import devices as preview_devices
     app.connected(preview_devices())
     app.device_picker.open()
@@ -170,3 +170,4 @@ if __name__ == "__main__":
         subprocess.run([sys.executable, str(Path(__file__).with_name("functions_scroll_smoke.py"))], check=True)
         subprocess.run([sys.executable, str(Path(__file__).with_name("dashboard_layout_smoke.py"))], check=True)
         subprocess.run([sys.executable, str(Path(__file__).with_name("temperature_wheel_smoke.py"))], check=True)
+        subprocess.run([sys.executable, str(Path(__file__).with_name("i18n_smoke.py"))], check=True)

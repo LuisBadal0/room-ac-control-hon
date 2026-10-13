@@ -11,7 +11,7 @@ from room_ac_control.demo import devices
 
 
 root = tk.Tk()
-app = App(root, demo=True, enable_tray=False)
+app = App(root, demo=True, enable_tray=False,language="en")
 try:
     fixture = devices()[0]
     fixture["controls"].pop("ecoMode")

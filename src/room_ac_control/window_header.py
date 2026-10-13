@@ -1,4 +1,5 @@
 """An in-app title bar with ordinary Windows taskbar and resizing behavior."""
+from .i18n import localized
 import ctypes
 from ctypes import wintypes
 from pathlib import Path
@@ -88,7 +89,7 @@ class WindowHeader:
         self.image = image.subsample(2)
         logo = tk.Label(self.frame, image=self.image, bg=BG, bd=0)
         logo.pack(side="left", padx=(15, 8))
-        label = tk.Label(self.frame, text=title, bg=BG, fg=MUTED, font=("Segoe UI", 10), bd=0)
+        label = localized(tk.Label(self.frame, text=title, bg=BG, fg=MUTED, font=("Segoe UI", 10), bd=0))
         label.pack(side="left")
         self.close_button = self.button("×", close, hover="#9b3939")
         self.max_button = self.button("□", self.toggle_maximize) if maximize else None

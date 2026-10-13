@@ -1,6 +1,8 @@
 """Canvas artwork for the compact AC dashboard, drawn as native vectors."""
+from .i18n import tr
 import math
 import tkinter as tk
+from tkinter import font as tkfont
 from pathlib import Path
 
 BG = "#0d0f0e"
@@ -77,14 +79,16 @@ def icon(canvas, name, x, y, color=ACCENT):
                               fill="",outline=color,width=1.5,smooth=True)
 
 
-def control_card(canvas, x, y, width, label, value, glyph):
+def control_card(canvas, x, y, width, label, value, glyph, scale=1):
     """The same compact control surface on both screens."""
     surface = rounded(canvas, x, y, x+width, y+101, 12, fill=CARD, outline="")
     icon(canvas, glyph, x+25, y+24)
-    canvas.create_text(x+13, y+59, text=label, anchor="w", width=width-26,
+    value = tr(canvas,value)
+    multiline = tkfont.Font(canvas,family="Segoe UI",size=11,weight="bold").measure(value) > (width-26)*scale
+    canvas.create_text(x+13, y+(49 if multiline else 59), text=tr(canvas, label), anchor="w", width=width-26,
                        fill=MUTED, font=("Segoe UI", 9))
-    canvas.create_text(x+13, y+82, text=value, anchor="w", width=width-26,
-                       fill=TEXT, font=("Segoe UI", 11, "bold"))
+    canvas.create_text(x+13, y+(64 if multiline else 82), text=value, anchor="nw" if multiline else "w", width=width-26,
+                       fill=TEXT, font=("Segoe UI", 10 if multiline else 11, "bold"))
     return surface
 
 
@@ -100,4 +104,4 @@ def ac_art(canvas, x, y, running=False, target="23", photo=None):
         lx=x-94+n*7
         canvas.create_line(lx,y+18,lx,y+30,fill="#7e877b",width=.7)
     canvas.create_line(x-103,y-18,x+103,y-10,fill="#ffffff",width=2)
-    canvas.create_text(x+79,y-15,text=target,fill="#a1a89b",font=("Segoe UI",8))
+    canvas.create_text(x+79,y-15,text=tr(canvas, target),fill="#a1a89b",font=("Segoe UI",8))

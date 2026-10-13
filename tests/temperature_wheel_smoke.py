@@ -18,7 +18,7 @@ def descendants(widget):
 
 
 root = tk.Tk()
-app = App(root, demo=True, enable_tray=False)
+app = App(root, demo=True, enable_tray=False,language="en")
 try:
     snapshot = demo_device()
     snapshot["controls"]["tempSel"]["step"] = .5

@@ -2,6 +2,7 @@
 import time
 
 from .theme import CARD, TEXT, MUTED, GREEN
+from .i18n import tr, refresh_on_language
 
 
 def blend(color, background, strength):
@@ -23,6 +24,7 @@ class LoginLoadingAnimation:
         self.segments = []
         self.center = 0
         self.canvas.bind("<Destroy>", self.destroyed, add="+")
+        refresh_on_language(self.canvas,self.refresh_language)
 
     def start(self, automatic=False):
         if self.closed:
@@ -30,6 +32,7 @@ class LoginLoadingAnimation:
         if self.active:
             return  # One pending timer even if a sign-in request is repeated.
         self.active = True
+        self.automatic = automatic
         self.started = time.monotonic()
         self.center = self.canvas.winfo_width()/2
         x = self.center
@@ -40,13 +43,18 @@ class LoginLoadingAnimation:
                 outline=blend(GREEN, CARD, 1-index/13), tags=self.TAG))
         self.canvas.create_rectangle(x-13, 122, x+13, 137, outline=GREEN, width=1.5, tags=self.TAG)
         self.canvas.create_line(x-10, 133, x+10, 133, fill=GREEN, width=1.5, tags=self.TAG)
-        self.canvas.create_text(x, 205, text="Welcome back" if automatic else "Signing in",
+        self.heading = self.canvas.create_text(x, 205, text=tr(self.canvas,"Welcome back" if automatic else "Signing in"),
             fill=TEXT, font=("Segoe UI", 20, "bold"), tags=self.TAG)
-        self.canvas.create_text(x, 244,
-            text="Signing in with your saved account." if automatic else "Connecting to hOn and loading your AC.",
+        self.caption = self.canvas.create_text(x, 244,
+            text=tr(self.canvas,"Signing in with your saved account." if automatic else "Connecting to hOn and loading your AC."),
             fill=MUTED, font=("Segoe UI", 10), width=380, tags=self.TAG)
         self.paint()
         self.job = self.canvas.after(40, self.tick)
+
+    def refresh_language(self):
+        if self.active and not self.closed:
+            self.canvas.itemconfigure(self.heading,text=tr(self.canvas,"Welcome back" if self.automatic else "Signing in"))
+            self.canvas.itemconfigure(self.caption,text=tr(self.canvas,"Signing in with your saved account." if self.automatic else "Connecting to hOn and loading your AC."))
 
     def resize(self):
         if self.active:

@@ -6,6 +6,12 @@ Remember me is off by default. Enabling it saves your actual email and password 
 
 During manual or automatic sign-in, a rotating loading ring appears while your account connects and AC settings load. The form returns if sign-in fails, so you can retry. Closing the application stops the animation.
 
+## Choose a language
+
+The interface starts in your Windows display language: English or Portuguese (Portugal). Other system languages use English as the fallback. Click **EN** or **PT** in the window header, or **Language** in All functions, to select **System language**, **English**, or **Português (Portugal)**. The choice takes effect immediately and is saved for later launches, including after signing out.
+
+Changing language keeps your signed-in account, pending settings and open preset drafts. Account room names and model identifiers stay as supplied by hOn. Search accepts English and Portuguese labels, with or without accents. Portuguese shows decimal temperatures with a comma; command values sent to the service retain their original format. Unrecognized cloud labels remain in their original language.
+
 ## Select an AC
 
 The room card shows the active AC's name and model. Accounts with several units have a **Switch** button: choose a room tile to load its status. A single unit displays its connection status directly. Room names come from your cloud account.
