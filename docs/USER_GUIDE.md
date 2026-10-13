@@ -24,6 +24,8 @@ Animated airflow follows reported operation, with blue for cooling, amber for he
 
 **Settings** contains ordinary adjustable controls. **Everyday use** contains comfort functions and presets. **Maintenance** contains cleaning and service functions. Options are discovered from the selected AC's hOn capabilities; unavailable or unreported values are identified in the interface.
 
+**Silent mode** enables quieter AC operation. It was previously labelled **Quiet mode**. **Buzzer (Echo)** is the separate audible command-feedback setting, previously labelled **Voice / echo**; it is not voice-assistant control or Silent mode. Sleep remains a separate setting. These controls appear only when the selected AC exposes them as editable settings. Their selection cards explain the difference, and Search also finds these descriptions.
+
 Use **Search** (or **Ctrl+F**) to find settings and presets across all three sections. Results stay grouped by their section, including maintenance. Search matches names, descriptions and option names; multiple words narrow the results. **Clear** or **Escape** returns to the current section. Selecting a section also clears the search. Search pauses while a preset's detail form is open; **Back to cards** restores your results.
 
 Select a preset to inspect its options, then explicitly start it. A preset may turn the AC on and replace its configuration. Maintenance routines can interrupt current operation. Saved program preferences never start cleaning or service routines automatically.

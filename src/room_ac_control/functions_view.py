@@ -32,7 +32,8 @@ def section_items(device, section):
             group = function_group(key, label=spec["label"])
             if (section == "maintenance") != (group == "maintenance"):
                 continue
-            items.append({"kind": "setting", "key": key, "label": spec["label"], "spec": spec})
+            items.append({"kind": "setting", "key": key, "label": spec["label"], "spec": spec,
+                          "description": spec.get("description", "")})
     if section in {"everyday", "maintenance"}:
         for command, entry in device.get("commands", {}).items():
             for form in entry["forms"]:
@@ -54,7 +55,7 @@ def glyph_for(name):
     if name in {"auto","cool","dry","heat","fan","cool night","heat night"}: return mode_icon(name)
     if "fan" in name: return "fan"
     if "airflow" in name or "wind" in name: return "wind"
-    if "sleep" in name or "night" in name or "quiet" in name: return "moon"
+    if "sleep" in name or "night" in name or "quiet" in name or "silent" in name: return "moon"
     if "eco" in name or "health" in name: return "leaf"
     if "cool" in name or "mode" in name or "temp" in name: return "snow"
     return "wind"
@@ -293,7 +294,8 @@ class FunctionsView:
                     for key,value in self.app.memory.mode_values(self.app.selected,patch).items(): self.change_setting(key,value)
             else:
                 options = (airflow_choices(spec) if spec["key"] in {"windDirectionVertical","windDirectionHorizontal"}
-                           else [{"label":label,"value":value,"glyph":glyph_for(spec["label"])} for label,value in spec["options"].items()])
+                           else [{"label":label,"value":value,"glyph":glyph_for(spec["label"]),
+                                  "description":spec.get("description", "")} for label,value in spec["options"].items()])
                 current = self.setting_value(spec)
                 def selected(value):
                     patch={spec["key"]:value}

@@ -21,6 +21,7 @@ class FakeAPI:
                 "machMode": "1", "windSpeed": "3", "ecoMode": "1",
                 "silentSleepStatus": "0", "windDirectionVertical": "8", "windDirectionHorizontal": "0",
                 "rapidMode": "0", "healthMode": "0", "screenDisplayStatus": "1",
+                "muteStatus": "0", "echoStatus": "0",
             }.items()}},
             "lastConnEvent": {"category": "CONNECTED"},
         }
@@ -46,6 +47,8 @@ def make_device(power="1", accepted=True):
         "rapidMode": enum(["0", "1"]),
         "healthMode": enum(["0", "1"]),
         "screenDisplayStatus": enum(["0", "1"]),
+        "muteStatus": enum(["0", "1"]),
+        "echoStatus": enum(["0", "1"]),
     }}, device)
     device.commands["stopProgram"] = HonCommand("stopProgram", {"parameters": {
         "onOffStatus": {"typology": "fixed", "fixedValue": "0"},
@@ -69,6 +72,9 @@ class CommandTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(any(option["label"].endswith(" Night") for option in mode_choices(snapshot)))
 
     async def test_maintenance_is_classified_per_preset_and_all_variants_are_kept(self):
+        self.assertEqual(function_group("muteStatus", label="Silent mode"), "everyday")
+        self.assertEqual(function_group("echoStatus", label="Buzzer (Echo)"), "everyday")
+        self.assertEqual(function_group("selfCleaningStatus"), "maintenance")
         self.assertEqual(function_group("startProgram", "iot_dry"), "everyday")
         self.assertEqual(function_group("startProgram", "iot_health"), "everyday")
         self.assertEqual(function_group("startProgram", "iot_self_clean"), "maintenance")

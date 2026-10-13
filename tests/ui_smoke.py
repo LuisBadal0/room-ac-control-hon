@@ -75,6 +75,22 @@ if __name__ == "__main__":
     root.update_idletasks()
     assert app.dialog.winfo_exists()
     view = app.functions_view
+    view.search.set("silent mode")
+    assert any(item.get("key") == "muteStatus" and item["section"] == "settings" for item in view.visible_items)
+    silent = app.selected["controls"]["muteStatus"]
+    view.edit_setting(silent, None)
+    assert view.choice_panel.options[1]["description"] == silent["description"]
+    view.choice_panel.choose("1")
+    assert view.settings_changes["muteStatus"] == "1"
+    assert "echoStatus" not in view.settings_changes
+    view.search.set("buzzer")
+    assert {item.get("key") for item in view.visible_items} == {"echoStatus"}
+    view.edit_setting(app.selected["controls"]["echoStatus"], None)
+    view.choice_panel.choose("1")
+    assert view.settings_changes["echoStatus"] == "1"
+    assert view.settings_changes["muteStatus"] == "1"
+    assert "silentSleepStatus" not in view.settings_changes
+    view.search.set("")
     everyday = section_items(app.selected, "everyday")
     maintenance = section_items(app.selected, "maintenance")
     assert len(everyday) == 4
