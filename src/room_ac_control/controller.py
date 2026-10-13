@@ -13,9 +13,9 @@ MODES = {"0": "Auto", "1": "Cool", "2": "Dry", "3": "Dry", "4": "Heat", "5": "Fa
 FANS = {"1": "High", "2": "Medium", "3": "Low", "4": "Auto", "5": "Auto"}
 FIELDS = {
     "tempSel": "Target temperature", "machMode": "Mode", "windSpeed": "Fan speed",
-    "ecoMode": "Eco mode", "silentSleepStatus": "Sleep", "muteStatus": "Quiet mode",
+    "ecoMode": "Eco mode", "silentSleepStatus": "Sleep", "muteStatus": "Silent mode",
     "rapidMode": "Turbo / rapid mode", "healthMode": "Health / purification",
-    "screenDisplayStatus": "Unit display", "echoStatus": "Voice / echo",
+    "screenDisplayStatus": "Unit display", "echoStatus": "Buzzer (Echo)",
     "10degreeHeatingStatus": "10°C heating", "selfCleaningStatus": "Self cleaning",
     "selfCleaning56Status": "56°C self cleaning", "humanSensingStatus": "Eco pilot",
     "windDirectionHorizontal": "Horizontal airflow", "windDirectionVertical": "Vertical airflow",
@@ -27,11 +27,18 @@ VALUE_LABELS = {"machMode": MODES, "windSpeed": FANS, "windDirectionVertical": V
                 "windDirectionHorizontal": HORIZONTAL,
                 "humanSensingStatus": {"0": "Off", "1": "Avoid direct airflow", "2": "Follow person", "3": "Other"}}
 INTERNAL = {"prStr", "prCode", "program", "category", "favourite", "zoneMap"}
+CONTROL_DESCRIPTIONS = {
+    "muteStatus": "Quieter AC operation. Separate from Sleep and command sounds.",
+    "echoStatus": "Unit command-feedback buzzer setting. Separate from Silent mode.",
+}
 MAINTENANCE_TERMS = ("clean", "steriliz", "sterilis", "descal", "maintenance", "service", "diagnos", "calibrat", "reset", "filter", "test")
 
 
 def function_group(command_name, category="", label="", parameters=None):
     """Classify each preset independently; ordinary Dry/Health modes are everyday use."""
+    if command_name in FIELDS:
+        # muteStatus contains "test" across its word boundary; it is a comfort setting.
+        return "maintenance" if command_name in {"selfCleaningStatus", "selfCleaning56Status"} else "everyday"
     name = " ".join((command_name, category, label)).lower()
     if any(term in name for term in MAINTENANCE_TERMS):
         return "maintenance"
@@ -56,6 +63,8 @@ def parameter_spec(key, parameter, device, reported=True):
     spec = {"key": key, "label": readable(key), "kind": parameter.typology,
             "value": parameter.value if current is None else current,
             "reported": current is not None}
+    if key in CONTROL_DESCRIPTIONS:
+        spec["description"] = CONTROL_DESCRIPTIONS[key]
     if parameter.typology == "range":
         spec.update(min=parameter.min, max=parameter.max, step=parameter.step)
         if parameter.min == parameter.max:
