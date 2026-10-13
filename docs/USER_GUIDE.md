@@ -18,6 +18,10 @@ Airflow position icons show the louver opening progressively: Position 1 is the 
 
 The circular power control turns the unit on or off. Turning on applies the selected mode and its remembered configuration; explicit pending values override remembered ones. Each AC and mode has its own saved settings. Cool Night and Heat Night use cooling/heating with the unit's Sleep feature; selecting a standard mode disables Sleep when supported.
 
+Target-temperature editors in All functions and preset forms use number wheels. Drag upward for a higher temperature or downward for a lower one; you can also scroll, click neighbouring values, or use the Up/Down keys. Home and End select the range limits. The wheel follows the AC's allowed step, including decimal steps, and stops at either end of its range. An unknown or unsupported current value stays unset until you choose one.
+
+In the settings popup, **Set value** stages the selected temperature; **Apply changes** sends it to the AC. A preset's temperature remains a draft until you explicitly start the preset. The main dashboard keeps its temperature slider.
+
 Animated airflow follows reported operation, with blue for cooling, amber for heating, and neutral for other modes. It stops when the unit is reported off. Pending edits do not change the animation before the AC reports its status.
 
 ## All functions

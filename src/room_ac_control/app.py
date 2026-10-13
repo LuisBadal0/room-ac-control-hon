@@ -34,10 +34,16 @@ def self_test(output):
         app.connected(devices())
         root.update_idletasks()
         assert set(app.inline_timers.cards) == {"on", "off"}
+        from .temperature_wheel import TemperatureWheel
+        wheel = TemperatureWheel(root, {"min":16, "max":30, "step":.5}, 23.5)
+        assert wheel.get() == "23.5"
+        wheel.step(1)
+        assert wheel.get() == "24"
+        wheel.destroy()
         from .cloud_timers import select_timers
         timers, _ = select_timers({"scheduledPrograms": [], "scheduleRunningProgramEnd": []})
         assert all(value["due"] is None for value in timers.values())
-        result = {"ok":True,"version":__version__,"assets":True,"encryption":True,"tray":True,"mqtt":True,"timers":True,"login_animation":True}
+        result = {"ok":True,"version":__version__,"assets":True,"encryption":True,"tray":True,"mqtt":True,"timers":True,"login_animation":True,"temperature_wheel":True}
     except Exception as error:
         result = {"ok":False,"error":type(error).__name__}
     finally:
