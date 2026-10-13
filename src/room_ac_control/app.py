@@ -20,7 +20,7 @@ def self_test(output):
         from .secure_state import protect
         root = tk.Tk()
         root.withdraw()
-        app = App(root,demo=True,enable_tray=False)
+        app = App(root,demo=True,enable_tray=False,language="en")
         root.update_idletasks()
         encrypted = protect(b"offline-package-check")
         assert protect(encrypted,decrypt=True) == b"offline-package-check"
@@ -39,11 +39,17 @@ def self_test(output):
         assert wheel.get() == "23.5"
         wheel.step(1)
         assert wheel.get() == "24"
+        app.set_language("pt-PT")
+        assert app.all_button.cget("text") == "Todas as funções"
+        assert app.i18n.number("23.5") == "23,5"
+        assert wheel.get() == "24"
+        app.set_language("en")
+        assert app.all_button.cget("text") == "All functions"
         wheel.destroy()
         from .cloud_timers import select_timers
         timers, _ = select_timers({"scheduledPrograms": [], "scheduleRunningProgramEnd": []})
         assert all(value["due"] is None for value in timers.values())
-        result = {"ok":True,"version":__version__,"assets":True,"encryption":True,"tray":True,"mqtt":True,"timers":True,"login_animation":True,"temperature_wheel":True}
+        result = {"ok":True,"version":__version__,"assets":True,"encryption":True,"tray":True,"mqtt":True,"timers":True,"login_animation":True,"temperature_wheel":True,"multilingual":True}
     except Exception as error:
         result = {"ok":False,"error":type(error).__name__}
     finally:
@@ -57,6 +63,7 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description="Room AC Control for hOn")
     parser.add_argument("--preview",choices=["login","dashboard"],help="Open an offline design preview")
     parser.add_argument("--self-test",metavar="JSON_FILE",help="Write an offline runtime check report")
+    parser.add_argument("--language",choices=["system","en","pt-PT"],help="Choose the interface language for this launch")
     args = parser.parse_args(argv)
     try:
         ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("RoomACControl.Desktop")
@@ -66,7 +73,7 @@ def main(argv=None):
     if args.self_test:
         raise SystemExit(self_test(args.self_test))
     root = tk.Tk()
-    app = App(root,demo=bool(args.preview))
+    app = App(root,demo=bool(args.preview),language=args.language)
     if args.preview:
         root.title("Room AC Control for hOn · Offline preview")
         if args.preview == "dashboard":

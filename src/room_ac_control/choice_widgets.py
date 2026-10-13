@@ -1,4 +1,5 @@
 """Theme-matched tile selectors in place of native popup menus."""
+from .i18n import tr, localized, localized_title, refresh_on_language
 import tkinter as tk
 
 from .theme import BG, CARD, HOVER, TEXT, MUTED, ACCENT, rounded, icon
@@ -18,7 +19,7 @@ class ChoicePanel:
         self.parent, self.options, self.selected = parent, options, selected
         self.previous_grab = parent.grab_current()
         self.window = tk.Toplevel(parent)
-        self.window.title(title)
+        localized_title(self.window,title)
         self.window.configure(bg=BG)
         self.window.transient(parent.winfo_toplevel())
         self.window.grab_set()
@@ -29,8 +30,8 @@ class ChoicePanel:
         self.header = WindowHeader(self.window, title, self.close, maximize=False)
         body = tk.Frame(self.window, bg=BG, padx=22, pady=20)
         body.pack(fill="both", expand=True)
-        tk.Label(body, text=title, bg=BG, fg=TEXT, font=("Segoe UI", 20, "bold"), anchor="w").pack(fill="x")
-        tk.Label(body, text="Select an option", bg=BG, fg=MUTED, font=("Segoe UI", 10), anchor="w").pack(fill="x", pady=(5, 18))
+        localized(tk.Label(body, text=title, bg=BG, fg=TEXT, font=("Segoe UI", 20, "bold"), anchor="w")).pack(fill="x")
+        localized(tk.Label(body, text="Select an option", bg=BG, fg=MUTED, font=("Segoe UI", 10), anchor="w")).pack(fill="x", pady=(5, 18))
         viewport = tk.Canvas(body, bg=BG, width=456, height=min(480, ((len(options)+1)//2)*98), highlightthickness=0)
         viewport.pack(fill="x")
         grid = tk.Frame(viewport, bg=BG)
@@ -47,10 +48,11 @@ class ChoicePanel:
                 rounded(widget, 1, 1, 219, 85, 12, fill="#30372b" if hover or active else CARD, outline=ACCENT if active or hover else "", width=1)
                 glyph = "moon" if "night" in item["label"].lower() else item.get("glyph", "snow")
                 icon(widget, glyph, 23, 24)
-                widget.create_text(46, 24, text=item["label"], anchor="w", fill=TEXT, width=143, font=("Segoe UI", 12, "bold"))
-                if active: widget.create_text(197, 24, text="✓", fill=ACCENT, font=("Segoe UI", 12, "bold"))
-                widget.create_text(15, 57, text=item.get("description", ""), anchor="w", fill=MUTED, font=("Segoe UI", 9), width=192)
+                widget.create_text(46, 24, text=tr(widget, item["label"]) if item.get("translate_label",True) else item["label"], anchor="w", fill=TEXT, width=143, font=("Segoe UI", 12, "bold"))
+                if active: widget.create_text(197, 24, text=tr(widget, "✓"), fill=ACCENT, font=("Segoe UI", 12, "bold"))
+                widget.create_text(15, 57, text=tr(widget, item.get("description", "")) if item.get("translate_label",True) else item.get("description",""), anchor="w", fill=MUTED, font=("Segoe UI", 9), width=192)
             draw()
+            refresh_on_language(tile,draw)
             tile.bind("<Enter>", lambda event, draw=draw: draw(True))
             tile.bind("<Leave>", lambda event, draw=draw: draw(False))
             tile.bind("<FocusIn>", lambda event, draw=draw: draw(True))
@@ -60,8 +62,8 @@ class ChoicePanel:
             tile.bind("<space>", lambda event, value=option["value"]: self.choose(value))
             tile.bind("<MouseWheel>", lambda event: viewport.yview_scroll(-int(event.delta/120), "units"))
             self.tiles.append(tile)
-        tk.Button(body, text="Cancel", command=self.close, bg=CARD, fg=TEXT, relief="flat", padx=15, pady=8,
-                  activebackground="#30372b", activeforeground=TEXT, font=("Segoe UI", 10)).pack(anchor="e", pady=(12, 0))
+        localized(tk.Button(body, text="Cancel", command=self.close, bg=CARD, fg=TEXT, relief="flat", padx=15, pady=8,
+                  activebackground="#30372b", activeforeground=TEXT, font=("Segoe UI", 10))).pack(anchor="e", pady=(12, 0))
         self.window.update_idletasks()
         owner = parent.winfo_toplevel()
         x = max(0, owner.winfo_rootx()+(owner.winfo_width()-self.window.winfo_reqwidth())//2)
@@ -95,12 +97,13 @@ class SelectField(tk.Canvas):
         self.bind("<Leave>",lambda event:self.highlight(False))
         self.bind("<FocusIn>",lambda event:self.highlight(True))
         self.bind("<FocusOut>",lambda event:self.highlight(False))
+        refresh_on_language(self,self.draw)
         self.draw()
 
     def draw(self):
         self.delete("all")
         rounded(self, 1, 1, 235, 39, 9, fill=HOVER if self.hover else CARD, outline=ACCENT if self.hover else "#394035")
-        self.create_text(13, 20, text=self.variable.get(), anchor="w", fill=TEXT, font=("Segoe UI", 10))
+        self.create_text(13, 20, text=tr(self, self.variable.get()), anchor="w", fill=TEXT, font=("Segoe UI", 10))
 
     def highlight(self, active):
         self.hover = active

@@ -11,7 +11,7 @@ from tests.ui_smoke import demo_device
 
 root = tk.Tk()
 root.withdraw()
-app = App(root, demo=True)
+app = App(root, demo=True,language="en")
 app.connected([demo_device()])
 app.staged("tempSel", "26")
 app.staged("ecoMode", "0")

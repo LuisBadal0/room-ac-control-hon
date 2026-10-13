@@ -3,6 +3,7 @@ from decimal import Decimal, InvalidOperation
 
 from .inline_timers import NumberWheel
 from .theme import CARD, HOVER, TEXT, MUTED, ACCENT, rounded
+from .i18n import translator
 
 
 class TemperatureWheel(NumberWheel):
@@ -82,7 +83,7 @@ class TemperatureWheel(NumberWheel):
                 continue
             y = 54+offset*self.ROW_HEIGHT+self.drag_offset
             emphasis = max(0, 1-abs(y-54)/self.ROW_HEIGHT)
-            text = "—" if offset == 0 and not self.chosen else self.number(index)+"°C"
+            text = "—" if offset == 0 and not self.chosen else translator(self).number(self.number(index))+"°C"
             self.create_text(118, y, text=text,
                              fill=TEXT if emphasis >= .5 and self.enabled else MUTED,
                              font=("Segoe UI", round(11+15*emphasis), "bold" if emphasis >= .5 else "normal"))

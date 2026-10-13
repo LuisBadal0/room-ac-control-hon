@@ -1,4 +1,5 @@
 """One-time AC schedule controls embedded below the temperature slider."""
+from .i18n import tr, refresh_on_language, translator
 from datetime import datetime, timedelta
 import tkinter as tk
 
@@ -34,6 +35,7 @@ class NumberWheel(tk.Canvas):
         self.bind("<ButtonRelease-1>", self.release)
         self.bind("<FocusIn>", lambda e: self.draw())
         self.bind("<FocusOut>", lambda e: self.draw())
+        refresh_on_language(self,self.draw)
         self.draw()
 
     def step(self, amount):
@@ -111,7 +113,7 @@ class NumberWheel(tk.Canvas):
             emphasis = max(0, 1 - abs(y - 32) / self.ROW_HEIGHT)
             size = round(9 + 11 * emphasis)
             color = self.tone if emphasis >= 0.5 else MUTED
-            self.create_text(22, y, text=f"{(self.value + offset) % self.limit:02d}",
+            self.create_text(22, y, text=tr(self, f"{(self.value + offset) % self.limit:02d}"),
                              fill=color if self.enabled else MUTED,
                              font=("Segoe UI", size, "bold" if emphasis >= 0.5 else "normal"))
 
@@ -131,6 +133,7 @@ class TimerCard(tk.Canvas):
         self.bind("<Button-1>", self.click)
         self.bind("<Return>", lambda e: self.run(stop=self.active and not self.draft))
         self.bind("<space>", lambda e: self.run(stop=self.active and not self.draft))
+        refresh_on_language(self,self.draw)
         self.draw()
 
     def edited(self):
@@ -173,26 +176,26 @@ class TimerCard(tk.Canvas):
         surface = ACTIVE if self.active else CARD
         rounded(self, 1, 1, width-1, 111, 12, fill=surface, outline=GREEN if self.active else "")
         icon(self, "clock", 20, 19, GREEN if self.active else ACCENT)
-        self.create_text(40, 19, text="Start at" if self.action == "on" else "End at", anchor="w",
+        self.create_text(40, 19, text=tr(self, "Start at" if self.action == "on" else "End at"), anchor="w",
                          fill=TEXT, font=("Segoe UI", 10, "bold"))
-        self.create_text(width-13, 19, text="Once", anchor="e", fill=MUTED, font=("Segoe UI", 8))
+        self.create_text(width-13, 19, text=tr(self, "Once"), anchor="e", fill=MUTED, font=("Segoe UI", 8))
         for x, wheel in ((12, self.hour), (69, self.minute)):
             wheel.surface, wheel.tone, wheel.enabled = surface, GREEN if self.active else TEXT, not self.busy
             wheel.draw()
             self.create_window(x, 30, window=wheel, anchor="nw")
-        self.create_text(63, 63, text=":", fill=GREEN if self.active else TEXT, font=("Segoe UI", 19))
+        self.create_text(63, 63, text=tr(self, ":"), fill=GREEN if self.active else TEXT, font=("Segoe UI", 19))
         enabled = self.supported and not self.busy
         button = "Stop" if self.active and not self.draft else "Set" if self.supported else "Unavailable"
         rounded(self, width-84, 44, width-12, 76, 8,
                 fill=HOVER if self.hover and enabled else "#35513d" if self.active else BG,
                 outline=GREEN if self.active else "")
-        self.create_text(width-48, 60, text=button, fill=TEXT if enabled else MUTED,
+        self.create_text(width-48, 60, text=tr(self, button), fill=TEXT if enabled else MUTED,
                          font=("Segoe UI", 9, "bold"))
-        hint = (("Preview · " if self.preview else "Saved · ") + self.due.strftime("%a %d %b")) if self.active else "Select a time" if self.supported else self.hint or "Timers unavailable · Refresh"
-        self.create_text(13, 99, text=hint, anchor="w", fill=GREEN if self.active else MUTED, font=("Segoe UI", 8))
+        hint = (("Preview · " if self.preview else "Saved · ") + translator(self).date(self.due)) if self.active else "Select a time" if self.supported else self.hint or "Timers unavailable · Refresh"
+        self.create_text(13, 99, text=tr(self, hint), anchor="w", fill=GREEN if self.active else MUTED, font=("Segoe UI", 8))
         # An edited active timer retains an independent Stop button.
         if self.active and self.draft:
-            self.create_text(width-34, 98, text="Stop", fill=GREEN, font=("Segoe UI", 9, "bold"), tags="stop")
+            self.create_text(width-34, 98, text=tr(self, "Stop"), fill=GREEN, font=("Segoe UI", 9, "bold"), tags="stop")
             self.tag_bind("stop", "<Button-1>", lambda e: self.run(stop=True))
 
 

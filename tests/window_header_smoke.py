@@ -10,7 +10,7 @@ from room_ac_control.dashboard import App
 from tests.ui_smoke import demo_device
 
 root = tk.Tk()
-app = App(root, demo=True, enable_tray=False)
+app = App(root, demo=True, enable_tray=False,language="en")
 root.title("Room AC Control · Drag regression test")
 root.update()
 native = app.header.native

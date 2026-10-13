@@ -17,6 +17,7 @@ from .device_picker import DevicePicker
 from .diagnostics import diagnostics
 from .inline_timers import InlineTimers
 from .temperature_wheel import TemperatureWheel
+from .i18n import Translator, LANGUAGES, tr, localized, TranslatedVariable, localized_title, broadcast_language, refresh_on_language
 
 
 def equal(left, right):
@@ -27,9 +28,10 @@ def equal(left, right):
 
 
 class App:
-    def __init__(self, root, demo=False, state=None, enable_tray=True):
+    def __init__(self, root, demo=False, state=None, enable_tray=True, language=None):
         self.root, self.demo = root, demo
         self.storage = state if state is not None else SecureState(persistent=not demo)
+        self.i18n = root.i18n = Translator(self.storage.language() if language is None else language)
         self.memory = ProgramMemory(self.storage)
         self.preview_timers = {}
         self.worker = Worker(memory=self.memory)
@@ -38,7 +40,7 @@ class App:
         if enable_tray and not demo:
             try:
                 from .tray import SystemTray
-                self.tray = SystemTray()
+                self.tray = SystemTray(self.i18n)
             except Exception as error:
                 diagnostics.record("tray_start_failed", error)
         self.devices, self.selected = [], None
@@ -56,7 +58,7 @@ class App:
         root.iconbitmap(str(assets / "app.ico"))
         self.app_icon = tk.PhotoImage(master=root, file=str(assets / "app-icon.png"))
         root.iconphoto(True, self.app_icon)
-        root.title("Room AC Control for hOn" + (" · Design preview" if demo else ""))
+        localized_title(root,"Room AC Control for hOn" + (" · Design preview" if demo else ""))
         root.geometry("560x960")
         root.minsize(540, 920)
         root.configure(bg=BG)
@@ -86,6 +88,11 @@ class App:
         root.option_add("*TCombobox*Listbox.foreground",TEXT)
         from .window_header import WindowHeader
         self.header = WindowHeader(root, "Room AC Control · hOn", self.close, self.minimize_window)
+        self.language_code = tk.StringVar(root, value="PT" if self.i18n.language == "pt-PT" else "EN")
+        self.language_button = tk.Button(self.header.frame,textvariable=self.language_code,command=self.language_menu,
+                                        bg=BG,fg=ACCENT,activebackground=HOVER,activeforeground=TEXT,
+                                        relief="flat",bd=0,font=("Segoe UI",9,"bold"),padx=10,cursor="hand2")
+        self.language_button.pack(side="right",fill="y")
         self.content = ttk.Frame(root)
         self.content.pack(fill="both",expand=True)
         self.body = ttk.Frame(self.content, padding=(22,15,22,18))
@@ -101,6 +108,7 @@ class App:
         self.canvas=tk.Canvas(self.panel,bg=BG,highlightthickness=0,height=660)
         self.canvas.pack(fill="x")
         self.canvas.bind("<Configure>",lambda e:self.draw())
+        refresh_on_language(self.canvas,self.draw)
         self.canvas_hover = CanvasHover(self.canvas)
         self.airflow = AirflowAnimation(self.canvas)
         self.inline_timers = InlineTimers(self)
@@ -114,20 +122,22 @@ class App:
         controls.pack(fill="x",padx=(6,2),pady=(6,12))
         controls.columnconfigure(0,weight=1,uniform="actions")
         controls.columnconfigure(1,weight=1,uniform="actions")
-        self.apply_button=ttk.Button(controls,text="Apply changes",style="Accent.TButton",command=lambda:self.action("apply"))
+        self.apply_button=localized(ttk.Button(controls,text="Apply changes",style="Accent.TButton",command=lambda:self.action("apply")))
         self.apply_button.grid(row=0,column=0,sticky="ew",padx=(0,5))
-        self.all_button=ttk.Button(controls,text="All functions",command=self.open_functions)
+        self.all_button=localized(ttk.Button(controls,text="All functions",command=self.open_functions))
         self.all_button.grid(row=0,column=1,sticky="ew",padx=(5,0))
         footer=ttk.Frame(self.panel)
         footer.pack(fill="x",padx=(6,2))
         self.connection=tk.StringVar()
-        ttk.Label(footer,textvariable=self.connection,style="Muted.TLabel").pack(side="left")
-        self.refresh_button=ttk.Button(footer,text="↻ Refresh",command=self.refresh)
+        self.connection_display=TranslatedVariable(root,self.connection)
+        ttk.Label(footer,textvariable=self.connection_display,style="Muted.TLabel").pack(side="left")
+        self.refresh_button=localized(ttk.Button(footer,text="↻ Refresh",command=self.refresh))
         self.refresh_button.pack(side="right")
-        self.logout_button=ttk.Button(footer,text="Sign out",command=self.logout)
+        self.logout_button=localized(ttk.Button(footer,text="Sign out",command=self.logout))
         self.logout_button.pack(side="right",padx=(0,5))
         self.status=tk.StringVar(value="Sign in to connect to your air conditioner.")
-        self.status_label=ttk.Label(self.body,textvariable=self.status,wraplength=500,style="Muted.TLabel")
+        self.status_display=TranslatedVariable(root,self.status)
+        self.status_label=ttk.Label(self.body,textvariable=self.status_display,wraplength=500,style="Muted.TLabel")
         self.status_label.pack(fill="x",padx=(6,2),pady=(16,0))
         self.status_label.bind("<Configure>",lambda event:self.status_label.configure(wraplength=max(1,event.width)))
         self.root.protocol("WM_DELETE_WINDOW",self.close)
@@ -135,6 +145,22 @@ class App:
         self.root.bind("<Unmap>",self.on_minimize,add="+")
         root.after(100,self.poll)
         if not demo:root.after(200,self.auto_sign_in)
+
+    def language_menu(self, parent=None):
+        parent = parent or self.root
+        options = [{"label":"System language","value":"system","glyph":"leaf","description":"Follow Windows language"}]
+        options.extend({"label":label,"value":value,"glyph":"leaf"} for value,label in LANGUAGES.items())
+        self.language_panel = ChoicePanel(parent,"Language",options,self.i18n.preference,self.set_language)
+
+    def set_language(self, preference):
+        self.i18n.set_language(preference)
+        self.language_code.set("PT" if self.i18n.language == "pt-PT" else "EN")
+        broadcast_language(self.root)
+        if self.tray:
+            try:self.tray.refresh_language()
+            except Exception as error:diagnostics.record("tray_language_failed",error)
+        try:self.storage.save_language(self.i18n.preference)
+        except OSError:self.status.set("Language changed for this session, but the preference could not be saved.")
 
     def poll(self):
         if self.closing:return
@@ -148,7 +174,7 @@ class App:
                         callback(error)
                     else:
                         self.status.set(error)
-                        messagebox.showerror("Room AC Control",error,parent=self.root)
+                        messagebox.showerror("Room AC Control",tr(self.root,error),parent=self.root)
                 else:
                     callback(value)
         except queue.Empty:
@@ -294,10 +320,10 @@ class App:
         self.canvas_hover.reset(s,enabled=not self.busy)
         def hover(box,item,fill=CARD,outline=""):
             self.canvas_hover.add(box,item,{"fill":fill,"outline":outline}, {"fill":HOVER,"outline":ACCENT})
-        text=lambda x,y,t,size=11,color=TEXT,anchor="w",bold=False:c.create_text(x,y,text=t,fill=color,anchor=anchor,font=("Segoe UI",size,"bold" if bold else "normal"))
+        text=lambda x,y,t,size=11,color=TEXT,anchor="w",bold=False,translate=True:c.create_text(x,y,text=tr(c,t) if translate else t,fill=color,anchor=anchor,font=("Segoe UI",size,"bold" if bold else "normal"))
         hit=lambda box,fn:self.hits.append((box,fn))
         text(8,22,"♧  Room",11,MUTED)
-        text(95,22,degrees(self.selected["room"]),12,TEXT,bold=True)
+        text(95,22,self.i18n.number(degrees(self.selected["room"])),12,TEXT,bold=True)
         on=self.selected["power"]=="On"
         power=c.create_oval(469,1,513,45,fill=CARD,outline=ACCENT if on else "#394035",width=2)
         hover((469,1,513,45),power,outline=ACCENT if on else "#394035")
@@ -305,11 +331,11 @@ class App:
         c.create_line(491,8,491,22,fill=ACCENT,width=2)
         hit((469,1,513,45),lambda:self.action("off" if on else "on"))
         ac_art(c,260,95,photo=self.unit_image)
-        text(260,201,self.selected["model"],9,MUTED,"center")
+        text(260,201,self.selected["model"],9,MUTED,"center",translate=False)
         value=self.temp.get()
         try:value=f"{float(value):g}"
         except ValueError:value="—"
-        temperature = text(6,256,value,42,TEXT,bold=True)
+        temperature = text(6,256,self.i18n.number(value),42,TEXT,bold=True)
         c.itemconfigure(temperature,tags="target-temperature")
         unit = text(115,263,"°C",21,MUTED)
         c.itemconfigure(unit,tags="temperature-unit")
@@ -338,8 +364,8 @@ class App:
             tx=79+max(0,min(1,ratio))*358
             rounded(c,69,306,max(89,tx+12),348,11,fill="#777560",outline="")
             rounded(c,tx-12,308,tx+12,346,7,fill="#d8d8c9",outline="")
-            text(68,366,f"{min(values):g}°",9,MUTED)
-            text(449,366,f"{max(values):g}°",9,MUTED,"e")
+            text(68,366,self.i18n.number(f"{min(values):g}°"),9,MUTED)
+            text(449,366,self.i18n.number(f"{max(values):g}°"),9,MUTED,"e")
             hit((68,305,449,349),self.slider_from_event)
         self.inline_timers.refresh(self.selected, self.busy)
         timer_row = c.create_window(6, 382, window=self.inline_timers, anchor="nw", width=512, height=114)
@@ -348,7 +374,7 @@ class App:
         cards=[("Mode",self.mode.get(),mode_glyph,lambda:self.choice_menu("machMode")),("Fan speed",self.fan.get(),"fan",lambda:self.choice_menu("windSpeed")),("Sleep",self.toggle_label("silentSleepStatus"),"moon",lambda:self.choice_menu("silentSleepStatus")),("Airflow",self.airflow_label(),"wind",self.airflow_menu)]
         for i,(label,value,glyph,fn) in enumerate(cards):
             x=6+i*130
-            card=control_card(c,x,513,122,label,value,glyph)
+            card=control_card(c,x,513,122,label,value,glyph,s)
             if value!="Unavailable":hover((x,513,x+122,614),card)
             hit((x,513,x+122,614),fn)
         text(8,641,("●  Changes pending" if self.dirty else "●  "+self.selected["power"]),9,ACCENT if self.dirty else GREEN)
@@ -561,7 +587,7 @@ class App:
         row.pack(fill="x")
         label=spec["label"]
         value=override if override is not None else (spec["value"] if not use_reported or spec.get("reported") else "")
-        if show_label:ttk.Label(row,text=label).pack(side="left")
+        if show_label:localized(ttk.Label(row,text=label)).pack(side="left")
         if spec["kind"]=="enum":
             options=spec["options"]
             variable=tk.StringVar(value=next((k for k,v in options.items() if equal(v,value)),"Choose…"))
@@ -581,7 +607,7 @@ class App:
             getter=lambda:variable.get() or None
         widget.pack(side="right" if show_label else "top")
         if use_reported and value=="":
-            ttk.Label(parent,text="Current value not reported",style="Muted.TLabel",font=("Segoe UI",8)).pack(anchor="e")
+            localized(ttk.Label(parent,text="Current value not reported",style="Muted.TLabel",font=("Segoe UI",8))).pack(anchor="e")
         return getter,value
 
     def logout(self):
@@ -650,8 +676,8 @@ class App:
         self.status.set("An interface action failed. You can export diagnostics for troubleshooting.")
 
     def export_diagnostics(self):
-        destination=filedialog.asksaveasfilename(parent=self.root, title="Save diagnostics",
-                initialfile="room-ac-diagnostics.json", defaultextension=".json", filetypes=[("JSON report","*.json")])
+        destination=filedialog.asksaveasfilename(parent=self.root, title=tr(self.root,"Save diagnostics"),
+                initialfile="room-ac-diagnostics.json", defaultextension=".json", filetypes=[(tr(self.root,"JSON report"),"*.json")])
         if destination:
             try:diagnostics.export(Path(destination))
             except OSError:self.status.set("Could not save the diagnostic report. Choose a writable folder.")

@@ -12,7 +12,7 @@ from room_ac_control.theme import CARD
 
 root = tk.Tk()
 root.withdraw()
-app = App(root, demo=True, enable_tray=False)
+app = App(root, demo=True, enable_tray=False,language="en")
 app.connected(devices())
 root.update_idletasks()
 assert not hasattr(app, "timer_button")

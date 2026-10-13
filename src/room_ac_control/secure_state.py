@@ -91,6 +91,25 @@ class SecureState:
                 return login["email"], login["password"]
         return None
 
+    def language(self):
+        with self.lock:
+            value = self.data.get("language", "system")
+            return value if isinstance(value, str) and value in {"system", "en", "pt-PT"} else "system"
+
+    def save_language(self, value):
+        if not isinstance(value, str) or value not in {"system", "en", "pt-PT"}:
+            raise ValueError("Unsupported language")
+        with self.lock:
+            previous, dirty = self.data.get("language"), self.dirty
+            self.data["language"], self.dirty = value, True
+            try:
+                self.write()
+            except OSError:
+                if previous is None:self.data.pop("language", None)
+                else:self.data["language"] = previous
+                self.dirty = dirty
+                raise
+
     def schedules(self, account):
         with self.lock:
             accounts = self.data.get("schedules", {})

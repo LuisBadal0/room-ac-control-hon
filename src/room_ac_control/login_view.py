@@ -1,4 +1,5 @@
 """Dark welcome screen with a product hero and a contained sign-in form."""
+from .i18n import tr, localized, refresh_on_language
 import tkinter as tk
 from tkinter import ttk
 from pathlib import Path
@@ -16,6 +17,7 @@ class LoginView:
         self.hero = tk.Canvas(self.frame, height=245, bg=BG, highlightthickness=0)
         self.hero.pack(fill="x")
         self.hero.bind("<Configure>", self.draw_hero)
+        refresh_on_language(self.hero,self.draw_hero)
         self.surface = tk.Canvas(self.frame, height=378, bg=BG, highlightthickness=0)
         self.surface.pack(fill="x", pady=(0, 14))
         form = tk.Frame(self.surface, bg=CARD)
@@ -23,25 +25,25 @@ class LoginView:
         self.surface.bind("<Configure>", self.draw_card)
         self.loading = False
         self.animation = LoginLoadingAnimation(self.surface)
-        tk.Label(form, text="Welcome home", bg=CARD, fg=TEXT, font=("Segoe UI", 20, "bold")).pack(anchor="w")
-        tk.Label(form, text="Sign in with your hOn account.", bg=CARD, fg=MUTED, font=("Segoe UI", 10)).pack(anchor="w", pady=(2, 18))
+        localized(tk.Label(form, text="Welcome home", bg=CARD, fg=TEXT, font=("Segoe UI", 20, "bold"))).pack(anchor="w")
+        localized(tk.Label(form, text="Sign in with your hOn account.", bg=CARD, fg=MUTED, font=("Segoe UI", 10))).pack(anchor="w", pady=(2, 18))
         app.email = self.field(form, "Email address")
         app.password = self.field(form, "Password", password=True)
-        app.login_button = ttk.Button(form, text="Sign in  →", style="Login.Accent.TButton", command=app.connect)
+        app.login_button = localized(ttk.Button(form, text="Sign in  →", style="Login.Accent.TButton", command=app.connect))
         app.login_button.pack(fill="x", pady=(3, 11))
         app.remember_account = tk.BooleanVar(value=False)
-        ttk.Checkbutton(form, text="Remember me on this computer", style="Login.TCheckbutton", variable=app.remember_account).pack(anchor="w")
-        tk.Label(self.frame, text="Remember me saves your email and password, encrypted by Windows.\nPrograms running as your Windows user can decrypt them.",
-                 bg=BG, fg=MUTED, font=("Segoe UI", 9), wraplength=480).pack()
-        diagnostic_link = tk.Label(self.frame, text="Export diagnostics", bg=BG, fg=MUTED,
-                                   font=("Segoe UI", 9), cursor="hand2")
+        localized(ttk.Checkbutton(form, text="Remember me on this computer", style="Login.TCheckbutton", variable=app.remember_account)).pack(anchor="w")
+        localized(tk.Label(self.frame, text="Remember me saves your email and password, encrypted by Windows.\nPrograms running as your Windows user can decrypt them.",
+                 bg=BG, fg=MUTED, font=("Segoe UI", 9), wraplength=480)).pack()
+        diagnostic_link = localized(tk.Label(self.frame, text="Export diagnostics", bg=BG, fg=MUTED,
+                                   font=("Segoe UI", 9), cursor="hand2"))
         diagnostic_link.pack(pady=(5,0))
         diagnostic_link.bind("<Button-1>", lambda event: app.export_diagnostics())
         app.password.bind("<Return>", lambda event: app.connect())
         app.email.bind("<Return>", lambda event: app.password.focus_set())
 
     def field(self, parent, label, password=False):
-        tk.Label(parent, text=label, bg=CARD, fg=ACCENT, font=("Segoe UI", 9)).pack(anchor="w", pady=(0, 5))
+        localized(tk.Label(parent, text=label, bg=CARD, fg=ACCENT, font=("Segoe UI", 9))).pack(anchor="w", pady=(0, 5))
         border = tk.Frame(parent, bg="#262b26", highlightbackground="#343a32", highlightthickness=1)
         border.pack(fill="x", pady=(0, 14))
         entry = tk.Entry(border, bg="#262b26", fg=TEXT, insertbackground=ACCENT,
@@ -58,9 +60,9 @@ class LoginView:
         c.delete("all")
         center = c.winfo_width()/2
         c.create_image(center, 32, image=self.mark)
-        c.create_text(center, 85, text="Room AC Control", fill=TEXT, font=("Segoe UI", 25, "bold"))
-        c.create_text(center, 115, text="Your room. Your comfort.", fill=MUTED, font=("Segoe UI", 11))
-        c.create_text(center, 139, text="for hOn accounts · unofficial", fill=MUTED, font=("Segoe UI", 8))
+        c.create_text(center, 85, text=tr(c, "Room AC Control"), fill=TEXT, font=("Segoe UI", 25, "bold"))
+        c.create_text(center, 115, text=tr(c, "Your room. Your comfort."), fill=MUTED, font=("Segoe UI", 11))
+        c.create_text(center, 139, text=tr(c, "for hOn accounts · unofficial"), fill=MUTED, font=("Segoe UI", 8))
         ac_art(c, center, 196, photo=self.photo)
 
     def draw_card(self, event=None):
