@@ -4,6 +4,7 @@ from tkinter import ttk
 from pathlib import Path
 
 from .theme import BG, CARD, TEXT, MUTED, ACCENT, rounded, unit_photo, ac_art
+from .login_loading import LoginLoadingAnimation
 
 
 class LoginView:
@@ -12,7 +13,7 @@ class LoginView:
         self.frame = ttk.Frame(app.body)
         self.photo = unit_photo(app.root, 300)
         self.mark = tk.PhotoImage(master=app.root, file=str(Path(__file__).parent / "assets" / "app-mark.png"))
-        self.hero = tk.Canvas(self.frame, height=225, bg=BG, highlightthickness=0)
+        self.hero = tk.Canvas(self.frame, height=245, bg=BG, highlightthickness=0)
         self.hero.pack(fill="x")
         self.hero.bind("<Configure>", self.draw_hero)
         self.surface = tk.Canvas(self.frame, height=378, bg=BG, highlightthickness=0)
@@ -20,6 +21,8 @@ class LoginView:
         form = tk.Frame(self.surface, bg=CARD)
         self.form_id = self.surface.create_window(0, 20, window=form, anchor="n")
         self.surface.bind("<Configure>", self.draw_card)
+        self.loading = False
+        self.animation = LoginLoadingAnimation(self.surface)
         tk.Label(form, text="Welcome home", bg=CARD, fg=TEXT, font=("Segoe UI", 20, "bold")).pack(anchor="w")
         tk.Label(form, text="Sign in with your hOn account.", bg=CARD, fg=MUTED, font=("Segoe UI", 10)).pack(anchor="w", pady=(2, 18))
         app.email = self.field(form, "Email address")
@@ -58,7 +61,7 @@ class LoginView:
         c.create_text(center, 85, text="Room AC Control", fill=TEXT, font=("Segoe UI", 25, "bold"))
         c.create_text(center, 115, text="Your room. Your comfort.", fill=MUTED, font=("Segoe UI", 11))
         c.create_text(center, 139, text="for hOn accounts · unofficial", fill=MUTED, font=("Segoe UI", 8))
-        ac_art(c, center, 174, photo=self.photo)
+        ac_art(c, center, 196, photo=self.photo)
 
     def draw_card(self, event=None):
         c = self.surface
@@ -68,3 +71,17 @@ class LoginView:
         c.tag_lower("surface")
         c.coords(self.form_id, width/2, 20)
         c.itemconfigure(self.form_id, width=max(200, width-48))
+        self.animation.resize()
+
+    def set_loading(self, active, automatic=False):
+        self.loading = active
+        self.surface.itemconfigure(self.form_id, state="hidden" if active else "normal")
+        if active:
+            self.surface.focus_set()
+            self.animation.start(automatic)
+        else:
+            self.animation.stop()
+
+    def close(self):
+        self.loading = False
+        self.animation.close()

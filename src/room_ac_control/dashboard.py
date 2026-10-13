@@ -206,7 +206,9 @@ class App:
             self.status.set("Saved sign-in could not be decrypted. Sign in again to replace it.")
 
     def sign_in(self,email,password,automatic=False):
+        if self.closing or self.busy:return
         self.set_busy(True)
+        self.login_view.set_loading(True, automatic)
         self.status.set("Signing in with your saved account…" if automatic else "Connecting to the cloud service…")
         def done(devices):
             persistence_error=False
@@ -219,11 +221,13 @@ class App:
             self.connected(devices)
             if persistence_error:self.status.set("Connected, but Windows could not save the encrypted sign-in.")
         def failed(error):
+            self.login_view.set_loading(False)
             self.set_busy(False)
             self.status.set(("Automatic sign-in failed. " if automatic else "")+error)
         self.worker.submit(self.worker.controller.connect(email,password),done,"login",on_error=failed)
 
     def connected(self,devices):
+        self.login_view.set_loading(False)
         if self.demo and not self.memory.account:
             self.memory.use_account("preview@example.test")
         self.reset_auto()
@@ -589,6 +593,7 @@ class App:
     def close(self):
         if self.closing:return
         self.closing=True
+        self.login_view.close()
         self.reset_auto()
         self.airflow.close()
         if self.tray:
@@ -625,6 +630,9 @@ class App:
 
     def callback_failed(self, kind, error, traceback):
         diagnostics.record("ui_callback_failed", error)
+        if self.login_view.loading:
+            self.login_view.set_loading(False)
+            self.set_busy(False)
         self.status.set("An interface action failed. You can export diagnostics for troubleshooting.")
 
     def export_diagnostics(self):
