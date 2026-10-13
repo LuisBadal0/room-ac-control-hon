@@ -353,8 +353,11 @@ class FunctionsView:
         window.header = WindowHeader(window, spec["label"], close_detail, maximize=False)
         body = ttk.Frame(window, padding=22)
         body.pack(fill="both", expand=True)
-        getter, initial = self.app.field(body, spec, self.setting_value(spec), use_reported=True)
-        ttk.Label(body, text=f"Range {spec['min']:g}–{spec['max']:g} · Step {spec['step']:g}", style="Muted.TLabel").pack(anchor="w", pady=12)
+        getter, initial = self.app.field(body, spec, self.setting_value(spec), use_reported=True,
+                                         show_label=spec["key"] != "tempSel")
+        hint = (f"Drag, scroll or use ↑ ↓ · {spec['min']:g}–{spec['max']:g}°C · Step {spec['step']:g}"
+                if spec["key"] == "tempSel" else f"Range {spec['min']:g}–{spec['max']:g} · Step {spec['step']:g}")
+        ttk.Label(body, text=hint, style="Muted.TLabel").pack(anchor="w", pady=12)
         def done():
             value = getter()
             if value is not None: self.change_setting(spec["key"], value)

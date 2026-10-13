@@ -16,6 +16,7 @@ from pathlib import Path
 from .device_picker import DevicePicker
 from .diagnostics import diagnostics
 from .inline_timers import InlineTimers
+from .temperature_wheel import TemperatureWheel
 
 
 def equal(left, right):
@@ -555,12 +556,12 @@ class App:
         self.status.set("Offline timer preview only. No schedule or AC command was sent.")
         self.draw()
 
-    def field(self,parent,spec,override=None,use_reported=False):
+    def field(self,parent,spec,override=None,use_reported=False,show_label=True):
         row=ttk.Frame(parent,padding=(0,7))
         row.pack(fill="x")
         label=spec["label"]
         value=override if override is not None else (spec["value"] if not use_reported or spec.get("reported") else "")
-        ttk.Label(row,text=label).pack(side="left")
+        if show_label:ttk.Label(row,text=label).pack(side="left")
         if spec["kind"]=="enum":
             options=spec["options"]
             variable=tk.StringVar(value=next((k for k,v in options.items() if equal(v,value)),"Choose…"))
@@ -571,11 +572,14 @@ class App:
                 choices=[{"label":label,"value":label,"glyph":mode_icon(label)} for label in options]
             widget=SelectField(row,variable,options,spec["label"],choices=choices)
             getter=lambda:options.get(variable.get())
+        elif spec["key"] == "tempSel":
+            widget=TemperatureWheel(row,spec,value)
+            getter=widget.get
         else:
             variable=tk.StringVar(value=f"{float(value):g}" if value!="" else "")
             widget=ttk.Spinbox(row,textvariable=variable,from_=spec["min"],to=spec["max"],increment=spec["step"],width=20)
             getter=lambda:variable.get() or None
-        widget.pack(side="right")
+        widget.pack(side="right" if show_label else "top")
         if use_reported and value=="":
             ttk.Label(parent,text="Current value not reported",style="Muted.TLabel",font=("Segoe UI",8)).pack(anchor="e")
         return getter,value

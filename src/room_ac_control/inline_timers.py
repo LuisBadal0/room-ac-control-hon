@@ -19,6 +19,7 @@ class NumberWheel(tk.Canvas):
     """Drag the numbers vertically, or use a click, wheel or arrow key."""
     ROW_HEIGHT = 22
     DRAG_THRESHOLD = 4
+    CLICK_TOP, CLICK_BOTTOM = 22, 43
 
     def __init__(self, parent, limit, value, changed):
         super().__init__(parent, bg=CARD, width=45, height=65, highlightthickness=0, takefocus=True)
@@ -38,10 +39,13 @@ class NumberWheel(tk.Canvas):
     def step(self, amount):
         self.cancel_drag()
         if self.enabled:
-            self.value = (self.value + amount) % self.limit
+            self.value = self.normalize_value(self.value + amount)
             self.draw()
             self.changed()
         return "break"
+
+    def normalize_value(self, value):
+        return value % self.limit
 
     def cancel_drag(self):
         self.drag_state, self.drag_offset = None, 0
@@ -64,7 +68,7 @@ class NumberWheel(tk.Canvas):
         self.drag_state["moved"] = True
         steps = int(-delta / self.ROW_HEIGHT)
         self.drag_offset = delta + steps * self.ROW_HEIGHT
-        value = (self.drag_state["value"] + steps) % self.limit
+        value = self.normalize_value(self.drag_state["value"] + steps)
         if value != self.value:
             self.value = value
             self.changed()
@@ -84,13 +88,13 @@ class NumberWheel(tk.Canvas):
             delta = event.y_root - state["origin"]
             rows = -delta / self.ROW_HEIGHT
             steps = int(rows + (0.5 if rows >= 0 else -0.5))
-            value = (state["value"] + steps) % self.limit
+            value = self.normalize_value(state["value"] + steps)
             if value != self.value:
                 self.value = value
                 self.changed()
-        elif state["click_y"] < 22:
+        elif state["click_y"] < self.CLICK_TOP:
             self.step(-1)
-        elif state["click_y"] > 43:
+        elif state["click_y"] > self.CLICK_BOTTOM:
             self.step(1)
         self.draw()
         return "break"
