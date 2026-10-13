@@ -2,7 +2,7 @@
 import asyncio
 import re
 from contextlib import suppress
-from datetime import datetime, timedelta
+from datetime import datetime
 
 import aiohttp
 from pyhon.appliance import HonAppliance
@@ -187,7 +187,7 @@ def describe(device):
     }
 
 
-async def send_action(device, action, requested=None, deadline=None):
+async def send_action(device, action, requested=None):
     """Refresh first; change only explicitly selected parameters."""
     if action not in {"on", "off", "apply", "configure", "execute"}:
         raise ControlError("Unknown action.")
@@ -203,8 +203,6 @@ async def send_action(device, action, requested=None, deadline=None):
         command = device.commands.get("stopProgram")
         if command is None:
             raise ControlError("This AC does not expose a power-off command.")
-        if deadline is not None and datetime.now() > deadline:
-            raise ControlError("The timer's time was missed. No command was sent.")
         if not await command.send():
             raise ControlError("The cloud service did not accept the command. Sign in again.")
         return
@@ -231,8 +229,6 @@ async def send_action(device, action, requested=None, deadline=None):
         validate(parameter, value)
     for key, value in changes.items():
         command.settings[key].value = str(value)
-    if deadline is not None and datetime.now() > deadline:
-        raise ControlError("The timer's time was missed. No command was sent.")
     if not await command.send_specific(list(changes)):
         raise ControlError("The cloud service did not accept the command. Sign in again.")
 
@@ -289,6 +285,7 @@ class Controller:
         self.watch_task = None
         self.memory = memory
         self.active_functions = {}
+        self.cloud_timers = None
 
     def remember(self, snapshot, explicit=None):
         if self.memory:
@@ -303,6 +300,8 @@ class Controller:
         self.session = aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=35))
         try:
             self.api = await HonAPI(email, password, session=self.session).create()
+            from .cloud_timers import CloudTimers
+            self.cloud_timers = CloudTimers(self.api._hon)
             for info in await self.api.load_appliances():
                 if info.get("applianceTypeName") != "AC":
                     continue
@@ -320,7 +319,12 @@ class Controller:
                     self.remember(describe(device))
             if self.on_change:
                 self.watch_task = asyncio.create_task(self.watch_updates())
-            return [describe(device) for device in self.devices.values()]
+            snapshots = []
+            for device in self.devices.values():
+                snapshot = describe(device)
+                snapshot["timers"] = await self.timer_status(device)
+                snapshots.append(snapshot)
+            return snapshots
         except BaseException:
             await self.close()
             raise
@@ -330,6 +334,7 @@ class Controller:
         device.attributes.clear()
         await device.update(force=True)
         snapshot = describe(device)
+        snapshot["timers"] = await self.timer_status(device)
         self.remember(snapshot)
         active = self.active_functions.get(device_id)
         if active and snapshot["power"] == "On" and self.memory and active.get("group")!="maintenance":
@@ -349,20 +354,29 @@ class Controller:
                 self.active_functions.pop(device_id,None)
         return snapshot
 
-    async def timer_action(self, device_id, action, due=None):
-        if action not in {"on", "off"}:
-            raise ControlError("Unsupported timer action.")
-        requested = {}
-        if action == "on":
-            snapshot = await self.refresh(device_id)
-            if self.memory:
-                requested = self.memory.mode_values(snapshot, {})
-        deadline = datetime.fromisoformat(due) + timedelta(seconds=60) if due else None
-        return await self.action(device_id, action, requested, deadline=deadline)
+    async def timer_status(self, device):
+        if self.cloud_timers is None:
+            return {"available": False, "error": "Timers unavailable"}
+        try:
+            state, _ = await asyncio.wait_for(self.cloud_timers.read(device), timeout=10)
+            return {"available": True, "values": state}
+        except Exception as error:
+            from .diagnostics import diagnostics
+            diagnostics.record("timer_status_failed", error)
+            return {"available": False, "error": "Timers unavailable · Refresh"}
 
-    async def action(self, device_id, action, requested, deadline=None):
+    async def change_timer(self, device_id, action, due, expected=None, requested=None):
+        if self.cloud_timers is None:
+            raise ControlError("The hOn timer connection is unavailable. Sign in again.")
         device = self.devices[device_id]
-        await send_action(device, action, requested, deadline=deadline)
+        values = await self.cloud_timers.change(device, action, due, expected, requested)
+        snapshot = describe(device)
+        snapshot["timers"] = {"available": True, "values": values}
+        return snapshot
+
+    async def action(self, device_id, action, requested):
+        device = self.devices[device_id]
+        await send_action(device, action, requested)
         snapshot = describe(device)
         self.remember(snapshot,requested if action in {"on","apply","configure"} else None)
         if action == "execute" and self.memory:
@@ -421,6 +435,7 @@ class Controller:
         self.devices.clear()
         self.active_functions.clear()
         self.api = None
+        self.cloud_timers = None
         if self.session:
             await self.session.close()
             self.session = None

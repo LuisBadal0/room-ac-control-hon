@@ -27,10 +27,11 @@ def self_test(output):
         assert app.unit_image.width()>200
         from .demo import devices
         app.connected(devices())
-        app.open_timers()
         root.update_idletasks()
-        assert set(app.timer_view.fields) == {"on", "off"}
-        app.timer_view.close()
+        assert set(app.inline_timers.cards) == {"on", "off"}
+        from .cloud_timers import select_timers
+        timers, _ = select_timers({"scheduledPrograms": [], "scheduleRunningProgramEnd": []})
+        assert all(value["due"] is None for value in timers.values())
         result = {"ok":True,"version":__version__,"assets":True,"encryption":True,"tray":True,"mqtt":True,"timers":True}
     except Exception as error:
         result = {"ok":False,"error":type(error).__name__}

@@ -11,7 +11,7 @@ EVENTS = {"cloud_operation_failed", "notification_failed", "subscription_failed"
           "notification_close_failed", "tray_start_failed", "tray_show_failed",
           "tray_hide_failed", "tray_close_failed", "worker_shutdown_failed",
           "background_task_failed", "ui_callback_failed", "state_load_failed",
-          "state_save_failed", "credential_save_failed"}
+          "state_save_failed", "credential_save_failed", "timer_status_failed"}
 ERROR_TYPES = {"TimeoutError", "OSError", "PermissionError", "FileNotFoundError",
                "ConnectionError", "RuntimeError", "ValueError", "TypeError",
                "HonAuthenticationError", "NoAuthenticationException", "ControlError"}

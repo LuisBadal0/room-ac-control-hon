@@ -28,15 +28,13 @@ Select a preset to inspect its options, then explicitly start it. A preset may t
 
 ## On / off timers
 
-Open **On / off timers** in the main menu, or search for **timer** / **schedule** in All functions → Everyday use. Each AC has independent **Turn on** and **Turn off** timers. Enable either or both, enter a 24-hour time (HH:MM), choose **Every day** or **Once**, and select **Save timers**. Equal enabled on/off times are rejected. **Disable all** saves both timers as disabled. Times at or before the current time run at the next occurrence, usually tomorrow; overnight schedules are supported.
+**Start at** and **End at** are embedded directly below the temperature slider. Scroll the hour and minute numbers, use the Up/Down keys, or click the neighbouring numbers to select a time. Click **Set** to save the next occurrence of that time, today or tomorrow, using your Windows local time zone. They are one-time controls only. A confirmed active schedule appears green with a **Stop** button inside its card; editing its time retains a separate Stop action.
 
-New timers default to **Once**: they run at the next selected time, then disable automatically. Select **Every day** explicitly to repeat.
+Schedules are saved to **hOn's cloud service** and read back before success is displayed. You can switch the computer off after saving; the AC and router still need power and internet. This does not claim that a timer is stored physically inside the AC. Start at captures the selected mode, remembered configuration and pending edits, without applying them immediately. End at schedules a future power-off. Refresh also reads one-time timers created in hOn. You can change or stop a single supported timer from either app; if it changed since the last refresh, refresh again before editing it.
 
-These are PC timers, not schedules stored on the appliance. Keep Windows awake, the application running (the system tray is fine), internet access available, and the correct account signed in. Closing the app, signing out, or sleeping the PC stops dispatch. Schedules are stored alongside your encrypted preferences, separately for each account and AC, and resume after signing in again. The editor shows the next occurrence and the latest command result.
+Stopping one half of a paired timer preserves the other half. Maintenance and recurring schedules are not exposed here. If several one-time schedules overlap or the cloud returns an unfamiliar format, the affected control becomes unavailable; manage those records in hOn. A failed or timed-out request may have reached the service: refresh and check hOn before retrying. There is no automatic retry of a timer mutation.
 
-Times use the PC's local clock, including changes to its time zone. Missed occurrences more than 60 seconds late are skipped, including after sleep/restart or when another command keeps the application busy. Daily timers move to their next occurrence; one-time timers disable after execution or a missed time. Failed or timed-out commands are not automatically retried. Check the AC before retrying manually. Cloud acceptance is not confirmation of physical operation.
-
-Turning on uses the unit's freshly reported mode and its remembered configuration. Timers never apply unsaved dashboard edits, and work for all units in the signed-in account, including units not currently selected. Saving or disabling timers sends no immediate AC command. Offline previews do not execute timers.
+The previous PC scheduler is removed entirely, and old saved PC timers do not execute. Closing the application or signing out does not cancel cloud timers; use **Stop** explicitly. The offline preview uses fictional in-memory schedules and sends no requests. The cloud scheduling adapter was checked against hOn 2.30.7; future service changes may affect compatibility.
 
 ## Status and tray
 
@@ -50,4 +48,4 @@ Drag the integrated header to move the window, double-click to maximize/restore,
 
 For troubleshooting, use **Export diagnostics** on the login screen or **Diagnostics** in All functions. You choose the local JSON file; no report is automatically saved or uploaded. It contains the app version and up to 100 event times, event codes and error categories from this session. It excludes credentials, account/device names, identifiers and raw cloud responses. Review it before sharing. Report vulnerabilities through the [private security form](https://github.com/LuisBadal0/room-ac-control-hon/security/advisories/new).
 
-Login, menus and status refresh do not send AC control commands. Previously enabled timers can send commands after sign-in when their time is due. An offline preview uses fictional rooms and never loads a saved account. If a command times out, refresh and check the physical unit before retrying: cloud acceptance does not guarantee that the unit has acted.
+Login, menus, inline timer previews and status refresh do not send AC control commands. An offline preview uses fictional rooms and never loads a saved account. If a command times out, refresh and check the physical unit before retrying: cloud acceptance does not guarantee that the unit has acted.
