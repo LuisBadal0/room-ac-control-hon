@@ -48,6 +48,8 @@ Status updates through Cloud notifications with a check every 15 seconds as a ba
 
 Drag the integrated header to move the window, double-click to maximize/restore, or use its window controls. Minimize moves the app to the Windows notification area. Double-click the tray icon or choose **Open Room AC Control** to restore. **Exit** or the window's close button quits without turning the AC off.
 
+The dashboard stays centred when resized. At its minimum size, timer cards and action buttons remain aligned, and timer controls retain their full height.
+
 ## Sign out and privacy
 
 **Sign out** removes remembered credentials but retains your program preferences. Credentials and preferences are protected by Windows DPAPI in `%LOCALAPPDATA%\RoomACControl\state.dpapi`. They are separate from the application folder and are not part of a source upload or portable release.

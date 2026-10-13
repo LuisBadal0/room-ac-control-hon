@@ -96,7 +96,7 @@ class App:
         self.login_frame.pack(fill="x",pady=(5,0))
         self.panel=ttk.Frame(self.body)
         self.device_picker=DevicePicker(self.panel,self.select_device)
-        self.device_picker.pack(fill="x",pady=(0,10))
+        self.device_picker.pack(fill="x",padx=(6,2),pady=(0,10))
         self.canvas=tk.Canvas(self.panel,bg=BG,highlightthickness=0,height=660)
         self.canvas.pack(fill="x")
         self.canvas.bind("<Configure>",lambda e:self.draw())
@@ -110,13 +110,15 @@ class App:
         # Main selectors retain Tk variables for menu and keyboard support.
         self.mode,self.temp,self.fan=tk.StringVar(),tk.StringVar(),tk.StringVar()
         controls=ttk.Frame(self.panel)
-        controls.pack(fill="x",pady=(6,12))
+        controls.pack(fill="x",padx=(6,2),pady=(6,12))
+        controls.columnconfigure(0,weight=1,uniform="actions")
+        controls.columnconfigure(1,weight=1,uniform="actions")
         self.apply_button=ttk.Button(controls,text="Apply changes",style="Accent.TButton",command=lambda:self.action("apply"))
-        self.apply_button.pack(side="left",fill="x",expand=True,padx=(0,8))
+        self.apply_button.grid(row=0,column=0,sticky="ew",padx=(0,5))
         self.all_button=ttk.Button(controls,text="All functions",command=self.open_functions)
-        self.all_button.pack(side="left",fill="x",expand=True)
+        self.all_button.grid(row=0,column=1,sticky="ew",padx=(5,0))
         footer=ttk.Frame(self.panel)
-        footer.pack(fill="x")
+        footer.pack(fill="x",padx=(6,2))
         self.connection=tk.StringVar()
         ttk.Label(footer,textvariable=self.connection,style="Muted.TLabel").pack(side="left")
         self.refresh_button=ttk.Button(footer,text="↻ Refresh",command=self.refresh)
@@ -125,7 +127,8 @@ class App:
         self.logout_button.pack(side="right",padx=(0,5))
         self.status=tk.StringVar(value="Sign in to connect to your air conditioner.")
         self.status_label=ttk.Label(self.body,textvariable=self.status,wraplength=500,style="Muted.TLabel")
-        self.status_label.pack(fill="x",pady=(16,0))
+        self.status_label.pack(fill="x",padx=(6,2),pady=(16,0))
+        self.status_label.bind("<Configure>",lambda event:self.status_label.configure(wraplength=max(1,event.width)))
         self.root.protocol("WM_DELETE_WINDOW",self.close)
         self.root.report_callback_exception = self.callback_failed
         self.root.bind("<Unmap>",self.on_minimize,add="+")
@@ -305,8 +308,10 @@ class App:
         value=self.temp.get()
         try:value=f"{float(value):g}"
         except ValueError:value="—"
-        text(6,256,value,42,TEXT,bold=True)
-        text(80 if len(value)<3 else 115,263,"°C",21,MUTED)
+        temperature = text(6,256,value,42,TEXT,bold=True)
+        c.itemconfigure(temperature,tags="target-temperature")
+        unit = text(115,263,"°C",21,MUTED)
+        c.itemconfigure(unit,tags="temperature-unit")
         eco=self.selected.get("controls",{}).get("ecoMode")
         eco_card=rounded(c,283,231,515,279,13,fill=CARD,outline="")
         if eco:hover((283,231,515,279),eco_card)
@@ -336,7 +341,8 @@ class App:
             text(449,366,f"{max(values):g}°",9,MUTED,"e")
             hit((68,305,449,349),self.slider_from_event)
         self.inline_timers.refresh(self.selected, self.busy)
-        c.create_window(6, 382, window=self.inline_timers, anchor="nw", width=508*s, height=114)
+        timer_row = c.create_window(6, 382, window=self.inline_timers, anchor="nw", width=512, height=114)
+        c.itemconfigure(timer_row,tags="inline-timers")
         mode_glyph=mode_icon(self.mode.get())
         cards=[("Mode",self.mode.get(),mode_glyph,lambda:self.choice_menu("machMode")),("Fan speed",self.fan.get(),"fan",lambda:self.choice_menu("windSpeed")),("Sleep",self.toggle_label("silentSleepStatus"),"moon",lambda:self.choice_menu("silentSleepStatus")),("Airflow",self.airflow_label(),"wind",self.airflow_menu)]
         for i,(label,value,glyph,fn) in enumerate(cards):
@@ -349,6 +355,10 @@ class App:
         self.canvas_hover.add((375,621,515,659),all_link,{"fill":MUTED},{"fill":TEXT})
         hit((375,621,515,659),self.open_functions)
         if s!=1:c.scale("all",0,0,s,s)
+        # Canvas scaling also changes embedded window dimensions. Apply its final
+        # width once, while preserving the native wheels' full height.
+        c.itemconfigure(timer_row,width=round(512*s),height=114)
+        c.coords(unit,c.bbox(temperature)[2]+8,263*s)
         self.canvas.configure(height=int(660*s))
         self.airflow.set_state(self.selected,260,144,275,47,s)
         self.canvas_hover.update()

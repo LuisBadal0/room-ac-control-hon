@@ -148,7 +148,7 @@ class TimerCard(tk.Canvas):
             self.draw()
 
     def motion(self, event):
-        self.highlight(event.x >= max(self.winfo_width(), 248)-86 and event.y >= 41)
+        self.highlight(event.x >= self.card_width()-86 and event.y >= 41)
 
     def run(self, stop=False):
         if self.supported and not self.busy:
@@ -156,12 +156,16 @@ class TimerCard(tk.Canvas):
         return "break"
 
     def click(self, event):
-        if event.x >= max(self.winfo_width(), 248)-86 and 41 <= event.y <= 76:
+        if event.x >= self.card_width()-86 and 41 <= event.y <= 76:
             self.run(stop=self.active and not self.draft)
+
+    def card_width(self):
+        width = self.winfo_width()
+        return width if width > 1 else int(self.cget("width"))
 
     def draw(self):
         self.delete("all")
-        width = max(self.winfo_width(), 248)
+        width = self.card_width()
         surface = ACTIVE if self.active else CARD
         rounded(self, 1, 1, width-1, 111, 12, fill=surface, outline=GREEN if self.active else "")
         icon(self, "clock", 20, 19, GREEN if self.active else ACCENT)
@@ -198,7 +202,7 @@ class InlineTimers(tk.Frame):
         self.columnconfigure(1, weight=1, uniform="timers")
         for index, action in enumerate(("on", "off")):
             self.cards[action] = TimerCard(self, action, app.change_timer)
-            self.cards[action].grid(row=0, column=index, sticky="ew", padx=(0, 10) if not index else 0)
+            self.cards[action].grid(row=0, column=index, sticky="ew", padx=(0, 5) if not index else (5, 0))
 
     def refresh(self, snapshot, busy):
         device = snapshot["id"]
