@@ -28,7 +28,7 @@ Select a preset to inspect its options, then explicitly start it. A preset may t
 
 ## On / off timers
 
-**Start at** and **End at** are embedded directly below the temperature slider. Scroll the hour and minute numbers, use the Up/Down keys, or click the neighbouring numbers to select a time. Click **Set** to save the next occurrence of that time, today or tomorrow, using your Windows local time zone. They are one-time controls only. A confirmed active schedule appears green with a **Stop** button inside its card; editing its time retains a separate Stop action.
+**Start at** and **End at** are embedded directly below the temperature slider. Drag the hour or minute numbers up for later values, or down for earlier values; the wheel follows the pointer and snaps to the nearest number when released. You can also scroll, use the Up/Down keys, or click the neighbouring numbers. Click **Set** to save the next occurrence of that time, today or tomorrow, using your Windows local time zone. They are one-time controls only. A confirmed active schedule appears green with a **Stop** button inside its card; editing its time retains a separate Stop action.
 
 Schedules are saved to **hOn's cloud service** and read back before success is displayed. You can switch the computer off after saving; the AC and router still need power and internet. This does not claim that a timer is stored physically inside the AC. Start at captures the selected mode, remembered configuration and pending edits, without applying them immediately. End at schedules a future power-off. Refresh also reads one-time timers created in hOn. You can change or stop a single supported timer from either app; if it changed since the last refresh, refresh again before editing it.
 

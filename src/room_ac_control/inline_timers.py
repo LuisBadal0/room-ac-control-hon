@@ -16,42 +16,100 @@ def next_time(hour, minute, now=None):
 
 
 class NumberWheel(tk.Canvas):
-    """Three visible numbers; wheel/arrow keys select the central number."""
+    """Drag the numbers vertically, or use a click, wheel or arrow key."""
+    ROW_HEIGHT = 22
+    DRAG_THRESHOLD = 4
+
     def __init__(self, parent, limit, value, changed):
         super().__init__(parent, bg=CARD, width=45, height=65, highlightthickness=0, takefocus=True)
         self.limit, self.value, self.changed = limit, value, changed
         self.enabled, self.tone, self.surface = True, TEXT, CARD
+        self.drag_state, self.drag_offset = None, 0
         self.bind("<MouseWheel>", lambda e: self.step(-1 if e.delta > 0 else 1) if e.delta else None)
         self.bind("<Up>", lambda e: self.step(-1))
         self.bind("<Down>", lambda e: self.step(1))
-        self.bind("<Button-1>", self.click)
+        self.bind("<Button-1>", self.press)
+        self.bind("<B1-Motion>", self.drag)
+        self.bind("<ButtonRelease-1>", self.release)
         self.bind("<FocusIn>", lambda e: self.draw())
         self.bind("<FocusOut>", lambda e: self.draw())
         self.draw()
 
     def step(self, amount):
+        self.cancel_drag()
         if self.enabled:
             self.value = (self.value + amount) % self.limit
             self.draw()
             self.changed()
         return "break"
 
-    def click(self, event):
+    def cancel_drag(self):
+        self.drag_state, self.drag_offset = None, 0
+
+    def press(self, event):
+        self.cancel_drag()
+        if not self.enabled:
+            return "break"
         self.focus_set()
-        if event.y < 22:
+        self.drag_state = {"origin": event.y_root, "value": self.value,
+                           "click_y": event.y, "moved": False}
+        return "break"
+
+    def drag(self, event):
+        if self.drag_state is None or not self.enabled:
+            return "break"
+        delta = event.y_root - self.drag_state["origin"]
+        if abs(delta) < self.DRAG_THRESHOLD and not self.drag_state["moved"]:
+            return "break"
+        self.drag_state["moved"] = True
+        steps = int(-delta / self.ROW_HEIGHT)
+        self.drag_offset = delta + steps * self.ROW_HEIGHT
+        value = (self.drag_state["value"] + steps) % self.limit
+        if value != self.value:
+            self.value = value
+            self.changed()
+        self.draw()
+        return "break"
+
+    def release(self, event):
+        if self.drag_state is None:
+            return "break"
+        self.drag(event)  # A fast release may arrive without a final motion event.
+        state = self.drag_state
+        self.cancel_drag()
+        if not self.enabled or state is None:
+            self.draw()
+            return "break"
+        if state["moved"]:
+            delta = event.y_root - state["origin"]
+            rows = -delta / self.ROW_HEIGHT
+            steps = int(rows + (0.5 if rows >= 0 else -0.5))
+            value = (state["value"] + steps) % self.limit
+            if value != self.value:
+                self.value = value
+                self.changed()
+        elif state["click_y"] < 22:
             self.step(-1)
-        elif event.y > 43:
+        elif state["click_y"] > 43:
             self.step(1)
+        self.draw()
+        return "break"
 
     def draw(self):
+        if not self.enabled:
+            self.cancel_drag()
         self.delete("all")
-        self.configure(bg=self.surface, cursor="hand2" if self.enabled else "arrow")
+        self.configure(bg=self.surface, cursor="sb_v_double_arrow" if self.enabled else "arrow")
         if self.focus_get() is self:
             rounded(self, 1, 1, 44, 64, 7, fill="", outline=ACCENT)
-        for offset, y, size, color in ((-1, 10, 9, MUTED), (0, 32, 20, self.tone), (1, 54, 9, MUTED)):
+        for offset in range(-2, 3):
+            y = 32 + offset * self.ROW_HEIGHT + self.drag_offset
+            emphasis = max(0, 1 - abs(y - 32) / self.ROW_HEIGHT)
+            size = round(9 + 11 * emphasis)
+            color = self.tone if emphasis >= 0.5 else MUTED
             self.create_text(22, y, text=f"{(self.value + offset) % self.limit:02d}",
                              fill=color if self.enabled else MUTED,
-                             font=("Segoe UI", size, "bold" if not offset else "normal"))
+                             font=("Segoe UI", size, "bold" if emphasis >= 0.5 else "normal"))
 
 
 class TimerCard(tk.Canvas):
@@ -80,7 +138,7 @@ class TimerCard(tk.Canvas):
         self.hint, self.preview = hint, preview
         self.due = due
         self.active = due is not None and due > datetime.now()
-        if due and not self.draft:
+        if due and not self.draft and self.hour.drag_state is None and self.minute.drag_state is None:
             self.hour.value, self.minute.value = due.hour, due.minute
         self.draw()
 
@@ -147,6 +205,8 @@ class InlineTimers(tk.Frame):
         if device != self.device:
             for action, card in self.cards.items():
                 card.draft = False
+                card.hour.cancel_drag()
+                card.minute.cancel_drag()
                 card.hour.value, card.minute.value = (8 if action == "on" else 22), 0
             self.device = device
         status = self.app.preview_timers.get(device, {}) if self.app.demo else snapshot.get("timers", {}).get("values", {})

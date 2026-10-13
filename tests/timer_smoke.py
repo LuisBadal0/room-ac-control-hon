@@ -27,6 +27,18 @@ assert card.hour.value == 0
 card.minute.value = 0
 card.minute.step(-1)
 assert card.minute.value == 59
+# Pointer dragging stages a time without saving a schedule. Background status
+# repainting keeps the pointer gesture intact; device changes cancel it.
+from types import SimpleNamespace
+def pointer(y): return SimpleNamespace(y=y, y_root=300+y)
+card.hour.press(pointer(32))
+card.hour.drag(pointer(10))
+assert card.hour.value == 1
+assert card.draft
+app.show_device(app.selected, preserve_edits=True)
+assert card.hour.drag_state is not None
+card.hour.release(pointer(10))
+assert not app.preview_timers
 app.staged("tempSel", "26")
 card.run()
 assert card.active
@@ -43,8 +55,10 @@ app.change_timer("on", datetime.now() + timedelta(hours=1))
 app.show_device(app.selected, preserve_edits=True)
 assert app.inline_timers.cards["on"].active
 app.device_picker.current(1)
+app.inline_timers.cards["on"].hour.press(pointer(32))
 app.select_device()
 assert not app.inline_timers.cards["on"].active
+assert app.inline_timers.cards["on"].hour.drag_state is None
 app.set_busy(True)
 before = card.hour.value
 card.hour.step(1)
