@@ -167,3 +167,4 @@ if __name__ == "__main__":
         # Keep timer UI coverage in the existing CI UI entry point.
         import subprocess
         subprocess.run([sys.executable, str(Path(__file__).with_name("timer_smoke.py"))], check=True)
+        subprocess.run([sys.executable, str(Path(__file__).with_name("functions_scroll_smoke.py"))], check=True)

@@ -112,15 +112,18 @@ class FunctionsView:
         area = ttk.Frame(self.body)
         area.pack(fill="both", expand=True)
         self.scroll = tk.Canvas(area, bg=BG, highlightthickness=0)
-        self.bar = ttk.Scrollbar(area, orient="vertical", command=self.scroll.yview)
+        self.scrollable = False
+        self.wheel_remainder = 0
+        self.bar = ttk.Scrollbar(area, orient="vertical", command=self.scroll_to)
         self.bar.pack(side="right", fill="y")
         self.scroll.pack(side="left", fill="both", expand=True)
         self.scroll.configure(yscrollcommand=self.bar.set)
         self.inner = ttk.Frame(self.scroll)
         self.inner_id = self.scroll.create_window(0, 0, window=self.inner, anchor="nw")
-        self.inner.bind("<Configure>", lambda event: self.scroll.configure(scrollregion=self.scroll.bbox("all")))
+        self.inner.bind("<Configure>", self.update_scroll_region)
         self.scroll.bind("<Configure>", self.resize)
-        self.scroll.bind("<MouseWheel>", self.wheel)
+        # Toplevel bindtags cover cards, labels, frames and the empty canvas alike.
+        self.window.bind("<MouseWheel>", self.wheel)
         self.footer = ttk.Frame(self.body)
         self.footer.pack(fill="x", pady=(16, 0))
         self.apply_button = ttk.Button(self.footer, text="Apply changes", style="Accent.TButton", command=self.apply)
@@ -173,11 +176,42 @@ class FunctionsView:
 
     def resize(self, event):
         self.scroll.itemconfigure(self.inner_id, width=event.width)
+        self.update_scroll_region()
         for card in self.card_widgets:
             card.event_generate("<<RedrawCard>>")
 
+    def update_scroll_region(self, event=None):
+        height = max(1, self.scroll.winfo_height())
+        content_height = self.inner.winfo_reqheight()
+        self.scrollable = content_height > height
+        self.scroll.configure(scrollregion=(0, 0, self.scroll.winfo_width(), max(height, content_height)))
+        if self.scrollable:
+            if not self.bar.winfo_manager():
+                self.bar.pack(side="right", fill="y", before=self.scroll)
+        else:
+            self.scroll.yview_moveto(0)
+            self.wheel_remainder = 0
+            self.bar.pack_forget()
+
+    def scroll_to(self, *args):
+        if self.scrollable:
+            self.scroll.yview(*args)
+
     def wheel(self, event):
-        self.scroll.yview_scroll(-int(event.delta/120), "units")
+        widget = event.widget
+        if widget.winfo_class() in {"Entry", "TEntry", "Spinbox", "TSpinbox", "TCombobox", "Scale", "TScale", "Text"}:
+            return  # Editable fields keep their own wheel behavior.
+        while widget not in {self.scroll, self.bar}:
+            if widget is self.window or widget is None:
+                return  # Header, search, footer and other windows are not this list.
+            widget = widget.master
+        if self.scrollable:
+            self.wheel_remainder -= event.delta / 120
+            steps = int(self.wheel_remainder)
+            if steps:
+                self.scroll.yview_scroll(steps, "units")
+                self.wheel_remainder -= steps
+        return "break"
 
     def render_section(self):
         for child in self.inner.winfo_children(): child.destroy()
@@ -271,7 +305,6 @@ class FunctionsView:
         card.bind("<Button-1>", choose)
         card.bind("<Return>", choose)
         card.bind("<space>", choose)
-        card.bind("<MouseWheel>", self.wheel)
         self.card_widgets.append(card)
         return card
 

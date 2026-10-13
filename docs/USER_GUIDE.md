@@ -28,6 +28,8 @@ Animated airflow follows reported operation, with blue for cooling, amber for he
 
 Use **Search** (or **Ctrl+F**) to find settings and presets across all three sections. Results stay grouped by their section, including maintenance. Search matches names, descriptions and option names; multiple words narrow the results. **Clear** or **Escape** returns to the current section. Selecting a section also clears the search. Search pauses while a preset's detail form is open; **Back to cards** restores your results.
 
+Scroll anywhere inside the functions list, including the spaces between cards. The scrollbar appears only when the content exceeds the available height; shorter sections and search results stay fixed at the top. Numeric inputs in preset forms keep their own wheel behavior.
+
 Select a preset to inspect its options, then explicitly start it. A preset may turn the AC on and replace its configuration. Maintenance routines can interrupt current operation. Saved program preferences never start cleaning or service routines automatically.
 
 ## On / off timers
