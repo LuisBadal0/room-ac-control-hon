@@ -69,11 +69,8 @@ class App:
         style.configure("Muted.TLabel", foreground=MUTED)
         style.configure("TCheckbutton",background=BG,foreground=TEXT,font=("Segoe UI",10))
         style.map("TCheckbutton",background=[("active",BG)],foreground=[("disabled",MUTED)])
-        style.configure("TButton", background=CARD, foreground=TEXT, borderwidth=0, padding=(12,10), font=("Segoe UI",10))
-        style.map("TButton", background=[("disabled",CARD), ("active",HOVER)], foreground=[("disabled","#656d60")])
-        style.configure("Accent.TButton", background=ACCENT, foreground=BG)
-        style.map("Accent.TButton", background=[("disabled","#393d34"), ("active","#cbc6ad")])
-        style.configure("Login.Accent.TButton", padding=(14,12), font=("Segoe UI",11,"bold"))
+        from .button_theme import install_button_theme
+        install_button_theme(root,style)
         style.configure("Login.TCheckbutton", background=CARD, foreground=MUTED, font=("Segoe UI",9))
         style.map("Login.TCheckbutton", background=[("active",CARD)], foreground=[("active",TEXT)])
         style.configure("TCombobox", fieldbackground=CARD, background=CARD, foreground=TEXT, arrowcolor=ACCENT, padding=5)
