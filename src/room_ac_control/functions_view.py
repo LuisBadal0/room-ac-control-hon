@@ -102,9 +102,8 @@ class FunctionsView:
         self.search_entry = tk.Entry(search_bar, textvariable=self.search, bg=CARD, fg=TEXT,
                                      insertbackground=TEXT, relief="flat", font=("Segoe UI", 11))
         self.search_entry.pack(side="left", fill="x", expand=True, pady=11)
-        self.clear_search = localized(tk.Button(search_bar, text="Clear", command=lambda: self.search.set(""),
-                                      bg=CARD, fg=MUTED, activebackground=HOVER, activeforeground=TEXT,
-                                      relief="flat", font=("Segoe UI", 10), cursor="hand2", padx=12))
+        self.clear_search = localized(ttk.Button(search_bar, text="Clear", command=lambda: self.search.set(""),
+                                                 style="Card.TButton",cursor="hand2"))
         self.clear_search.pack(side="right", padx=(8, 4))
         self.search_entry.bind("<FocusIn>", lambda event: search_bar.configure(highlightbackground=ACCENT))
         self.search_entry.bind("<FocusOut>", lambda event: search_bar.configure(highlightbackground="#394035"))

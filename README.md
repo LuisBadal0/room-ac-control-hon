@@ -72,11 +72,11 @@ Runtime builds, local environments, shortcuts and account files are excluded fro
 .\tools\Build.ps1
 ```
 
-The preview uses fictional rooms and does not load saved credentials. Use `--preview login` to review the welcome screen. Add `--language pt-PT` or `--language en` to preview a specific language without changing your saved preference. `tools/Build.ps1` produces `releases/Room-AC-Control-for-hOn-0.1.12-Windows-x64.zip` and a local app-icon shortcut. The build checks bundled assets, Windows encryption, tray imports and MQTT libraries without contacting an account.
+The preview uses fictional rooms and does not load saved credentials. Use `--preview login` to review the welcome screen. Add `--language pt-PT` or `--language en` to preview a specific language without changing your saved preference. `tools/Build.ps1` produces `releases/Room-AC-Control-for-hOn-0.1.13-Windows-x64.zip` and a local app-icon shortcut. The build checks bundled assets, Windows encryption, tray imports and MQTT libraries without contacting an account.
 
 Setup and build install full hash-verified Windows dependency locks. `Setup.ps1` prepares source execution; `Build.ps1` produces the portable executable. See [build verification](docs/BUILD_VERIFICATION.md) for checksums, source manifests, optional signing and CI attestations. Binaries remain unsigned until a valid signing certificate is supplied.
 
-Windows UI checks: `tests/ui_smoke.py`, `tests/refresh_smoke.py`, `tests/desktop_smoke.py`, `tests/timer_smoke.py` (also run by ui_smoke), and `tests/window_header_smoke.py`. Active CI in `.github/workflows/windows.yml` pins actions to immutable commits, runs offline checks, and builds a portable Windows artifact for pull requests and pushes to main. Tagged releases are built and attested. Release tags should match the app version, such as `v0.1.12`.
+Windows UI checks: `tests/ui_smoke.py`, `tests/refresh_smoke.py`, `tests/desktop_smoke.py`, `tests/timer_smoke.py` (also run by ui_smoke), and `tests/window_header_smoke.py`. Active CI in `.github/workflows/windows.yml` pins actions to immutable commits, runs offline checks, and builds a portable Windows artifact for pull requests and pushes to main. Tagged releases are built and attested. Release tags should match the app version, such as `v0.1.13`.
 
 See [Contributing](CONTRIBUTING.md) and the [user guide](docs/USER_GUIDE.md) for more detail.
 

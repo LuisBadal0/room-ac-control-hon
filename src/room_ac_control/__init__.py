@@ -1,2 +1,2 @@
 """Room AC Control: a community hOn controller for Windows."""
-__version__ = "0.1.12"
+__version__ = "0.1.13"

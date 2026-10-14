@@ -1,6 +1,7 @@
 """Theme-matched tile selectors in place of native popup menus."""
 from .i18n import tr, localized, localized_title, refresh_on_language
 import tkinter as tk
+from tkinter import ttk
 
 from .theme import BG, CARD, HOVER, TEXT, MUTED, ACCENT, rounded, icon
 
@@ -62,8 +63,7 @@ class ChoicePanel:
             tile.bind("<space>", lambda event, value=option["value"]: self.choose(value))
             tile.bind("<MouseWheel>", lambda event: viewport.yview_scroll(-int(event.delta/120), "units"))
             self.tiles.append(tile)
-        localized(tk.Button(body, text="Cancel", command=self.close, bg=CARD, fg=TEXT, relief="flat", padx=15, pady=8,
-                  activebackground="#30372b", activeforeground=TEXT, font=("Segoe UI", 10))).pack(anchor="e", pady=(12, 0))
+        localized(ttk.Button(body, text="Cancel", command=self.close)).pack(anchor="e", pady=(12, 0))
         self.window.update_idletasks()
         owner = parent.winfo_toplevel()
         x = max(0, owner.winfo_rootx()+(owner.winfo_width()-self.window.winfo_reqwidth())//2)
