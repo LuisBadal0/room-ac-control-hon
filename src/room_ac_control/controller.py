@@ -1,6 +1,7 @@
 """Cloud adapter; account persistence is handled by Windows-encrypted storage."""
 import asyncio
 import re
+import time
 from contextlib import suppress
 from datetime import datetime
 
@@ -235,6 +236,10 @@ async def send_action(device, action, requested=None):
         parameter = command.settings.get(key)
         if parameter is None:
             raise ControlError("A requested control is unavailable for this AC.")
+        # hOn declares power as "fixed" on some ACs, then syncs its value to the
+        # reported state. Only this explicit ON action may override that field.
+        if action == "on" and key == "onOffStatus" and parameter.typology == "fixed" and str(parameter.value) in {"0","1"}:
+            continue
         validate(parameter, value)
     for key, value in changes.items():
         command.settings[key].value = str(value)
@@ -294,6 +299,7 @@ class Controller:
         self.watch_task = None
         self.memory = memory
         self.active_functions = {}
+        self.pending_changes = {}
         self.cloud_timers = None
 
     def remember(self, snapshot, explicit=None):
@@ -344,7 +350,9 @@ class Controller:
         await device.update(force=True)
         snapshot = describe(device)
         snapshot["timers"] = await self.timer_status(device)
-        self.remember(snapshot)
+        self.confirm_changes(snapshot)
+        if not snapshot.get("pending_changes"):
+            self.remember(snapshot)
         active = self.active_functions.get(device_id)
         if active and snapshot["power"] == "On" and self.memory and active.get("group")!="maintenance":
             from .program_memory import mode_key
@@ -362,6 +370,25 @@ class Controller:
             elif active.get("confirmed"):
                 self.active_functions.pop(device_id,None)
         return snapshot
+
+    def confirm_changes(self, snapshot):
+        pending = self.pending_changes.get(snapshot["id"])
+        if not pending:
+            return
+        controls = snapshot.get("controls", {})
+        def matches(key, value):
+            spec = controls.get(key, {})
+            if not spec.get("reported"):
+                return False
+            try:return float(spec["value"]) == float(value)
+            except (TypeError,ValueError):return str(spec["value"]) == str(value)
+        remaining = {key:value for key,value in pending["values"].items() if not matches(key,value)}
+        if not remaining or time.monotonic() >= pending["deadline"]:
+            self.pending_changes.pop(snapshot["id"],None)
+            if remaining:snapshot["confirmation_expired"] = True
+        else:
+            pending["values"] = remaining
+            snapshot["pending_changes"] = dict(remaining)
 
     async def timer_status(self, device):
         if self.cloud_timers is None:
@@ -388,6 +415,12 @@ class Controller:
         await send_action(device, action, requested)
         snapshot = describe(device)
         self.remember(snapshot,requested if action in {"on","apply","configure"} else None)
+        if action in {"on","apply","configure"} and requested:
+            previous = self.pending_changes.get(device_id,{}).get("values",{})
+            self.pending_changes[device_id] = {"values":{**previous,**{key:str(value) for key,value in requested.items() if key in snapshot["controls"]}},
+                                               "deadline":time.monotonic()+60}
+        elif action in {"off","execute"}:
+            self.pending_changes.pop(device_id,None)
         if action == "execute" and self.memory:
             command,category=requested["command"],requested.get("category","_")
             variant=device.commands[command].categories[category]
@@ -443,6 +476,7 @@ class Controller:
             self.watch_task = None
         self.devices.clear()
         self.active_functions.clear()
+        self.pending_changes.clear()
         self.api = None
         self.cloud_timers = None
         if self.session:

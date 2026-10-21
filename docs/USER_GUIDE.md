@@ -56,6 +56,8 @@ The previous PC scheduler is removed entirely, and old saved PC timers do not ex
 
 Status updates through Cloud notifications with a check every 15 seconds as a backup. You can also use **Refresh**. Automatic updates preserve staged edits and open preset forms. Changes from the phone or physical remote appear once the AC reports them to the cloud. Temporary connection failures retry automatically.
 
+After an accepted settings command, **Awaiting confirmation** keeps the values you sent visible while the cloud still reports older values. These are separate from unsent changes and are not automatically resent. Matching reports confirm them; after 60 seconds without confirmation, the next successful refresh shows the reported values with a warning. The power indicator and airflow animation continue to follow reported operation.
+
 Drag the integrated header to move the window, double-click to maximize/restore, or use its window controls. Minimize moves the app to the Windows notification area. Double-click the tray icon or choose **Open Room AC Control** to restore. **Exit** or the window's close button quits without turning the AC off.
 
 The dashboard stays centred when resized. At its minimum size, timer cards and action buttons remain aligned, and timer controls retain their full height.
