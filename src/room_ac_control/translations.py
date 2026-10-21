@@ -1,5 +1,7 @@
 """Portuguese (Portugal) catalogue. English source labels are the fallback."""
 PORTUGUESE = {
+    "Awaiting confirmation": "A aguardar confirmação",
+    "The cloud has not confirmed the changes. Showing reported status; check hOn before retrying.": "A nuvem não confirmou as alterações. É apresentado o estado comunicado; verifique o hOn antes de repetir.",
     "Language": "Idioma", "System language": "Idioma do sistema",
     "Follow Windows language": "Usar o idioma do Windows",
     "Language changed for this session, but the preference could not be saved.": "O idioma foi alterado nesta sessão, mas não foi possível guardar a preferência.",

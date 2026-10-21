@@ -79,5 +79,40 @@ app.show_device(newer, preserve_edits=True)
 old_callback(new)
 assert app.selected["room"] == 30
 
+# An accepted fan selection survives old refresh callbacks and delayed cloud
+# reports. It is separate from an unsent draft and never automatically resent.
+newer["fan"]="Auto"
+newer["controls"]["windSpeed"]["value"]=5
+app.show_device(newer)
+app.auto_refresh()
+stale=submissions[-1][0]
+app.staged("windSpeed","3.0")
+assert app.fan.get()=="Low"
+app.action("apply")
+submissions[-1][0]("Accepted offline")
+assert app.fan.get()=="Low" and app.pending_changes=={"windSpeed":"3.0"}
+assert not app.dirty and str(app.apply_button.cget("state"))=="disabled"
+stale(newer)
+assert app.fan.get()=="Low"
+waiting=copy.deepcopy(newer)
+waiting["pending_changes"]={"windSpeed":"3"}
+app.show_device(waiting,preserve_edits=True)
+assert app.fan.get()=="Low" and app.selected["fan"]=="Auto"
+app.open_functions()
+assert app.functions_view.setting_value(waiting["controls"]["windSpeed"])=="3"
+app.functions_view.close()
+app.staged("windSpeed","5")
+assert app.dirty=={"windSpeed":"5"}  # The user can explicitly replace the pending request.
+app.dirty={}
+confirmed=copy.deepcopy(newer)
+confirmed.update(fan="Low")
+confirmed["controls"]["windSpeed"]["value"]=3
+app.show_device(confirmed,preserve_edits=True)
+assert app.fan.get()=="Low" and not app.pending_changes
+expired=copy.deepcopy(newer)
+expired["confirmation_expired"]=True
+app.show_device(expired,preserve_edits=True)
+assert app.fan.get()=="Auto" and "not confirmed" in app.status.get()
+
 app.close()
 print("Automatic refresh, edit preservation, event coalescing, retry and stale-result checks passed.")

@@ -45,6 +45,7 @@ class App:
                 diagnostics.record("tray_start_failed", error)
         self.devices, self.selected = [], None
         self.busy, self.dirty = False, {}
+        self.pending_changes = {}
         self.hits = []
         self.dialog = None
         self.dialog_view = None
@@ -273,12 +274,17 @@ class App:
         self.selected=device
         self.devices[self.device_picker.current()]=device
         self.dirty=pending
-        self.mode.set(mode_label(device,pending))
-        self.fan.set(next((label for label,value in device["fans"].items() if value==pending.get("windSpeed")),device["fan"]))
-        self.temp.set(pending.get("tempSel",str(device["target"]) if device["target"] is not None else ""))
+        self.pending_changes=dict(device.get("pending_changes",{}))
+        displayed={**self.pending_changes,**pending}
+        self.mode.set(mode_label(device,displayed))
+        fan_value=displayed.get("windSpeed",device.get("controls",{}).get("windSpeed",{}).get("value"))
+        self.fan.set(next((label for label,value in device["fans"].items() if equal(value,fan_value)),device["fan"]))
+        self.temp.set(displayed.get("tempSel",str(device["target"]) if device["target"] is not None else ""))
         state=device.get("connection","Unknown")
         label="Connected" if state=="CONNECTED" else ("Disconnected" if state=="DISCONNECTED" else "Connection unknown")
         self.connection.set(f"◇ {label} · {device['fetched']}" + (" · Auto" if not self.demo else ""))
+        if device.get("confirmation_expired"):
+            self.status.set("The cloud has not confirmed the changes. Showing reported status; check hOn before retrying.")
         self.set_busy(self.busy if preserve_edits else False)
         if self.dialog and self.dialog.winfo_exists():
             self.dialog_view.refresh_status()
@@ -288,22 +294,24 @@ class App:
             self.reset_auto()
             self.selected=self.devices[self.device_picker.current()]
             self.dirty={}
+            self.pending_changes={}
             self.refresh()
 
     def staged(self,key,value):
         if self.busy:return
         spec=self.selected.get("controls",{}).get(key)
-        if spec and spec.get("reported") and equal(value,spec["value"]):
+        if spec and spec.get("reported") and equal(value,self.pending_changes.get(key,spec["value"])):
             self.dirty.pop(key,None)
         else:self.dirty[key]=str(value)
-        if key in {"machMode","silentSleepStatus"}:self.mode.set(mode_label(self.selected,self.dirty))
-        if key=="windSpeed":self.fan.set(next((label for label,v in self.selected["fans"].items() if v==str(value)),"Other"))
+        if key in {"machMode","silentSleepStatus"}:self.mode.set(mode_label(self.selected,{**self.pending_changes,**self.dirty}))
+        if key=="windSpeed":self.fan.set(next((label for label,v in self.selected["fans"].items() if equal(v,value)),"Other"))
         if key=="tempSel":self.temp.set(str(value))
         self.status.set("Changes ready. Apply them, or use the power button to turn on." if self.dirty else "No pending changes.")
         self.set_busy(False)
 
     def current(self,key):
         if key in self.dirty:return self.dirty[key]
+        if key in self.pending_changes:return self.pending_changes[key]
         spec=self.selected.get("controls",{}).get(key)
         return spec.get("value") if spec and spec.get("reported") else None
 
@@ -374,7 +382,7 @@ class App:
             card=control_card(c,x,513,122,label,value,glyph,s)
             if value!="Unavailable":hover((x,513,x+122,614),card)
             hit((x,513,x+122,614),fn)
-        text(8,641,("●  Changes pending" if self.dirty else "●  "+self.selected["power"]),9,ACCENT if self.dirty else GREEN)
+        text(8,641,("●  Changes pending" if self.dirty else "●  Awaiting confirmation" if self.pending_changes else "●  "+self.selected["power"]),9,ACCENT if self.dirty or self.pending_changes else GREEN)
         all_link=text(510,641,"All functions  ↗",10,MUTED,"e")
         self.canvas_hover.add((375,621,515,659),all_link,{"fill":MUTED},{"fill":TEXT})
         hit((375,621,515,659),self.open_functions)
@@ -476,7 +484,8 @@ class App:
         self.status.set("Refreshing reported AC status…")
         def done(device):
             self.show_device(device,preserve_edits=True)
-            self.status.set("Status retrieved from the cloud service.")
+            if not device.get("confirmation_expired"):
+                self.status.set("Status retrieved from the cloud service.")
             self.schedule_auto()
         self.worker.submit(self.worker.controller.refresh(self.selected["id"]),done,"refresh")
 
@@ -530,12 +539,21 @@ class App:
         if requested is None:requested={} if action=="off" else dict(self.dirty)
         if action=="on":requested=self.memory.mode_values(self.selected,requested)
         if action=="apply":action="configure"
+        # Results requested before this command must not overwrite its selection.
+        self.refresh_epoch+=1
+        self.auto_inflight=False
         self.set_busy(True)
         self.status.set("Sending changes to the cloud service…")
         def done(text):
+            if action in {"on","configure"}:
+                self.pending_changes.update({key:str(value) for key,value in requested.items() if key in self.selected.get("controls",{})})
+            else:self.pending_changes={}
             self.dirty={}
-            self.status.set(text)
             self.set_busy(False)
+            device={**self.selected,"pending_changes":dict(self.pending_changes)}
+            device.pop("confirmation_expired",None)
+            self.show_device(device,preserve_edits=True)
+            self.status.set(text)
             # Allow the unit time to acknowledge; do not present optimistic state as confirmed.
             self.schedule_auto(12000)
         self.worker.submit(self.worker.controller.action(self.selected["id"],action,requested),done,"command")

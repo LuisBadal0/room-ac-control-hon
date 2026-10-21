@@ -262,6 +262,7 @@ class FunctionsView:
         key = spec["key"]
         spec = self.app.selected.get("controls", {}).get(key, spec)
         if key in self.settings_changes: return self.settings_changes[key]
+        if key in self.app.pending_changes: return self.app.pending_changes[key]
         return spec["value"] if spec.get("reported") else None
 
     def refresh_status(self):
