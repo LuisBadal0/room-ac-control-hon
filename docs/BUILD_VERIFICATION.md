@@ -39,14 +39,18 @@ publisher or prove correspondence to the source. Inspect the executable with
 `.github/workflows/windows.yml` is the active Windows CI workflow. It runs
 offline tests, UI checks and portable packaging for pull requests and pushes to
 `main`. The workflow uses immutable action commit IDs, hash-verified installs,
-and read-only permissions for PR builds. Only tag releases use temporary write
-permissions for attestations and release assets. Editing workflows through the
+and read-only permissions for PR builds. Only the release job, which runs after
+pushes to `main` and version tags, uses temporary write permissions for
+attestations and release assets. Editing workflows through the
 CLI requires a credential permitted to manage them; the GitHub web editor is
 also supported. No credentials or signing secrets are stored in the workflow.
 
-After merge, push a version tag matching the app's version to
-build and attest a release. Existing published assets are retained; they are
-not retroactively attested or replaced. For a newly attested ZIP:
+Releases are automatic: when a merge to `main` carries an app version with no
+release yet, CI builds, attests and publishes `v<version>` with the ZIP and
+`SHA256SUMS.txt`. Bump the version in the PR to release it; merges that keep the
+current version only build. Pushing a matching `v<version>` tag also works.
+Existing published assets are retained; they are not retroactively attested or
+replaced. For a newly attested ZIP:
 
 ```powershell
 gh attestation verify .\Room-AC-Control-for-hOn-<version>-Windows-x64.zip --repo LuisBadal0/room-ac-control-hon
