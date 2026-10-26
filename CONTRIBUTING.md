@@ -6,7 +6,7 @@ Run `.venv\Scripts\python.exe -m unittest discover -s tests -v` before submittin
 
 Keep cloud work on the worker thread and UI changes on Tk's main thread. Preserve reported state separately from pending edits. Preview mode, login and status refresh must not send AC commands. Validate saved settings against current device capabilities before applying them.
 
-For a portable release run `tools/Build.ps1`. Inspect the app, the runtime self-test report and the ZIP before publishing. Include generated dependency notices and the complete runtime folder.
+For a local portable build run `tools/Build.ps1` and inspect the app, the runtime self-test report and the ZIP. CI publishes releases: merging a pull request that bumps the version releases `v<version>`. Bump `pyproject.toml`, `src/room_ac_control/__init__.py`, `packaging/version_info.txt` and the README together; `tests/test_version.py` checks they match.
 
 Use the hash-verified setup/build scripts rather than unverified `pip install -e .`.
 Dependency changes must update all transitive pins and approved wheel hashes in

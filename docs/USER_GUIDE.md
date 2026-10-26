@@ -1,6 +1,6 @@
 # Using Room AC Control
 
-Launch with **Start Room AC Control.cmd** or the local app-icon shortcut. Sign in using the cloud account email/password account that already controls the AC on your phone. **Remember me on this computer** enables encrypted automatic sign-in after the first successful login.
+Launch with **Start Room AC Control.cmd** or the local app-icon shortcut. Sign in using the hOn email/password account that already controls the AC on your phone. **Remember me on this computer** enables encrypted automatic sign-in after the first successful login.
 
 Remember me is off by default. Enabling it saves your actual email and password using Windows encryption; other programs running as your Windows user can decrypt them. Existing remembered accounts retain their previous choice. Your password is passed to pyhOn for authentication.
 
