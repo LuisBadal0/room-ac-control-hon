@@ -6,7 +6,7 @@ from pathlib import Path
 import sys
 import tkinter as tk
 
-from .theme import BG, CARD, TEXT, MUTED
+from .theme import C, font, icon, paint, refresh_on_theme
 
 
 class WindowsFrame:
@@ -44,13 +44,19 @@ class WindowsFrame:
                 raise ctypes.WinError(ctypes.get_last_error())
             # Recalculate the non-client region without moving or hiding the window.
             self.user.SetWindowPos(self.hwnd, None, 0, 0, 0, 0, 0x0027)
+        self.apply_colors()
+
+    def apply_colors(self):
+        if not self.hwnd:
+            return
         try:
             dwm = ctypes.WinDLL("dwmapi")
             dwm.DwmSetWindowAttribute.argtypes = [wintypes.HWND, wintypes.DWORD, ctypes.c_void_p, wintypes.DWORD]
-            dark = ctypes.c_int(1)
+            dark = ctypes.c_int(1 if C.mode == "dark" else 0)
             dwm.DwmSetWindowAttribute(self.hwnd, 20, ctypes.byref(dark), ctypes.sizeof(dark))
-            # COLORREF for the existing dark-green background, including resize edges.
-            border = ctypes.c_uint(0x000e0f0d)
+            # COLORREF (0x00BBGGRR) of the page background, including resize edges.
+            red, green, blue = (int(C.BG[index:index+2], 16) for index in (1, 3, 5))
+            border = ctypes.c_uint(blue << 16 | green << 8 | red)
             dwm.DwmSetWindowAttribute(self.hwnd, 34, ctypes.byref(border), ctypes.sizeof(border))
         except OSError:
             pass
@@ -82,16 +88,16 @@ class WindowHeader:
         self.drag_job = None
         self.maximized = None
         self.native = WindowsFrame(window) if sys.platform == "win32" else None
-        self.frame = tk.Frame(window, bg=BG, height=40)
+        self.frame = paint(tk.Frame(window, height=40), bg="BG")
         self.frame.pack(side="top", fill="x")
         self.frame.pack_propagate(False)
         image = tk.PhotoImage(master=window, file=str(Path(__file__).parent / "assets" / "app-mark.png"))
         self.image = image.subsample(2)
-        logo = tk.Label(self.frame, image=self.image, bg=BG, bd=0)
+        logo = paint(tk.Label(self.frame, image=self.image, bd=0), bg="BG")
         logo.pack(side="left", padx=(15, 8))
-        label = localized(tk.Label(self.frame, text=title, bg=BG, fg=MUTED, font=("Segoe UI", 10), bd=0))
+        label = localized(paint(tk.Label(self.frame, text=title, font=font(10), bd=0), bg="BG", fg="MUTED"))
         label.pack(side="left")
-        self.close_button = self.button("×", close, hover="#9b3939")
+        self.close_button = self.button("×", close, hover="CLOSE_HOVER")
         self.max_button = self.button("□", self.toggle_maximize) if maximize else None
         self.min_button = self.button("−", minimize) if minimize else None
         for target in (self.frame, label, logo):
@@ -105,14 +111,16 @@ class WindowHeader:
         window.bind("<Destroy>", self.destroyed, add="+")
         if self.native:
             window.after_idle(self.apply_frame)
+            refresh_on_theme(self.frame, self.native.apply_colors)
 
-    def button(self, text, command, hover=CARD):
-        button = tk.Button(self.frame, text=text, command=command, bg=BG, fg=TEXT,
-                           activebackground=hover, activeforeground=TEXT, bd=0, relief="flat",
-                           font=("Segoe UI", 15), width=3, takefocus=True, cursor="hand2")
+    def button(self, text, command, hover="SURFACE"):
+        button = tk.Button(self.frame, text=text, command=command, bd=0, relief="flat",
+                           font=("Segoe UI", 14), width=3, takefocus=True, cursor="hand2")
+        foreground = "ON_DANGER" if hover == "CLOSE_HOVER" else "TEXT"
+        paint(button, bg="BG", fg="TEXT", activebackground=hover, activeforeground=foreground)
         button.pack(side="right", fill="y")
-        button.bind("<Enter>", lambda event: button.configure(bg=hover))
-        button.bind("<Leave>", lambda event: button.configure(bg=BG))
+        button.bind("<Enter>", lambda event: button.configure(bg=getattr(C, hover), fg=getattr(C, foreground)))
+        button.bind("<Leave>", lambda event: button.configure(bg=C.BG, fg=C.TEXT))
         return button
 
     def apply_frame(self):
@@ -183,3 +191,27 @@ class WindowHeader:
 
     def toggle_maximize(self):
         self.window.state("normal" if self.window.state() == "zoomed" else "zoomed")
+
+
+class HeaderIconButton(tk.Canvas):
+    """A 40 px title-bar control drawn with the shared stroke icons."""
+    def __init__(self, parent, glyph, command):
+        super().__init__(parent, width=40, height=40, highlightthickness=0, takefocus=True, cursor="hand2")
+        self.glyph, self.command, self.hover = glyph, command, False
+        self.bind("<Button-1>", lambda event: self.command())
+        self.bind("<Return>", lambda event: self.command())
+        self.bind("<space>", lambda event: self.command())
+        self.bind("<Enter>", lambda event: self.highlight(True))
+        self.bind("<Leave>", lambda event: self.highlight(False))
+        refresh_on_theme(self, self.draw)
+        self.draw()
+
+    def highlight(self, value):
+        self.hover = value
+        self.draw()
+
+    def draw(self):
+        self.delete("all")
+        background = C.SURFACE if self.hover else C.BG
+        self.configure(bg=background)
+        icon(self, self.glyph, 20, 20, C.TEXT, scale=.75, bg=background)

@@ -46,7 +46,7 @@ try:
     assert app.selected==original and app.dirty=={"tempSel":"26.5"}
     assert app.temp.get()=="26.5" and app.mode.get()=="Cool"
     assert app.canvas.itemcget(app.canvas.find_withtag("target-temperature")[0],"text")=="26,5"
-    assert app.apply_button.cget("text")=="Aplicar alterações"
+    assert app.apply_button.cget("text")=="Aplicar alterações (1)"  # One staged change is counted.
     root.geometry("540x920")
     app.staged("silentSleepStatus","1")
     root.update()
@@ -54,7 +54,9 @@ try:
     assert app.canvas.bbox(texts["Modo"])[3] < app.canvas.bbox(texts["Arrefecer à noite"])[1]
     assert app.status_label.winfo_y()+app.status_label.winfo_height() <= app.body.winfo_height()
     for timer in app.inline_timers.cards.values():
-        assert timer.bbox("all")[2] <= timer.winfo_width()
+        # Portuguese labels stay inside; outlined polygons report one extra pixel.
+        assert all(timer.bbox(item)[2] <= timer.winfo_width() + (1 if timer.type(item) == "polygon" else 0)
+                   for item in timer.find_all() if timer.bbox(item))
     app.staged("silentSleepStatus","0")
     device_text=[app.device_picker.itemcget(item,"text") for item in app.device_picker.find_all() if app.device_picker.type(item)=="text"]
     assert "Cool" in device_text and "Heat" in device_text  # Account names are never translated.
