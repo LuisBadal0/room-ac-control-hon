@@ -110,6 +110,25 @@ class SecureState:
                 self.dirty = dirty
                 raise
 
+    def theme(self):
+        with self.lock:
+            value = self.data.get("theme", "system")
+            return value if isinstance(value, str) and value in {"system", "light", "dark"} else "system"
+
+    def save_theme(self, value):
+        if not isinstance(value, str) or value not in {"system", "light", "dark"}:
+            raise ValueError("Unsupported theme")
+        with self.lock:
+            previous, dirty = self.data.get("theme"), self.dirty
+            self.data["theme"], self.dirty = value, True
+            try:
+                self.write()
+            except OSError:
+                if previous is None:self.data.pop("theme", None)
+                else:self.data["theme"] = previous
+                self.dirty = dirty
+                raise
+
     def schedules(self, account):
         with self.lock:
             accounts = self.data.get("schedules", {})

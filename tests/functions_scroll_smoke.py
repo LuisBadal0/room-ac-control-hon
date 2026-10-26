@@ -24,7 +24,7 @@ try:
     app.connected([snapshot])
     app.open_functions()
     view = app.functions_view
-    view.window.geometry("740x900")
+    view.window.geometry("740x760")  # The compact header leaves more room for cards.
     root.update()
 
     def wheel(widget, delta=-120):

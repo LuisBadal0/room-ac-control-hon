@@ -7,8 +7,7 @@ import tkinter as tk
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from room_ac_control.dashboard import App
 from room_ac_control.demo import devices
-from room_ac_control.inline_timers import ACTIVE
-from room_ac_control.theme import CARD
+from room_ac_control.theme import C
 
 root = tk.Tk()
 root.withdraw()
@@ -42,14 +41,14 @@ assert not app.preview_timers
 app.staged("tempSel", "26")
 card.run()
 assert card.active
-assert card.hour.surface == ACTIVE
+assert card.hour.surface == C.SOFT and card.hour.pill == C.CARD
 assert app.preview_timers[app.selected["id"]]["off"] is not None
 assert app.dirty == {"tempSel": "26"}
 card.hour.step(1)
 assert card.draft
 card.run(stop=True)
 assert not card.active
-assert card.hour.surface == CARD
+assert card.hour.surface == C.CARD and card.hour.pill == C.SURFACE
 assert app.preview_timers[app.selected["id"]]["off"] is None
 app.change_timer("on", datetime.now() + timedelta(hours=1))
 app.show_device(app.selected, preserve_edits=True)
@@ -88,7 +87,7 @@ new["timers"] = {"available": True, "values": {
 app.show_device(new, preserve_edits=True)
 assert app.inline_timers.cards["on"].active
 assert app.inline_timers.cards["on"].supported
-assert app.inline_timers.cards["on"].hour.surface == ACTIVE
+assert app.inline_timers.cards["on"].hour.surface == C.SOFT
 callbacks = []
 def native_submit(coroutine, callback, operation, on_error=None):
     coroutine.close()

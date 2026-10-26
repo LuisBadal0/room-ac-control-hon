@@ -3,9 +3,7 @@ from .i18n import tr, refresh_on_language, translator
 from datetime import datetime, timedelta
 import tkinter as tk
 
-from .theme import BG, CARD, HOVER, TEXT, MUTED, ACCENT, GREEN, rounded, icon
-
-ACTIVE = "#25392d"
+from .theme import C, font, rounded, icon, measure, refresh_on_theme
 
 
 def next_time(hour, minute, now=None):
@@ -18,14 +16,14 @@ def next_time(hour, minute, now=None):
 
 class NumberWheel(tk.Canvas):
     """Drag the numbers vertically, or use a click, wheel or arrow key."""
-    ROW_HEIGHT = 22
+    ROW_HEIGHT = 26
     DRAG_THRESHOLD = 4
-    CLICK_TOP, CLICK_BOTTOM = 22, 43
+    CLICK_TOP, CLICK_BOTTOM = 16, 52
 
     def __init__(self, parent, limit, value, changed):
-        super().__init__(parent, bg=CARD, width=45, height=65, highlightthickness=0, takefocus=True)
+        super().__init__(parent, bg=C.CARD, width=48, height=68, highlightthickness=0, takefocus=True)
         self.limit, self.value, self.changed = limit, value, changed
-        self.enabled, self.tone, self.surface = True, TEXT, CARD
+        self.enabled, self.tone, self.surface, self.pill = True, C.TEXT, C.CARD, C.SURFACE
         self.drag_state, self.drag_offset = None, 0
         self.bind("<MouseWheel>", lambda e: self.step(-1 if e.delta > 0 else 1) if e.delta else None)
         self.bind("<Up>", lambda e: self.step(-1))
@@ -36,6 +34,7 @@ class NumberWheel(tk.Canvas):
         self.bind("<FocusIn>", lambda e: self.draw())
         self.bind("<FocusOut>", lambda e: self.draw())
         refresh_on_language(self,self.draw)
+        refresh_on_theme(self,self.draw)
         self.draw()
 
     def step(self, amount):
@@ -106,21 +105,25 @@ class NumberWheel(tk.Canvas):
             self.cancel_drag()
         self.delete("all")
         self.configure(bg=self.surface, cursor="sb_v_double_arrow" if self.enabled else "arrow")
-        if self.focus_get() is self:
-            rounded(self, 1, 1, 44, 64, 7, fill="", outline=ACCENT)
+        focused = self.focus_get() is self
+        rounded(self, 1, 16, 47, 52, 6, fill=self.pill, outline=C.BRAND if focused else "", width=1.5)
         for offset in range(-2, 3):
-            y = 32 + offset * self.ROW_HEIGHT + self.drag_offset
-            emphasis = max(0, 1 - abs(y - 32) / self.ROW_HEIGHT)
-            size = round(9 + 11 * emphasis)
-            color = self.tone if emphasis >= 0.5 else MUTED
-            self.create_text(22, y, text=tr(self, f"{(self.value + offset) % self.limit:02d}"),
-                             fill=color if self.enabled else MUTED,
-                             font=("Segoe UI", size, "bold" if emphasis >= 0.5 else "normal"))
+            y = 34 + offset * self.ROW_HEIGHT + self.drag_offset
+            emphasis = max(0, 1 - abs(y - 34) / self.ROW_HEIGHT)
+            color = self.tone if emphasis >= 0.5 and self.enabled else self.faint
+            self.create_text(24, y, text=tr(self, f"{(self.value + offset) % self.limit:02d}"), fill=color,
+                             font=font(round(9 + 8 * emphasis), "black" if emphasis >= 0.5 else "normal"))
+
+    @property
+    def faint(self):
+        return C.ON_SOFT if self.surface == C.SOFT else C.FAINT
 
 
 class TimerCard(tk.Canvas):
+    HEIGHT = 138
+
     def __init__(self, parent, action, changed):
-        super().__init__(parent, width=248, height=112, bg=BG, highlightthickness=0, takefocus=True)
+        super().__init__(parent, width=248, height=self.HEIGHT, highlightthickness=0, takefocus=True)
         self.action, self.changed = action, changed
         self.active, self.supported, self.busy, self.draft = False, False, False, False
         self.hover, self.due = False, None
@@ -134,6 +137,7 @@ class TimerCard(tk.Canvas):
         self.bind("<Return>", lambda e: self.run(stop=self.active and not self.draft))
         self.bind("<space>", lambda e: self.run(stop=self.active and not self.draft))
         refresh_on_language(self,self.draw)
+        refresh_on_theme(self,self.draw)
         self.draw()
 
     def edited(self):
@@ -154,8 +158,11 @@ class TimerCard(tk.Canvas):
             self.hover = value
             self.draw()
 
+    def in_button(self, x, y):
+        return x >= self.card_width()-86 and 50 <= y <= 94
+
     def motion(self, event):
-        self.highlight(event.x >= self.card_width()-86 and event.y >= 41)
+        self.highlight(self.in_button(event.x, event.y))
 
     def run(self, stop=False):
         if self.supported and not self.busy:
@@ -163,7 +170,7 @@ class TimerCard(tk.Canvas):
         return "break"
 
     def click(self, event):
-        if event.x >= self.card_width()-86 and 41 <= event.y <= 76:
+        if self.in_button(event.x, event.y):
             self.run(stop=self.active and not self.draft)
 
     def card_width(self):
@@ -172,36 +179,50 @@ class TimerCard(tk.Canvas):
 
     def draw(self):
         self.delete("all")
+        self.configure(bg=C.BG)
         width = self.card_width()
-        surface = ACTIVE if self.active else CARD
-        rounded(self, 1, 1, width-1, 111, 12, fill=surface, outline=GREEN if self.active else "")
-        icon(self, "clock", 20, 19, GREEN if self.active else ACCENT)
-        self.create_text(40, 19, text=tr(self, "Start at" if self.action == "on" else "End at"), anchor="w",
-                         fill=TEXT, font=("Segoe UI", 10, "bold"))
-        self.create_text(width-13, 19, text=tr(self, "Once"), anchor="e", fill=MUTED, font=("Segoe UI", 8))
-        for x, wheel in ((12, self.hour), (69, self.minute)):
-            wheel.surface, wheel.tone, wheel.enabled = surface, GREEN if self.active else TEXT, not self.busy
+        active = self.active
+        surface = C.SOFT if active else C.CARD
+        ink = C.ON_SOFT if active else C.TEXT
+        rounded(self, 1, 1, width-1, self.HEIGHT-1, 12, fill=surface, outline=C.BRAND if active else C.EDGE)
+        icon(self, "clock", 24, 23, C.ON_SOFT if active else C.MUTED, scale=.78, bg=surface)
+        self.create_text(40, 23, text=tr(self, "Start at" if self.action == "on" else "End at"), anchor="w",
+                         fill=ink, font=font(10, "bold"))
+        once = tr(self, "Once")
+        chip = measure(self, once, 8, "bold")
+        rounded(self, width-26-chip, 12, width-12, 34, 10, fill=C.CARD if active else C.SURFACE, outline="")
+        self.create_text(width-19, 23, text=once, anchor="e", fill=C.TEXT, font=font(8, "bold"))
+        for x, wheel in ((14, self.hour), (76, self.minute)):
+            wheel.surface, wheel.pill = surface, (C.CARD if active else C.SURFACE)
+            wheel.tone, wheel.enabled = C.TEXT, not self.busy
             wheel.draw()
-            self.create_window(x, 30, window=wheel, anchor="nw")
-        self.create_text(63, 63, text=tr(self, ":"), fill=GREEN if self.active else TEXT, font=("Segoe UI", 19))
+            self.create_window(x, 38, window=wheel, anchor="nw")
+        self.create_text(69, 70, text=":", fill=ink, font=font(16, "black"))
         enabled = self.supported and not self.busy
-        button = "Stop" if self.active and not self.draft else "Set" if self.supported else "Unavailable"
-        rounded(self, width-84, 44, width-12, 76, 8,
-                fill=HOVER if self.hover and enabled else "#35513d" if self.active else BG,
-                outline=GREEN if self.active else "")
-        self.create_text(width-48, 60, text=tr(self, button), fill=TEXT if enabled else MUTED,
-                         font=("Segoe UI", 9, "bold"))
-        hint = (("Preview · " if self.preview else "Saved · ") + translator(self).date(self.due)) if self.active else "Select a time" if self.supported else self.hint or "Timers unavailable · Refresh"
-        self.create_text(13, 99, text=tr(self, hint), anchor="w", fill=GREEN if self.active else MUTED, font=("Segoe UI", 8))
+        button = "Stop" if active and not self.draft else "Set" if self.supported else "Unavailable"
+        hover = self.hover and enabled
+        rounded(self, width-86, 54, width-14, 90, 12,
+                fill=(C.CARD if active else C.SURFACE) if hover else surface,
+                outline=(ink if enabled else C.EDGE), width=1.5)
+        self.create_text(width-50, 72, text=tr(self, button), fill=ink if enabled else C.MUTED,
+                         font=font(9, "bold"))
+        if active:
+            hint = ("Preview · " if self.preview else "Saved · ") + translator(self).date(self.due)
+            icon(self, "check", 21, 118, C.ON_SOFT, scale=.6, bg=surface)
+            self.create_text(30, 118, text=tr(self, hint), anchor="w", fill=C.ON_SOFT, font=font(9, "bold"))
+        else:
+            hint = "Select a time" if self.supported else self.hint or "Timers unavailable · Refresh"
+            self.create_text(14, 118, text=tr(self, hint), anchor="w", fill=C.MUTED, font=font(9), width=width-28)
         # An edited active timer retains an independent Stop button.
-        if self.active and self.draft:
-            self.create_text(width-34, 98, text=tr(self, "Stop"), fill=GREEN, font=("Segoe UI", 9, "bold"), tags="stop")
+        if active and self.draft:
+            self.create_text(width-16, 118, text=tr(self, "Stop"), anchor="e", fill=C.ON_SOFT, font=font(9, "bold"), tags="stop")
             self.tag_bind("stop", "<Button-1>", lambda e: self.run(stop=True))
 
 
 class InlineTimers(tk.Frame):
     def __init__(self, app):
-        super().__init__(app.canvas, bg=BG, width=510, height=116)
+        super().__init__(app.canvas, bg=C.BG, width=520, height=TimerCard.HEIGHT)
+        refresh_on_theme(self, lambda: self.configure(bg=C.BG))
         self.app = app
         self.device = None
         self.cards = {}
@@ -209,7 +230,7 @@ class InlineTimers(tk.Frame):
         self.columnconfigure(1, weight=1, uniform="timers")
         for index, action in enumerate(("on", "off")):
             self.cards[action] = TimerCard(self, action, app.change_timer)
-            self.cards[action].grid(row=0, column=index, sticky="ew", padx=(0, 5) if not index else (5, 0))
+            self.cards[action].grid(row=0, column=index, sticky="ew", padx=(0, 6) if not index else (6, 0))
 
     def refresh(self, snapshot, busy):
         device = snapshot["id"]

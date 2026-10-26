@@ -33,21 +33,22 @@ class WheelDragTests(unittest.TestCase):
         return SimpleNamespace(y=y, y_root=100+y)
 
     def test_drag_up_advances_and_down_reverses_with_live_offset(self):
-        self.wheel.press(self.event(32))
-        self.wheel.drag(self.event(6))
+        self.assertEqual(self.wheel.ROW_HEIGHT, 26)
+        self.wheel.press(self.event(34))
+        self.wheel.drag(self.event(4))
         self.assertEqual(self.wheel.value, 9)
         self.assertEqual(self.wheel.drag_offset, -4)
-        self.wheel.drag(self.event(58))
+        self.wheel.drag(self.event(64))
         self.assertEqual(self.wheel.value, 7)
-        self.wheel.release(self.event(58))
+        self.wheel.release(self.event(64))
         self.assertEqual(self.wheel.value, 7)
         self.assertEqual(self.wheel.drag_offset, 0)
         self.assertIsNone(self.wheel.drag_state)
 
     def test_fast_release_wraps_and_snaps_without_motion_events(self):
         self.wheel.value = 23
-        self.wheel.press(self.event(32))
-        self.wheel.release(self.event(-24))  # 2.55 rows, snapped to three.
+        self.wheel.press(self.event(34))
+        self.wheel.release(self.event(-32))  # 2.54 rows, snapped to three.
         self.assertEqual(self.wheel.value, 2)
         self.wheel.limit, self.wheel.value = 60, 0
         self.wheel.press(self.event(32))

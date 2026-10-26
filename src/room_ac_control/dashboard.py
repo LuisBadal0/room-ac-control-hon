@@ -1,4 +1,4 @@
-"""Dark desktop dashboard with live-discovered appliance controls."""
+"""Light or dark desktop dashboard with live-discovered appliance controls."""
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 import queue
@@ -6,18 +6,35 @@ import queue
 from .controller import code, readable, mode_choices, mode_label
 from .choice_widgets import ChoicePanel, SelectField
 from .control_choices import mode_icon, airflow_choices
-from .theme import BG, CARD, HOVER, TEXT, MUTED, ACCENT, GREEN, rounded, icon, ac_art, unit_photo, control_card
+from .theme import (C, THEMES, ASSETS, font, measure, paint, rounded, icon, ac_art, unit_photo, control_card,
+                    resolve_theme, refresh_on_theme, broadcast_theme)
+from .button_theme import configure_styles
 from .canvas_hover import CanvasHover
 from .worker import Worker, degrees
 from .secure_state import SecureState
 from .program_memory import ProgramMemory
 from .airflow import AirflowAnimation
 from pathlib import Path
-from .device_picker import DevicePicker
+from .device_picker import DevicePicker, PowerButton
 from .diagnostics import diagnostics
-from .inline_timers import InlineTimers
+from .inline_timers import InlineTimers, TimerCard
 from .temperature_wheel import TemperatureWheel
 from .i18n import Translator, LANGUAGES, tr, localized, TranslatedVariable, localized_title, broadcast_language, refresh_on_language
+
+# The dashboard canvas is laid out in a 520 px space and scaled with the window.
+WIDTH = 520
+TEMP_TOP = 172
+TRACK = (18, 502)
+TRACK_Y = TEMP_TOP + 132
+TIMER_TOP = 368
+TILE_TOP = TIMER_TOP + TimerCard.HEIGHT + 12
+TILE_HEIGHT = 104
+CANVAS_HEIGHT = TILE_TOP + TILE_HEIGHT + 2
+THEME_CHOICES = [
+    {"label": "Follow Windows", "value": "system", "glyph": "monitor", "description": "Match the Windows app mode"},
+    {"label": "Light mode", "value": "light", "glyph": "sun", "description": "Sand and white surfaces"},
+    {"label": "Dark mode", "value": "dark", "glyph": "moon", "description": "Charcoal surfaces for low light"},
+]
 
 
 def equal(left, right):
@@ -28,10 +45,13 @@ def equal(left, right):
 
 
 class App:
-    def __init__(self, root, demo=False, state=None, enable_tray=True, language=None):
+    def __init__(self, root, demo=False, state=None, enable_tray=True, language=None, theme=None):
         self.root, self.demo = root, demo
         self.storage = state if state is not None else SecureState(persistent=not demo)
         self.i18n = root.i18n = Translator(self.storage.language() if language is None else language)
+        self.theme_preference = self.storage.theme() if theme is None else (theme if theme in THEMES else "system")
+        C.use(resolve_theme(self.theme_preference))
+        self.theme_checks = 0
         self.memory = ProgramMemory(self.storage)
         self.preview_timers = {}
         self.worker = Worker(memory=self.memory)
@@ -55,45 +75,26 @@ class App:
         self.auto_failures = 0
         self.refresh_epoch = 0
         self.unit_image = unit_photo(root, 330)
-        assets = Path(__file__).resolve().parent / "assets"
-        root.iconbitmap(str(assets / "app.ico"))
-        self.app_icon = tk.PhotoImage(master=root, file=str(assets / "app-icon.png"))
+        root.iconbitmap(str(ASSETS / "app.ico"))
+        self.app_icon = tk.PhotoImage(master=root, file=str(ASSETS / "app-icon.png"))
         root.iconphoto(True, self.app_icon)
         localized_title(root,"Room AC Control for hOn" + (" · Design preview" if demo else ""))
         root.geometry("560x960")
         root.minsize(540, 920)
-        root.configure(bg=BG)
-        style = ttk.Style(root)
-        style.theme_use("clam")
-        style.configure("TFrame", background=BG)
-        style.configure("TLabel", background=BG, foreground=TEXT, font=("Segoe UI", 10))
-        style.configure("Muted.TLabel", foreground=MUTED)
-        style.configure("TCheckbutton",background=BG,foreground=TEXT,font=("Segoe UI",10))
-        style.map("TCheckbutton",background=[("active",BG)],foreground=[("disabled",MUTED)])
-        from .button_theme import install_button_theme
-        install_button_theme(root,style)
-        style.configure("Login.TCheckbutton", background=CARD, foreground=MUTED, font=("Segoe UI",9))
-        style.map("Login.TCheckbutton", background=[("active",CARD)], foreground=[("active",TEXT)])
-        style.configure("TCombobox", fieldbackground=CARD, background=CARD, foreground=TEXT, arrowcolor=ACCENT, padding=5)
-        style.map("TCombobox", fieldbackground=[("readonly",CARD)], foreground=[("readonly",TEXT)])
-        style.configure("TEntry", fieldbackground=CARD, foreground=TEXT, padding=8)
-        style.configure("TSpinbox", fieldbackground=CARD, foreground=TEXT, arrowcolor=ACCENT, padding=5)
-        style.configure("TNotebook", background=BG, borderwidth=0)
-        style.configure("TNotebook.Tab", background=CARD, foreground=MUTED, padding=(14,9), borderwidth=0)
-        style.map("TNotebook.Tab", background=[("selected","#30372c")], foreground=[("selected",TEXT)])
-        style.configure("Vertical.TScrollbar", background="#343d2f", troughcolor=BG, arrowcolor=MUTED, borderwidth=0)
-        root.option_add("*TCombobox*Listbox.background",CARD)
-        root.option_add("*TCombobox*Listbox.foreground",TEXT)
-        from .window_header import WindowHeader
+        paint(root, bg="BG")
+        configure_styles(root)
+        from .window_header import WindowHeader, HeaderIconButton
         self.header = WindowHeader(root, "Room AC Control · hOn", self.close, self.minimize_window)
         self.language_code = tk.StringVar(root, value="PT" if self.i18n.language == "pt-PT" else "EN")
         self.language_button = tk.Button(self.header.frame,textvariable=self.language_code,command=self.language_menu,
-                                        bg=BG,fg=ACCENT,activebackground=HOVER,activeforeground=TEXT,
-                                        relief="flat",bd=0,font=("Segoe UI",9,"bold"),padx=10,cursor="hand2")
+                                        relief="flat",bd=0,font=font(9,"black"),padx=10,cursor="hand2")
+        paint(self.language_button,bg="BG",fg="BRAND",activebackground="SURFACE",activeforeground="TEXT")
         self.language_button.pack(side="right",fill="y")
+        self.theme_button = HeaderIconButton(self.header.frame,"half",self.theme_menu)
+        self.theme_button.pack(side="right")
         self.content = ttk.Frame(root)
         self.content.pack(fill="both",expand=True)
-        self.body = ttk.Frame(self.content, padding=(22,15,22,18))
+        self.body = ttk.Frame(self.content, padding=(20,6,20,16))
         self.body.place(relx=.5,y=0,anchor="n",relheight=1,width=560)
         self.content.bind("<Configure>",lambda event:self.body.place_configure(width=min(560,event.width)))
         from .login_view import LoginView
@@ -101,12 +102,17 @@ class App:
         self.login_frame = self.login_view.frame
         self.login_frame.pack(fill="x",pady=(5,0))
         self.panel=ttk.Frame(self.body)
-        self.device_picker=DevicePicker(self.panel,self.select_device)
-        self.device_picker.pack(fill="x",padx=(6,2),pady=(0,10))
-        self.canvas=tk.Canvas(self.panel,bg=BG,highlightthickness=0,height=660)
+        top=ttk.Frame(self.panel)
+        top.pack(fill="x",pady=(0,12))
+        self.power_button=PowerButton(top,self.toggle_power)
+        self.power_button.pack(side="right",padx=(12,0))
+        self.device_picker=DevicePicker(top,self.select_device)
+        self.device_picker.pack(side="left",fill="x",expand=True)
+        self.canvas=paint(tk.Canvas(self.panel,highlightthickness=0,height=CANVAS_HEIGHT),bg="BG")
         self.canvas.pack(fill="x")
         self.canvas.bind("<Configure>",lambda e:self.draw())
         refresh_on_language(self.canvas,self.draw)
+        refresh_on_theme(self.canvas,self.draw)
         self.canvas_hover = CanvasHover(self.canvas)
         self.airflow = AirflowAnimation(self.canvas)
         self.inline_timers = InlineTimers(self)
@@ -117,27 +123,36 @@ class App:
         # Main selectors retain Tk variables for menu and keyboard support.
         self.mode,self.temp,self.fan=tk.StringVar(),tk.StringVar(),tk.StringVar()
         controls=ttk.Frame(self.panel)
-        controls.pack(fill="x",padx=(6,2),pady=(6,12))
-        controls.columnconfigure(0,weight=1,uniform="actions")
-        controls.columnconfigure(1,weight=1,uniform="actions")
-        self.apply_button=localized(ttk.Button(controls,text="Apply changes",style="Accent.TButton",command=lambda:self.action("apply")))
-        self.apply_button.grid(row=0,column=0,sticky="ew",padx=(0,5))
+        controls.pack(fill="x",pady=(12,10))
+        controls.columnconfigure(0,weight=13,uniform="actions")
+        controls.columnconfigure(1,weight=10,uniform="actions")
+        self.apply_button=ttk.Button(controls,style="Accent.TButton",command=lambda:self.action("apply"))
+        refresh_on_language(self.apply_button,self.update_apply_label)
+        self.update_apply_label()
+        self.apply_button.grid(row=0,column=0,sticky="ew",padx=(0,6))
         self.all_button=localized(ttk.Button(controls,text="All functions",command=self.open_functions))
-        self.all_button.grid(row=0,column=1,sticky="ew",padx=(5,0))
+        self.all_button.grid(row=0,column=1,sticky="ew",padx=(6,0))
         footer=ttk.Frame(self.panel)
-        footer.pack(fill="x",padx=(6,2))
+        footer.pack(fill="x")
         self.connection=tk.StringVar()
         self.connection_display=TranslatedVariable(root,self.connection)
-        ttk.Label(footer,textvariable=self.connection_display,style="Muted.TLabel").pack(side="left")
-        self.refresh_button=localized(ttk.Button(footer,text="↻ Refresh",command=self.refresh))
+        self.connection_dot=tk.Label(footer,text="●",font=("Segoe UI",8),bd=0)
+        self.connection_dot.pack(side="left",padx=(2,6))
+        refresh_on_theme(self.connection_dot,self.paint_connection)
+        self.connection.trace_add("write",lambda *args:self.paint_connection())
+        self.paint_connection()
+        ttk.Label(footer,textvariable=self.connection_display,style="Muted.TLabel",font=font(9)).pack(side="left")
+        self.refresh_button=localized(ttk.Button(footer,text="↻ Refresh",style="Ghost.TButton",command=self.refresh))
         self.refresh_button.pack(side="right")
-        self.logout_button=localized(ttk.Button(footer,text="Sign out",command=self.logout))
-        self.logout_button.pack(side="right",padx=(0,5))
+        self.logout_button=localized(ttk.Button(footer,text="Sign out",style="Ghost.TButton",command=self.logout))
+        self.logout_button.pack(side="right",padx=(0,2))
         self.status=tk.StringVar(value="Sign in to connect to your air conditioner.")
         self.status_display=TranslatedVariable(root,self.status)
-        self.status_label=ttk.Label(self.body,textvariable=self.status_display,wraplength=500,style="Muted.TLabel")
-        self.status_label.pack(fill="x",padx=(6,2),pady=(16,0))
-        self.status_label.bind("<Configure>",lambda event:self.status_label.configure(wraplength=max(1,event.width)))
+        self.status_label=tk.Label(self.body,textvariable=self.status_display,font=font(9),anchor="w",justify="left",
+                                   padx=12,pady=8,wraplength=480,bd=0)
+        paint(self.status_label,bg="SOFT",fg="ON_SOFT")
+        self.status_label.pack(fill="x",pady=(10,0))
+        self.status_label.bind("<Configure>",lambda event:self.status_label.configure(wraplength=max(1,event.width-24)))
         self.root.protocol("WM_DELETE_WINDOW",self.close)
         self.root.report_callback_exception = self.callback_failed
         self.root.bind("<Unmap>",self.on_minimize,add="+")
@@ -146,8 +161,8 @@ class App:
 
     def language_menu(self, parent=None):
         parent = parent or self.root
-        options = [{"label":"System language","value":"system","glyph":"leaf","description":"Follow Windows language"}]
-        options.extend({"label":label,"value":value,"glyph":"leaf"} for value,label in LANGUAGES.items())
+        options = [{"label":"System language","value":"system","glyph":"globe","description":"Follow Windows language"}]
+        options.extend({"label":label,"value":value,"glyph":"globe"} for value,label in LANGUAGES.items())
         self.language_panel = ChoicePanel(parent,"Language",options,self.i18n.preference,self.set_language)
 
     def set_language(self, preference):
@@ -159,6 +174,26 @@ class App:
             except Exception as error:diagnostics.record("tray_language_failed",error)
         try:self.storage.save_language(self.i18n.preference)
         except OSError:self.status.set("Language changed for this session, but the preference could not be saved.")
+
+    def theme_menu(self, parent=None):
+        parent = parent or self.root
+        self.theme_panel = ChoicePanel(parent,"Appearance",THEME_CHOICES,self.theme_preference,self.set_theme)
+
+    def set_theme(self, preference):
+        self.theme_preference = preference if preference in THEMES else "system"
+        self.apply_theme()
+        try:self.storage.save_theme(self.theme_preference)
+        except OSError:self.status.set("Appearance changed for this session, but the preference could not be saved.")
+
+    def apply_theme(self):
+        """Repaint every open window in place; edits, drafts and dialogs are kept."""
+        mode = resolve_theme(self.theme_preference)
+        if mode == C.mode:
+            return False
+        C.use(mode)
+        configure_styles(self.root)
+        broadcast_theme(self.root)
+        return True
 
     def poll(self):
         if self.closing:return
@@ -199,7 +234,21 @@ class App:
                         return
             except queue.Empty:
                 pass
+        # Follow Windows: notice an app-mode switch within about two seconds.
+        self.theme_checks += 1
+        if self.theme_checks >= 20:
+            self.theme_checks = 0
+            if self.theme_preference == "system":
+                self.apply_theme()
         self.root.after(100,self.poll)
+
+    def update_apply_label(self):
+        count = len(self.dirty)
+        self.apply_button.configure(text=tr(self.apply_button,"Apply changes")+(f" ({count})" if count else ""))
+
+    def paint_connection(self):
+        connected = self.connection.get().startswith("Connected")
+        self.connection_dot.configure(bg=C.BG, fg=C.OK if connected else C.FAINT)
 
     def set_busy(self,value):
         self.busy=value
@@ -210,7 +259,9 @@ class App:
         for widget in (self.refresh_button,self.logout_button,self.all_button):
             widget.configure(state="normal" if available else "disabled")
         self.apply_button.configure(state="normal" if available and self.dirty else "disabled")
+        self.update_apply_label()
         self.device_picker.set_enabled(available)
+        self.power_button.set_state(self.selected is not None and self.selected["power"]=="On", available)
         self.draw()
 
     def connect(self):
@@ -282,7 +333,7 @@ class App:
         self.temp.set(displayed.get("tempSel",str(device["target"]) if device["target"] is not None else ""))
         state=device.get("connection","Unknown")
         label="Connected" if state=="CONNECTED" else ("Disconnected" if state=="DISCONNECTED" else "Connection unknown")
-        self.connection.set(f"◇ {label} · {device['fetched']}" + (" · Auto" if not self.demo else ""))
+        self.connection.set(f"{label} · {device['fetched']}" + (" · Auto" if not self.demo else ""))
         if device.get("confirmation_expired"):
             self.status.set("The cloud has not confirmed the changes. Showing reported status; check hOn before retrying.")
         self.set_busy(self.busy if preserve_edits else False)
@@ -315,84 +366,112 @@ class App:
         spec=self.selected.get("controls",{}).get(key)
         return spec.get("value") if spec and spec.get("reported") else None
 
+    def toggle_power(self):
+        if self.busy or not self.selected:return
+        self.action("off" if self.selected["power"]=="On" else "on")
+
     def draw(self):
         if not self.selected:return
         c=self.canvas
         c.delete("all")
+        c.configure(bg=C.BG)
         self.hits=[]
         width=max(c.winfo_width(),480)
-        s=width/520
+        s=width/WIDTH
         self.canvas_hover.reset(s,enabled=not self.busy)
-        def hover(box,item,fill=CARD,outline=""):
-            self.canvas_hover.add(box,item,{"fill":fill,"outline":outline}, {"fill":HOVER,"outline":ACCENT})
-        text=lambda x,y,t,size=11,color=TEXT,anchor="w",bold=False,translate=True:c.create_text(x,y,text=tr(c,t) if translate else t,fill=color,anchor=anchor,font=("Segoe UI",size,"bold" if bold else "normal"))
+        def hover(box,item,fill=None,outline=None):
+            normal={"fill":fill or C.CARD,"outline":C.EDGE if outline is None else outline}
+            self.canvas_hover.add(box,item,normal,{"fill":C.HOVER if fill is None else C.STRONG,"outline":C.BRAND})
+        text=lambda x,y,t,size=10,color=None,anchor="w",weight="normal",translate=True:c.create_text(
+            x,y,text=tr(c,t) if translate else t,fill=color or C.TEXT,anchor=anchor,font=font(size,weight))
         hit=lambda box,fn:self.hits.append((box,fn))
-        text(8,22,"♧  Room",11,MUTED)
-        text(95,22,self.i18n.number(degrees(self.selected["room"])),12,TEXT,bold=True)
-        on=self.selected["power"]=="On"
-        power=c.create_oval(469,1,513,45,fill=CARD,outline=ACCENT if on else "#394035",width=2)
-        hover((469,1,513,45),power,outline=ACCENT if on else "#394035")
-        c.create_arc(479,11,503,35,start=140,extent=260,style="arc",outline=ACCENT,width=2)
-        c.create_line(491,8,491,22,fill=ACCENT,width=2)
-        hit((469,1,513,45),lambda:self.action("off" if on else "on"))
-        ac_art(c,260,95,photo=self.unit_image)
-        text(260,201,self.selected["model"],9,MUTED,"center",translate=False)
+        # Hero: room temperature, status chip and the unit with its live airflow.
+        icon(c,"thermo",8,14,C.MUTED,scale=.7,bg=C.BG)
+        room=text(20,14,"Room",10,C.MUTED)
+        text(c.bbox(room)[2]+8,14,self.i18n.number(degrees(self.selected["room"])),11,weight="bold")
+        if self.dirty:status,fill,ink="Changes pending",C.WARN_BG,C.WARN_TEXT
+        elif self.pending_changes:status,fill,ink="Awaiting confirmation",C.SOFT,C.ON_SOFT
+        elif self.selected["power"]=="On":status,fill,ink="On",C.OK_BG,C.OK_TEXT
+        else:status,fill,ink=self.selected["power"],C.SURFACE,C.TEXT
+        status=tr(c,status)
+        chip=measure(c,status,9,"bold")
+        rounded(c,WIDTH-chip-34,1,WIDTH,27,13,fill=fill,outline="")
+        c.create_oval(WIDTH-chip-23,10.5,WIDTH-chip-16,17.5,fill=ink,outline="")
+        text(WIDTH-12,14,status,9,ink,"e","bold",translate=False)
+        ac_art(c,260,82,photo=self.unit_image)
+        # Target temperature card: −/+, Eco toggle and the stepped slider.
+        T=TEMP_TOP
+        rounded(c,0,T,WIDTH,T+182,12,fill=C.CARD,outline=C.EDGE)
+        text(16,T+24,"Target temperature",10,weight="bold")
+        eco=self.selected.get("controls",{}).get("ecoMode")
+        if eco:
+            active=code(self.current("ecoMode"))=="1"
+            rounded(c,464,T+12,504,T+36,12,fill=C.BRAND if active else C.FIELD,outline="")
+            c.create_oval(482 if active else 466,T+14,502 if active else 486,T+34,fill=C.THUMB,outline="")
+            label=text(454,T+24,"Eco Mode",10,anchor="e")
+            left=c.bbox(label)[0]
+            icon(c,"leaf",left-14,T+24,C.ECO,scale=.7)
+            hit((left-26,T+4,WIDTH-8,T+44),lambda:self.staged("ecoMode","0" if active else "1"))
+        else:
+            text(504,T+24,"Eco Mode · Unavailable",9,C.MUTED,"e")
+        values=[float(v) for v in self.selected.get("temperatures",[])]
+        for x,direction in ((40,-1),(480,1)):
+            step=c.create_oval(x-24,T+62,x+24,T+110,fill=C.SURFACE,outline="")
+            if values:hover((x-24,T+62,x+24,T+110),step,fill=C.SURFACE,outline="")
+            mark=C.TEXT if values else C.FAINT
+            c.create_line(x-9,T+86,x+9,T+86,fill=mark,width=2,capstyle="round")
+            if direction>0:c.create_line(x,T+77,x,T+95,fill=mark,width=2,capstyle="round")
+            if values:hit((x-24,T+62,x+24,T+110),lambda direction=direction:self.step_temp(direction))
         value=self.temp.get()
         try:value=f"{float(value):g}"
         except ValueError:value="—"
-        temperature = text(6,256,self.i18n.number(value),42,TEXT,bold=True)
+        temperature=text(260,T+86,self.i18n.number(value),46,anchor="center",weight="black",translate=False)
         c.itemconfigure(temperature,tags="target-temperature")
-        unit = text(115,263,"°C",21,MUTED)
+        unit=text(300,T+70,"°C",16,C.MUTED,"nw",translate=False)
         c.itemconfigure(unit,tags="temperature-unit")
-        eco=self.selected.get("controls",{}).get("ecoMode")
-        eco_card=rounded(c,283,231,515,279,13,fill=CARD,outline="")
-        if eco:hover((283,231,515,279),eco_card)
-        icon(c,"leaf",309,255)
-        text(330,255,"Eco Mode",11,TEXT if eco else MUTED,bold=True)
-        eco_value=self.current("ecoMode")
-        active=code(eco_value)=="1"
-        rounded(c,445,245,498,266,10,fill=ACCENT if active else "#40473d",outline="")
-        c.create_oval(475 if active else 447,247,495 if active else 467,264,fill=TEXT if eco else MUTED,outline="")
-        if eco:hit((283,231,515,279),lambda:self.staged("ecoMode","0" if active else "1"))
-        if not eco:text(400,287,"Unavailable",8,MUTED,"center")
-        values=[float(v) for v in self.selected.get("temperatures",[])]
-        for x,symbol in ((28,"−"),(490,"+")):
-            step=c.create_oval(x-23,304,x+23,350,fill=CARD,outline="")
-            if values:hover((x-23,304,x+23,350),step)
-            text(x,327,symbol,22,ACCENT,"center")
-            if values:hit((x-23,304,x+23,350),lambda direction=(-1 if x==28 else 1):self.step_temp(direction))
-        slider=rounded(c,68,305,449,349,12,fill="#141713",outline="#252b22")
-        if values:hover((68,305,449,349),slider,fill="#141713",outline="#252b22")
+        x1,x2=TRACK
+        rounded(c,x1,TRACK_Y-4,x2,TRACK_Y+4,4,fill=C.TRACK,outline="")
         if values:
             try:ratio=(float(self.temp.get())-min(values))/(max(values)-min(values)) if max(values)!=min(values) else 0
             except ValueError:ratio=0
-            tx=79+max(0,min(1,ratio))*358
-            rounded(c,69,306,max(89,tx+12),348,11,fill="#777560",outline="")
-            rounded(c,tx-12,308,tx+12,346,7,fill="#d8d8c9",outline="")
-            text(68,366,self.i18n.number(f"{min(values):g}°"),9,MUTED)
-            text(449,366,self.i18n.number(f"{max(values):g}°"),9,MUTED,"e")
-            hit((68,305,449,349),self.slider_from_event)
+            tx=x1+max(0,min(1,ratio))*(x2-x1)
+            rounded(c,x1,TRACK_Y-4,max(x1+8,tx),TRACK_Y+4,4,fill=C.BRAND,outline="")
+            thumb=c.create_oval(tx-11,TRACK_Y-11,tx+11,TRACK_Y+11,fill=C.THUMB,outline=C.BRAND,width=2)
+            self.canvas_hover.add((x1-10,TRACK_Y-20,x2+10,TRACK_Y+24),thumb,{"outline":C.BRAND,"width":2},
+                                  {"outline":C.BRAND_ACTIVE,"width":3})
+            for index in range(9):
+                tick=x1+index*(x2-x1)/8
+                c.create_line(tick,TRACK_Y+16,tick,TRACK_Y+22,fill=C.FAINT)
+            low,high=min(values),max(values)
+            text(x1,T+168,self.i18n.number(f"{low:g}°"),9,C.MUTED,translate=False)
+            text(260,T+168,self.i18n.number(f"{(low+high)/2:g}°"),9,C.MUTED,"center",translate=False)
+            text(x2,T+168,self.i18n.number(f"{high:g}°"),9,C.MUTED,"e",translate=False)
+            hit((x1-10,TRACK_Y-20,x2+10,TRACK_Y+24),self.slider_from_event)
         self.inline_timers.refresh(self.selected, self.busy)
-        timer_row = c.create_window(6, 382, window=self.inline_timers, anchor="nw", width=512, height=114)
+        timer_row = c.create_window(0, TIMER_TOP, window=self.inline_timers, anchor="nw", width=WIDTH, height=TimerCard.HEIGHT)
         c.itemconfigure(timer_row,tags="inline-timers")
-        mode_glyph=mode_icon(self.mode.get())
-        cards=[("Mode",self.mode.get(),mode_glyph,lambda:self.choice_menu("machMode")),("Fan speed",self.fan.get(),"fan",lambda:self.choice_menu("windSpeed")),("Sleep",self.toggle_label("silentSleepStatus"),"moon",lambda:self.choice_menu("silentSleepStatus")),("Airflow",self.airflow_label(),"wind",self.airflow_menu)]
+        airflow=self.airflow_label()
+        cards=[("Mode",self.mode.get(),mode_icon(self.mode.get()),lambda:self.choice_menu("machMode")),
+               ("Fan speed",self.fan.get(),"fan",lambda:self.choice_menu("windSpeed")),
+               ("Sleep",self.toggle_label("silentSleepStatus"),"moon",lambda:self.choice_menu("silentSleepStatus")),
+               ("Airflow",airflow,"swing" if airflow in {"Vertical","Both"} else "wind",self.airflow_menu)]
+        tile=(WIDTH-24)/4
         for i,(label,value,glyph,fn) in enumerate(cards):
-            x=6+i*130
-            card=control_card(c,x,513,122,label,value,glyph,s)
-            if value!="Unavailable":hover((x,513,x+122,614),card)
-            hit((x,513,x+122,614),fn)
-        text(8,641,("●  Changes pending" if self.dirty else "●  Awaiting confirmation" if self.pending_changes else "●  "+self.selected["power"]),9,ACCENT if self.dirty or self.pending_changes else GREEN)
-        all_link=text(510,641,"All functions  ↗",10,MUTED,"e")
-        self.canvas_hover.add((375,621,515,659),all_link,{"fill":MUTED},{"fill":TEXT})
-        hit((375,621,515,659),self.open_functions)
+            x=i*(tile+8)
+            card=control_card(c,x,TILE_TOP,tile,label,value,glyph,s,active=value not in {"Off","Unavailable","Unknown"},height=TILE_HEIGHT)
+            if value!="Unavailable":hover((x,TILE_TOP,x+tile,TILE_TOP+TILE_HEIGHT),card)
+            hit((x,TILE_TOP,x+tile,TILE_TOP+TILE_HEIGHT),fn)
         if s!=1:c.scale("all",0,0,s,s)
         # Canvas scaling also changes embedded window dimensions. Apply its final
         # width once, while preserving the native wheels' full height.
-        c.itemconfigure(timer_row,width=round(512*s),height=114)
-        c.coords(unit,c.bbox(temperature)[2]+8,263*s)
-        self.canvas.configure(height=int(660*s))
-        self.airflow.set_state(self.selected,260,144,275,47,s)
+        c.itemconfigure(timer_row,width=round(WIDTH*s),height=TimerCard.HEIGHT)
+        number,symbol=c.bbox(temperature),c.bbox(unit)
+        left=260*s-((number[2]-number[0])+6+(symbol[2]-symbol[0]))/2
+        c.move(temperature,left-number[0],0)
+        number=c.bbox(temperature)
+        c.coords(unit,number[2]+6,number[1]+12)
+        self.canvas.configure(height=int(CANVAS_HEIGHT*s))
+        self.airflow.set_state(self.selected,260,129,275,38,s)
         self.canvas_hover.update()
         if self.busy:
             self.hits=[]
@@ -400,7 +479,7 @@ class App:
     def click(self,event):
         if self.busy:return
         self.canvas.focus_set()
-        s=max(self.canvas.winfo_width(),480)/520
+        s=max(self.canvas.winfo_width(),480)/WIDTH
         x,y=event.x/s,event.y/s
         for (x1,y1,x2,y2),fn in self.hits:
             if x1<=x<=x2 and y1<=y<=y2:
@@ -410,13 +489,14 @@ class App:
 
     def slider_from_event(self,event):
         values=[float(v) for v in self.selected["temperatures"]]
-        s=max(self.canvas.winfo_width(),480)/520
-        ratio=max(0,min(1,(event.x/s-79)/358))
+        s=max(self.canvas.winfo_width(),480)/WIDTH
+        ratio=max(0,min(1,(event.x/s-TRACK[0])/(TRACK[1]-TRACK[0])))
         self.staged("tempSel",min(values,key=lambda v:abs(v-(min(values)+ratio*(max(values)-min(values))))))
 
     def drag_temperature(self,event):
-        s=max(self.canvas.winfo_width(),480)/520
-        if not self.busy and self.selected and self.selected["temperatures"] and 305<=event.y/s<=349 and 68<=event.x/s<=449:
+        s=max(self.canvas.winfo_width(),480)/WIDTH
+        if (not self.busy and self.selected and self.selected["temperatures"]
+                and TRACK_Y-20<=event.y/s<=TRACK_Y+24 and TRACK[0]-10<=event.x/s<=TRACK[1]+10):
             self.slider_from_event(event)
 
     def step_temp(self,direction):
@@ -528,7 +608,7 @@ class App:
             if not valid(): return
             self.auto_inflight = False
             self.auto_failures += 1
-            self.connection.set("◇ Status unavailable · Retrying automatically")
+            self.connection.set("Status unavailable · Retrying automatically")
             self.schedule_auto(min(60000,15000 * 2**min(self.auto_failures,2)))
         self.worker.submit(self.worker.controller.refresh(device_id),done,"auto-refresh",on_error=failed)
 
@@ -622,7 +702,7 @@ class App:
             getter=lambda:variable.get() or None
         widget.pack(side="right" if show_label else "top")
         if use_reported and value=="":
-            localized(ttk.Label(parent,text="Current value not reported",style="Muted.TLabel",font=("Segoe UI",8))).pack(anchor="e")
+            localized(ttk.Label(parent,text="Current value not reported",style="Muted.TLabel",font=font(8))).pack(anchor="e")
         return getter,value
 
     def logout(self):
@@ -637,7 +717,7 @@ class App:
         self.set_busy(True)
         def done(value):
             self.selected=None;self.devices=[];self.dirty={}
-            self.airflow.set_state(None,260,144,275,47)
+            self.airflow.set_state(None,260,129,275,38)
             self.panel.pack_forget()
             self.login_frame.pack(fill="x",pady=(5,0),before=self.status_label)
             self.remember_account.set(False)

@@ -1,21 +1,21 @@
-"""A device card and theme-matched room chooser."""
+"""A room dropdown card, theme-matched room chooser and the round power button."""
 from .i18n import tr, refresh_on_language
 import tkinter as tk
 from tkinter import font as tkfont
 
 from .choice_widgets import ChoicePanel
-from .theme import BG, CARD, HOVER, TEXT, MUTED, ACCENT, GREEN, rounded
+from .theme import C, font, icon, rounded, refresh_on_theme
 
 
 class DevicePicker(tk.Canvas):
     def __init__(self, parent, command):
-        super().__init__(parent,bg=BG,height=68,highlightthickness=0,takefocus=False)
+        super().__init__(parent,height=60,highlightthickness=0,takefocus=False)
         self.command = command
         self.devices = []
         self.index = 0
         self.enabled = False
         self.hover = False
-        self.name_font = tkfont.Font(self,family="Segoe UI",size=13,weight="bold")
+        self.name_font = tkfont.Font(self,font=font(12,"bold"))
         self.bind("<Configure>",lambda event:self.draw())
         self.bind("<Button-1>",lambda event:self.open())
         self.bind("<Return>",lambda event:self.open())
@@ -25,6 +25,7 @@ class DevicePicker(tk.Canvas):
         self.bind("<FocusIn>",lambda event:self.highlight(True))
         self.bind("<FocusOut>",lambda event:self.highlight(False))
         refresh_on_language(self,self.draw)
+        refresh_on_theme(self,self.draw)
 
     def set_devices(self, devices):
         self.devices = devices
@@ -51,30 +52,31 @@ class DevicePicker(tk.Canvas):
 
     def draw(self):
         self.delete("all")
-        width = max(300,self.winfo_width())
+        self.configure(bg=C.BG)
+        width = max(240,self.winfo_width())
         selectable = self.enabled and len(self.devices)>1
-        rounded(self,1,1,width-1,67,15,fill=HOVER if selectable and self.hover else CARD,outline=ACCENT if selectable and self.hover else "#2b3229")
-        rounded(self,14,13,57,55,10,fill="#282f27",outline="")
-        rounded(self,23,26,49,41,3,fill="",outline=ACCENT,width=1.4)
-        self.create_line(26,37,46,37,fill=ACCENT,width=1.4)
+        rounded(self,1,1,width-1,59,12,fill=C.HOVER if selectable and self.hover else C.CARD,
+                outline=C.BRAND if selectable and self.hover else C.EDGE)
+        rounded(self,10,10,50,50,8,fill=C.SURFACE,outline="")
+        icon(self,"unit",30,30,C.TEXT,scale=.85,bg=C.SURFACE)
         if not self.devices:
             return
         device = self.devices[self.index]
         name = device["name"]
-        available = width-202
+        available = width-150
         if self.name_font.measure(name)>available:
             while name and self.name_font.measure(name+"…")>available:name=name[:-1]
             name += "…"
-        self.create_text(72,24,text=name,anchor="w",fill=TEXT if self.enabled else MUTED,font=self.name_font)
-        self.create_text(72,47,text=device["model"],anchor="w",fill=MUTED,font=("Segoe UI",9))
+        self.create_text(62,21,text=name,anchor="w",fill=C.TEXT if self.enabled else C.MUTED,font=self.name_font)
+        self.create_text(62,41,text=device["model"],anchor="w",fill=C.MUTED,font=font(9))
         if selectable:
-            rounded(self,width-108,18,width-14,50,9,fill="#414a39" if self.hover else "#2d352b",outline="")
-            self.create_text(width-61,34,text=tr(self, "Switch"),fill=ACCENT,font=("Segoe UI",10))
+            icon(self,"chevron",width-24,30,C.MUTED)
         else:
             connected = device.get("connection")=="CONNECTED"
-            self.create_oval(width-111,29,width-105,35,fill=GREEN if connected else MUTED,outline="")
-            self.create_text(width-18,32,text=tr(self, "Connected" if connected else "Offline" if device.get("connection")=="DISCONNECTED" else "Unknown"),
-                             anchor="e",fill=GREEN if connected else MUTED,font=("Segoe UI",9))
+            label = self.create_text(width-16,30,text=tr(self, "Connected" if connected else "Offline" if device.get("connection")=="DISCONNECTED" else "Unknown"),
+                                     anchor="e",fill=C.OK_TEXT if connected else C.MUTED,font=font(9,"bold"))
+            left = self.bbox(label)[0]
+            self.create_oval(left-12,26,left-5,33,fill=C.OK if connected else C.FAINT,outline="")
 
     def open(self):
         if not self.enabled or len(self.devices)<2:
@@ -85,3 +87,42 @@ class DevicePicker(tk.Canvas):
             self.current(index)
             self.command()
         self.choice_panel = ChoicePanel(self,"Your air conditioners",options,self.index,choose)
+
+
+class PowerButton(tk.Canvas):
+    """Brand-filled when the AC reports On; outlined when Off."""
+    def __init__(self, parent, command):
+        super().__init__(parent,width=60,height=60,highlightthickness=0,takefocus=True,cursor="hand2")
+        self.command = command
+        self.on, self.enabled, self.hover = False, False, False
+        self.bind("<Button-1>",lambda event:self.invoke())
+        self.bind("<Return>",lambda event:self.invoke())
+        self.bind("<space>",lambda event:self.invoke())
+        self.bind("<Enter>",lambda event:self.highlight(True))
+        self.bind("<Leave>",lambda event:self.highlight(False))
+        refresh_on_theme(self,self.draw)
+        self.draw()
+
+    def set_state(self, on, enabled):
+        self.on, self.enabled = on, enabled
+        self.configure(cursor="hand2" if enabled else "")
+        self.draw()
+
+    def highlight(self, active):
+        self.hover = active
+        self.draw()
+
+    def invoke(self):
+        if self.enabled:
+            self.command()
+
+    def draw(self):
+        self.delete("all")
+        self.configure(bg=C.BG)
+        hover = self.hover and self.enabled
+        if self.on:
+            fill, outline, glyph = (C.BRAND_ACTIVE if hover else C.BRAND), "", C.ON_BRAND
+        else:
+            fill, outline, glyph = (C.HOVER if hover else C.CARD), (C.BRAND if hover else C.EDGE), C.TEXT
+        self.create_oval(1,1,59,59,fill=fill,outline=outline,width=1.5)
+        icon(self,"power",30,31,glyph if self.enabled else C.FAINT,bg=fill)

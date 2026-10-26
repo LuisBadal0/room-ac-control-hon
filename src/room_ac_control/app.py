@@ -26,7 +26,7 @@ def self_test(output):
         from .secure_state import protect
         root = tk.Tk()
         root.withdraw()
-        app = App(root,demo=True,enable_tray=False,language="en")
+        app = App(root,demo=True,enable_tray=False,language="en",theme="light")
         root.update_idletasks()
         encrypted = protect(b"offline-package-check")
         check(protect(encrypted,decrypt=True) == b"offline-package-check")
@@ -51,11 +51,16 @@ def self_test(output):
         check(wheel.get() == "24")
         app.set_language("en")
         check(app.all_button.cget("text") == "All functions")
+        from .theme import C
+        app.theme_preference = "dark"
+        check(app.apply_theme() and C.mode == "dark" and app.canvas.cget("bg") == C.BG)
+        app.theme_preference = "light"
+        check(app.apply_theme() and C.mode == "light")
         wheel.destroy()
         from .cloud_timers import select_timers
         timers, _ = select_timers({"scheduledPrograms": [], "scheduleRunningProgramEnd": []})
         check(all(value["due"] is None for value in timers.values()))
-        result = {"ok":True,"version":__version__,"assets":True,"encryption":True,"tray":True,"mqtt":True,"timers":True,"login_animation":True,"temperature_wheel":True,"multilingual":True}
+        result = {"ok":True,"version":__version__,"assets":True,"encryption":True,"tray":True,"mqtt":True,"timers":True,"login_animation":True,"temperature_wheel":True,"multilingual":True,"themes":True}
     except Exception as error:
         result = {"ok":False,"error":type(error).__name__}
     finally:
@@ -70,6 +75,7 @@ def main(argv=None):
     parser.add_argument("--preview",choices=["login","dashboard"],help="Open an offline design preview")
     parser.add_argument("--self-test",metavar="JSON_FILE",help="Write an offline runtime check report")
     parser.add_argument("--language",choices=["system","en","pt-PT"],help="Choose the interface language for this launch")
+    parser.add_argument("--theme",choices=["system","light","dark"],help="Choose the appearance for this launch")
     args = parser.parse_args(argv)
     try:
         ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("RoomACControl.Desktop")
@@ -79,7 +85,7 @@ def main(argv=None):
     if args.self_test:
         raise SystemExit(self_test(args.self_test))
     root = tk.Tk()
-    app = App(root,demo=bool(args.preview),language=args.language)
+    app = App(root,demo=bool(args.preview),language=args.language,theme=args.theme)
     if args.preview:
         root.title("Room AC Control for hOn · Offline preview")
         if args.preview == "dashboard":

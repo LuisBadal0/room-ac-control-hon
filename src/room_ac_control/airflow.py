@@ -2,7 +2,7 @@
 import math
 import time
 
-from .theme import BG
+from .theme import C
 
 
 def airflow_tone(device):
@@ -17,12 +17,16 @@ def airflow_tone(device):
     return "neutral"
 
 
-COLORS = {"cool": (115, 201, 237), "heat": (242, 167, 106), "neutral": (198, 208, 195)}
+# Light airflow must darken the sand page, dark airflow must brighten charcoal.
+COLORS = {
+    "light": {"cool": (31, 112, 168), "heat": (207, 89, 0), "neutral": (110, 110, 110)},
+    "dark": {"cool": (115, 201, 237), "heat": (242, 167, 106), "neutral": (198, 208, 195)},
+}
 
 
 def tint(tone, opacity):
-    background = tuple(int(BG[i:i+2], 16) for i in (1, 3, 5))
-    rgb = COLORS[tone]
+    background = tuple(int(C.BG[i:i+2], 16) for i in (1, 3, 5))
+    rgb = COLORS[C.mode][tone]
     return "#" + "".join(f"{round(a+(b-a)*opacity):02x}" for a, b in zip(background, rgb))
 
 
@@ -49,8 +53,8 @@ class AirflowAnimation:
         if self.tone:
             for strand in range(19):
                 for depth in range(8):
-                    glow = self.canvas.create_line(0, 0, 1, 1, fill=BG, width=4*scale, smooth=True, tags="airflow")
-                    core = self.canvas.create_line(0, 0, 1, 1, fill=BG, width=1.2*scale, smooth=True, tags="airflow")
+                    glow = self.canvas.create_line(0, 0, 1, 1, fill=C.BG, width=4*scale, smooth=True, tags="airflow")
+                    core = self.canvas.create_line(0, 0, 1, 1, fill=C.BG, width=1.2*scale, smooth=True, tags="airflow")
                     self.strokes.append((strand, depth, glow, core))
             self.canvas.tag_lower("airflow")
             self.paint(time.monotonic()-self.start)

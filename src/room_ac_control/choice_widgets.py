@@ -3,7 +3,7 @@ from .i18n import tr, localized, localized_title, refresh_on_language
 import tkinter as tk
 from tkinter import ttk
 
-from .theme import BG, CARD, HOVER, TEXT, MUTED, ACCENT, rounded, icon
+from .theme import C, font, paint, rounded, icon, refresh_on_theme
 
 
 def matches(value, current):
@@ -21,7 +21,7 @@ class ChoicePanel:
         self.previous_grab = parent.grab_current()
         self.window = tk.Toplevel(parent)
         localized_title(self.window,title)
-        self.window.configure(bg=BG)
+        paint(self.window, bg="BG")
         self.window.transient(parent.winfo_toplevel())
         self.window.grab_set()
         self.window.resizable(False, False)
@@ -29,31 +29,40 @@ class ChoicePanel:
         self.window.bind("<Escape>", lambda event: self.close())
         from .window_header import WindowHeader
         self.header = WindowHeader(self.window, title, self.close, maximize=False)
-        body = tk.Frame(self.window, bg=BG, padx=22, pady=20)
+        body = paint(tk.Frame(self.window, padx=22, pady=16), bg="BG")
         body.pack(fill="both", expand=True)
-        localized(tk.Label(body, text=title, bg=BG, fg=TEXT, font=("Segoe UI", 20, "bold"), anchor="w")).pack(fill="x")
-        localized(tk.Label(body, text="Select an option", bg=BG, fg=MUTED, font=("Segoe UI", 10), anchor="w")).pack(fill="x", pady=(5, 18))
-        viewport = tk.Canvas(body, bg=BG, width=456, height=min(480, ((len(options)+1)//2)*98), highlightthickness=0)
+        localized(paint(tk.Label(body, text=title, font=font(18, "black"), anchor="w"), bg="BG", fg="TEXT")).pack(fill="x")
+        localized(paint(tk.Label(body, text="Select an option", font=font(10), anchor="w"), bg="BG", fg="MUTED")).pack(fill="x", pady=(2, 16))
+        viewport = paint(tk.Canvas(body, width=456, height=min(480, ((len(options)+1)//2)*98), highlightthickness=0), bg="BG")
         viewport.pack(fill="x")
-        grid = tk.Frame(viewport, bg=BG)
+        grid = paint(tk.Frame(viewport), bg="BG")
         viewport.create_window(0, 0, window=grid, anchor="nw")
         grid.bind("<Configure>", lambda event: viewport.configure(scrollregion=viewport.bbox("all")))
         viewport.bind("<MouseWheel>", lambda event: viewport.yview_scroll(-int(event.delta/120), "units"))
         self.tiles = []
         for index, option in enumerate(options):
             active = matches(option["value"], current)
-            tile = tk.Canvas(grid, bg=BG, width=220, height=86, highlightthickness=0, cursor="hand2", takefocus=True)
+            tile = tk.Canvas(grid, width=222, height=86, highlightthickness=0, cursor="hand2", takefocus=True)
             tile.grid(row=index//2, column=index%2, padx=(0, 12), pady=(0, 12))
             def draw(hover=False, widget=tile, item=option, active=active):
                 widget.delete("all")
-                rounded(widget, 1, 1, 219, 85, 12, fill="#30372b" if hover or active else CARD, outline=ACCENT if active or hover else "", width=1)
+                widget.configure(bg=C.BG)
+                fill = C.SOFT if active else C.HOVER if hover else C.CARD
+                rounded(widget, 1, 1, 221, 85, 12, fill=fill, outline=C.BRAND if active or hover else C.EDGE,
+                        width=1.5 if active or hover else 1)
                 glyph = "moon" if "night" in item["label"].lower() else item.get("glyph", "snow")
-                icon(widget, glyph, 23, 24)
-                widget.create_text(46, 24, text=tr(widget, item["label"]) if item.get("translate_label",True) else item["label"], anchor="w", fill=TEXT, width=143, font=("Segoe UI", 12, "bold"))
-                if active: widget.create_text(197, 24, text=tr(widget, "✓"), fill=ACCENT, font=("Segoe UI", 12, "bold"))
-                widget.create_text(15, 57, text=tr(widget, item.get("description", "")) if item.get("translate_label",True) else item.get("description",""), anchor="w", fill=MUTED, font=("Segoe UI", 9), width=192)
+                circle = C.CARD if active else C.SOFT
+                widget.create_oval(14, 12, 46, 44, fill=circle, outline="")
+                icon(widget, glyph, 30, 28, C.ON_SOFT, scale=.72, bg=circle)
+                foreground = C.ON_SOFT if active else C.TEXT
+                label = tr(widget, item["label"]) if item.get("translate_label",True) else item["label"]
+                widget.create_text(56, 28, text=label, anchor="w", fill=foreground, width=132, font=font(11, "bold"))
+                if active: icon(widget, "check", 201, 28, C.ON_SOFT, scale=.8, bg=fill)
+                description = tr(widget, item.get("description", "")) if item.get("translate_label",True) else item.get("description","")
+                widget.create_text(15, 66, text=description, anchor="w", fill=C.ON_SOFT if active else C.MUTED, font=font(9), width=194)
             draw()
             refresh_on_language(tile,draw)
+            refresh_on_theme(tile,draw)
             tile.bind("<Enter>", lambda event, draw=draw: draw(True))
             tile.bind("<Leave>", lambda event, draw=draw: draw(False))
             tile.bind("<FocusIn>", lambda event, draw=draw: draw(True))
@@ -63,7 +72,7 @@ class ChoicePanel:
             tile.bind("<space>", lambda event, value=option["value"]: self.choose(value))
             tile.bind("<MouseWheel>", lambda event: viewport.yview_scroll(-int(event.delta/120), "units"))
             self.tiles.append(tile)
-        localized(ttk.Button(body, text="Cancel", command=self.close)).pack(anchor="e", pady=(12, 0))
+        localized(ttk.Button(body, text="Cancel", command=self.close)).pack(anchor="e", pady=(4, 0))
         self.window.update_idletasks()
         owner = parent.winfo_toplevel()
         x = max(0, owner.winfo_rootx()+(owner.winfo_width()-self.window.winfo_reqwidth())//2)
@@ -85,7 +94,7 @@ class ChoicePanel:
 
 class SelectField(tk.Canvas):
     def __init__(self, parent, variable, options, title, choices=None):
-        super().__init__(parent, width=236, height=40, bg=BG, highlightthickness=0, cursor="hand2", takefocus=True)
+        super().__init__(parent, width=236, height=44, highlightthickness=0, cursor="hand2", takefocus=True)
         self.variable, self.options, self.title = variable, options, title
         self.choices = choices
         self.hover = False
@@ -98,12 +107,15 @@ class SelectField(tk.Canvas):
         self.bind("<FocusIn>",lambda event:self.highlight(True))
         self.bind("<FocusOut>",lambda event:self.highlight(False))
         refresh_on_language(self,self.draw)
+        refresh_on_theme(self,self.draw)
         self.draw()
 
     def draw(self):
         self.delete("all")
-        rounded(self, 1, 1, 235, 39, 9, fill=HOVER if self.hover else CARD, outline=ACCENT if self.hover else "#394035")
-        self.create_text(13, 20, text=tr(self, self.variable.get()), anchor="w", fill=TEXT, font=("Segoe UI", 10))
+        self.configure(bg=C.BG)
+        rounded(self, 1, 1, 235, 43, 8, fill=C.HOVER if self.hover else C.CARD, outline=C.BRAND if self.hover else C.FIELD)
+        self.create_text(14, 22, text=tr(self, self.variable.get()), anchor="w", fill=C.TEXT, font=font(10))
+        icon(self, "chevron", 214, 22, C.MUTED)
 
     def highlight(self, active):
         self.hover = active

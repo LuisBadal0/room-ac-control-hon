@@ -2,7 +2,7 @@
 from decimal import Decimal, InvalidOperation
 
 from .inline_timers import NumberWheel
-from .theme import CARD, HOVER, TEXT, MUTED, ACCENT, rounded
+from .theme import C, font, rounded
 from .i18n import translator
 
 
@@ -74,9 +74,10 @@ class TemperatureWheel(NumberWheel):
             self.cancel_drag()
         self.delete("all")
         focused = self.focus_get() is self
-        self.configure(bg=CARD, cursor="sb_v_double_arrow" if self.enabled else "arrow")
-        rounded(self, 1, 1, 235, 107, 12, fill=HOVER if self.hover or focused else CARD,
-                outline=ACCENT if self.hover or focused else "#394035")
+        self.configure(bg=C.BG, cursor="sb_v_double_arrow" if self.enabled else "arrow")
+        rounded(self, 1, 1, 235, 107, 12, fill=C.HOVER if self.hover or focused else C.CARD,
+                outline=C.BRAND if self.hover or focused else C.FIELD)
+        rounded(self, 14, 37, 222, 71, 6, fill=C.SURFACE, outline="")
         for offset in range(-2, 3):
             index = self.value+offset
             if not 0 <= index < self.limit:
@@ -85,5 +86,5 @@ class TemperatureWheel(NumberWheel):
             emphasis = max(0, 1-abs(y-54)/self.ROW_HEIGHT)
             text = "—" if offset == 0 and not self.chosen else translator(self).number(self.number(index))+"°C"
             self.create_text(118, y, text=text,
-                             fill=TEXT if emphasis >= .5 and self.enabled else MUTED,
-                             font=("Segoe UI", round(11+15*emphasis), "bold" if emphasis >= .5 else "normal"))
+                             fill=C.TEXT if emphasis >= .5 and self.enabled else C.MUTED,
+                             font=font(round(11+12*emphasis), "black" if emphasis >= .5 else "normal"))
