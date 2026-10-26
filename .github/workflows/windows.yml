@@ -31,6 +31,7 @@ jobs:
           .\.venv\Scripts\python.exe tests/ui_smoke.py
           .\.venv\Scripts\python.exe tests/refresh_smoke.py
           .\.venv\Scripts\python.exe tests/desktop_smoke.py
+          .\.venv\Scripts\python.exe tests/window_header_smoke.py
       - name: Build portable release
         run: .\.venv\Scripts\python.exe tools/build_windows.py
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7

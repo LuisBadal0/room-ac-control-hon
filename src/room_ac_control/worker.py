@@ -1,9 +1,7 @@
-"""Windows desktop controller for Haier air conditioners paired with the cloud service."""
+"""Background event loop that runs hOn cloud operations off the Tk main thread."""
 import asyncio
 import queue
 import threading
-import tkinter as tk
-from tkinter import ttk, messagebox
 
 import aiohttp
 from pyhon.exceptions import HonAuthenticationError, NoAuthenticationException
@@ -40,7 +38,7 @@ class Worker:
                     if isinstance(error, ControlError):
                         text = str(error)
                     elif isinstance(error, (HonAuthenticationError, NoAuthenticationException)):
-                        text = "Cloud sign-in failed. Check your email and password. Social sign-in may require an cloud account email/password account."
+                        text = "Cloud sign-in failed. Check your email and password. Social sign-in may require an hOn email/password account."
                     elif isinstance(error, (aiohttp.ClientError, TimeoutError, OSError)):
                         text = "Could not reach the cloud service. Check internet access and try again."
                     else:
