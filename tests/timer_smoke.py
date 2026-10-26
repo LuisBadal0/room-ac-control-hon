@@ -30,13 +30,13 @@ assert card.minute.value == 59
 # repainting keeps the pointer gesture intact; device changes cancel it.
 from types import SimpleNamespace
 def pointer(y): return SimpleNamespace(y=y, y_root=300+y)
-card.hour.press(pointer(32))
-card.hour.drag(pointer(10))
+card.hour.press(pointer(34))
+card.hour.drag(pointer(4))  # One 26 px row up.
 assert card.hour.value == 1
 assert card.draft
 app.show_device(app.selected, preserve_edits=True)
 assert card.hour.drag_state is not None
-card.hour.release(pointer(10))
+card.hour.release(pointer(4))
 assert not app.preview_timers
 app.staged("tempSel", "26")
 card.run()

@@ -12,6 +12,10 @@ The interface starts in your Windows display language: English or Portuguese (Po
 
 Changing language keeps your signed-in account, pending settings and open preset drafts. Account room names and model identifiers stay as supplied by hOn. Search accepts English and Portuguese labels, with or without accents. Portuguese shows decimal temperatures with a comma; command values sent to the service retain their original format. Unrecognized cloud labels remain in their original language.
 
+## Choose light or dark
+
+Click the half-filled circle in the window header, or **Appearance** in All functions, to choose **Follow Windows**, **Light mode** or **Dark mode**. Follow Windows uses the app mode set in Windows Settings › Personalization › Colors and switches within a couple of seconds when you change it there. The choice applies immediately to every open window, keeps pending settings and drafts, and is saved for later launches.
+
 ## Select an AC
 
 The room card shows the active AC's name and model. Accounts with several units have a **Switch** button: choose a room tile to load its status. A single unit displays its connection status directly. Room names come from your cloud account.
@@ -44,7 +48,7 @@ Select a preset to inspect its options, then explicitly start it. A preset may t
 
 ## On / off timers
 
-**Start at** and **End at** are embedded directly below the temperature slider. Drag the hour or minute numbers up for later values, or down for earlier values; the wheel follows the pointer and snaps to the nearest number when released. You can also scroll, use the Up/Down keys, or click the neighbouring numbers. Click **Set** to save the next occurrence of that time, today or tomorrow, using your Windows local time zone. They are one-time controls only. A confirmed active schedule appears green with a **Stop** button inside its card; editing its time retains a separate Stop action.
+**Start at** and **End at** are embedded directly below the temperature slider. Drag the hour or minute numbers up for later values, or down for earlier values; the wheel follows the pointer and snaps to the nearest number when released. You can also scroll, use the Up/Down keys, or click the neighbouring numbers. Click **Set** to save the next occurrence of that time, today or tomorrow, using your Windows local time zone. They are one-time controls only. A confirmed active schedule appears as a blue-tinted card with a **Stop** button inside its card; editing its time retains a separate Stop action.
 
 Schedules are saved to **hOn's cloud service** and read back before success is displayed. You can switch the computer off after saving; the AC and router still need power and internet. This does not claim that a timer is stored physically inside the AC. Start at captures the selected mode, remembered configuration and pending edits, without applying them immediately. End at schedules a future power-off. Refresh also reads one-time timers created in hOn. You can change or stop a single supported timer from either app; if it changed since the last refresh, refresh again before editing it.
 

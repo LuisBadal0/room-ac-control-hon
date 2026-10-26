@@ -466,10 +466,10 @@ class App:
         # width once, while preserving the native wheels' full height.
         c.itemconfigure(timer_row,width=round(WIDTH*s),height=TimerCard.HEIGHT)
         number,symbol=c.bbox(temperature),c.bbox(unit)
-        left=260*s-((number[2]-number[0])+6+(symbol[2]-symbol[0]))/2
+        left=260*s-((number[2]-number[0])+8+(symbol[2]-symbol[0]))/2
         c.move(temperature,left-number[0],0)
         number=c.bbox(temperature)
-        c.coords(unit,number[2]+6,number[1]+12)
+        c.coords(unit,number[2]+8,number[1]+12)
         self.canvas.configure(height=int(CANVAS_HEIGHT*s))
         self.airflow.set_state(self.selected,260,129,275,38,s)
         self.canvas_hover.update()

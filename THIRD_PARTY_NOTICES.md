@@ -10,8 +10,11 @@ Room AC Control for hOn's original code and original geometric artwork are MIT l
 | AWS IoT SDK / AWS CRT | Apache-2.0 and component notices | https://github.com/aws/aws-iot-device-sdk-python-v2 |
 | CPython and Tcl/Tk | Bundled licenses | https://www.python.org/ |
 | PyInstaller runtime | GPL with the bootloader exception | https://pyinstaller.org/ |
+| Lato 2.015 typeface (Regular, Bold, Black) | SIL Open Font License 1.1 | https://www.latofonts.com/ |
 
 Portable builds include license texts and notices in `runtime/RoomACControl/licenses/`. The pystray library is shipped as separate, unmodified Python source under `_internal/pystray/`, so it can be inspected and replaced.
+
+The Lato font files in `src/room_ac_control/assets/fonts/` are unmodified Lato 2.015 by Łukasz Dziedzic, whose embedded metadata names the SIL Open Font License 1.1. They are loaded privately by the app and are not installed system-wide. The licence ships beside them (`OFL.txt`) and in `licenses/upstream/Lato-OFL.txt`.
 
 The application icon and generic indoor-unit illustration are original drawings produced by `tools/render_assets.py`. No manufacturer product photographs, hOn/Haier logos, supplied reference screenshots or reference videos are included in the repository or release.
 

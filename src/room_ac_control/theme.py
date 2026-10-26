@@ -19,7 +19,7 @@ PALETTES = {
         "TEXT": "#313131", "MUTED": "#6E6E6E", "FAINT": "#B0B0B0", "FIELD": "#8C8C8C",
         "BRAND": "#0A648B", "BRAND_ACTIVE": "#244766", "ON_BRAND": "#FFFFFF",
         "SOFT": "#C6DDE6", "ON_SOFT": "#244766", "TRACK": "#C6DDE6", "THUMB": "#FFFFFF",
-        "OK": "#1DB51D", "OK_BG": "#D1F6DB", "OK_TEXT": "#006008",
+        "OK": "#008000", "OK_BG": "#D1F6DB", "OK_TEXT": "#006008",
         "WARN_BG": "#FFF4D3", "WARN_TEXT": "#9A6000", "ECO": "#008000",
         "DANGER": "#D12E2E", "CLOSE_HOVER": "#D12E2E", "ON_DANGER": "#FFFFFF",
         "DISABLED": "#F4F4F4", "ON_DISABLED": "#6E6E6E",
@@ -69,7 +69,9 @@ def resolve_theme(preference):
 
 
 def refresh_on_theme(widget, callback):
-    widget.bind("<<ThemeChanged>>", lambda event: callback() if event.widget is widget else None, add="+")
+    # Direct callbacks, not a virtual event: Tk drops events for unmapped widgets,
+    # such as the sign-in form while the dashboard is shown.
+    widget.__dict__.setdefault("theme_callbacks", []).append(callback)
 
 
 def paint(widget, **tokens):
@@ -83,7 +85,9 @@ def paint(widget, **tokens):
 def broadcast_theme(root):
     def visit(widget):
         children = list(widget.winfo_children())
-        widget.event_generate("<<ThemeChanged>>")
+        for callback in list(widget.__dict__.get("theme_callbacks", ())):
+            if widget.winfo_exists():
+                callback()
         for child in children:
             if child.winfo_exists():
                 visit(child)

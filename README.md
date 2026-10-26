@@ -4,7 +4,10 @@ A Windows desktop controller for air conditioners connected to **hOn accounts**,
 
 An independent community project powered by [pyhOn](https://github.com/Andre0512/pyhOn). It is not affiliated with, sponsored by or endorsed by Haier or hOn. Those names identify compatibility only; this project uses its own icon and generic appliance illustration.
 
-![Room AC Control dashboard with fictional rooms](docs/images/dashboard.png)
+<p>
+  <img src="docs/images/dashboard.png" alt="Room AC Control dashboard in light mode, with fictional rooms" width="380">
+  <img src="docs/images/dashboard-dark.png" alt="Room AC Control dashboard in dark mode, with fictional rooms" width="380">
+</p>
 
 ## Start in one click
 
@@ -21,8 +24,9 @@ Keep the `runtime/` folder next to the launcher: it contains the application, Py
 
 ## What it does
 
-- A dark dashboard with room temperature, target temperature, power, Eco, fan, Sleep and airflow controls.
-- A room card showing the selected AC, with a themed **Switch** chooser for multiple units.
+- A dashboard with room temperature, target temperature, power, Eco, fan, Sleep and airflow controls, styled after the hOn app's colours and Lato typeface.
+- Light and dark modes. **Appearance** follows the Windows app mode by default, or stays on Light or Dark; the choice is saved.
+- A room card showing the selected AC, with a chooser for multiple units.
 - Auto, Cool, Dry, Heat and Fan modes when supported by your AC. Cool Night and Heat Night use the unit's Sleep feature.
 - All functions organized into **Settings**, **Everyday use** and **Maintenance**.
 - Draggable temperature number wheels in setting editors and preset forms, following the unit's range and step.
@@ -33,7 +37,7 @@ Keep the `runtime/` folder next to the launcher: it contains the application, Py
 - Animated loading feedback while manual or remembered-account sign-in completes.
 - English and Portuguese (Portugal), following the Windows display language by default, with a saved language choice.
 - An integrated window header; minimizing moves the app to the system tray.
-- Inline **Start at / End at** time wheels below the temperature slider. One-time timers are saved to hOn's cloud, read back for confirmation, shown in green when active, and cancelled with **Stop** inside the card.
+- Inline **Start at / End at** time wheels below the temperature slider. One-time timers are saved to hOn's cloud, read back for confirmation, highlighted in blue when active, and cancelled with **Stop** inside the card.
 
 Selecting values stages changes. **Apply changes**, the power control, or explicitly starting a preset sends a command. **Set** saves a future cloud timer; **Stop** cancels it. Start at captures the selected mode and its remembered settings, including pending edits, without turning the AC on immediately. Status refresh and offline previews never send control commands.
 
