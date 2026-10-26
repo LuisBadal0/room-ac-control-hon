@@ -42,10 +42,15 @@ jobs:
             releases/SHA256SUMS.txt
           if-no-files-found: error
 
-  attest:
-    if: startsWith(github.ref, 'refs/tags/v')
+  release:
+    # Publishes a release when a merge to main carries a version that has no
+    # release yet, or when a matching v* tag is pushed manually.
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
     needs: build
     runs-on: ubuntu-latest
+    concurrency:
+      group: release
+      cancel-in-progress: false
     permissions:
       contents: write
       id-token: write
@@ -55,16 +60,37 @@ jobs:
         with:
           name: Room-AC-Control-for-hOn-Windows-x64
           path: release
-      - uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v3
-        with:
-          subject-path: release/*.zip
-      - name: Publish tagged release
+      - name: Decide whether to publish
+        id: decide
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: |
-          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
-            echo "Release already exists; keeping its published artifacts."
-          else
-            gh release create "$GITHUB_REF_NAME" release/*.zip release/SHA256SUMS.txt --verify-tag --title "Room AC Control for hOn $GITHUB_REF_NAME" --generate-notes
+          archive=$(ls release/Room-AC-Control-for-hOn-*-Windows-x64.zip)
+          version=${archive##*/Room-AC-Control-for-hOn-}
+          version=${version%-Windows-x64.zip}
+          tag="v$version"
+          if [ "$GITHUB_REF_TYPE" = "tag" ] && [ "$GITHUB_REF_NAME" != "$tag" ]; then
+            echo "Tag $GITHUB_REF_NAME does not match app version $version." >&2
+            exit 1
           fi
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "Release $tag already exists; keeping its published artifacts."
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "Publishing $tag."
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+      - if: steps.decide.outputs.publish == 'true'
+        uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v3
+        with:
+          subject-path: release/*.zip
+      - name: Publish release
+        if: steps.decide.outputs.publish == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ steps.decide.outputs.tag }}
+        run: |
+          gh release create "$TAG" release/*.zip release/SHA256SUMS.txt --target "$GITHUB_SHA" --title "Room AC Control for hOn $TAG" --generate-notes

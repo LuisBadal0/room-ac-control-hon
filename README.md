@@ -76,7 +76,7 @@ The preview uses fictional rooms and does not load saved credentials. Use `--pre
 
 Setup and build install full hash-verified Windows dependency locks. `Setup.ps1` prepares source execution; `Build.ps1` produces the portable executable. See [build verification](docs/BUILD_VERIFICATION.md) for checksums, source manifests, optional signing and CI attestations. Binaries remain unsigned until a valid signing certificate is supplied.
 
-Windows UI checks: `tests/ui_smoke.py`, `tests/refresh_smoke.py`, `tests/desktop_smoke.py`, `tests/timer_smoke.py` (also run by ui_smoke), and `tests/window_header_smoke.py`. Active CI in `.github/workflows/windows.yml` pins actions to immutable commits, runs offline checks, and builds a portable Windows artifact for pull requests and pushes to main. Tagged releases are built and attested. Release tags should match the app version, such as `v0.1.15`.
+Windows UI checks: `tests/ui_smoke.py`, `tests/refresh_smoke.py`, `tests/desktop_smoke.py`, `tests/timer_smoke.py` (also run by ui_smoke), and `tests/window_header_smoke.py`. Active CI in `.github/workflows/windows.yml` pins actions to immutable commits, runs offline checks, and builds a portable Windows artifact for pull requests and pushes to main. Merging a PR that bumps the app version automatically builds, attests and publishes the release (for example `v0.1.15`); merges that keep the current version only build.
 
 See [Contributing](CONTRIBUTING.md) and the [user guide](docs/USER_GUIDE.md) for more detail.
 
