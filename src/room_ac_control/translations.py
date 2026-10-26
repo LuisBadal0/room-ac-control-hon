@@ -98,7 +98,7 @@ PORTUGUESE = {
     "An interface action failed. You can export diagnostics for troubleshooting.": "Uma ação da interface falhou. Pode exportar o diagnóstico para investigar.",
     "Could not save the diagnostic report. Choose a writable folder.": "Não foi possível guardar o diagnóstico. Escolha uma pasta com permissão de escrita.",
     "Save diagnostics": "Guardar diagnóstico", "JSON report": "Relatório JSON",
-    "Cloud sign-in failed. Check your email and password. Social sign-in may require an cloud account email/password account.": "O início de sessão falhou. Verifique o e-mail e a palavra-passe. O acesso por rede social pode exigir uma conta hOn com e-mail e palavra-passe.",
+    "Cloud sign-in failed. Check your email and password. Social sign-in may require an hOn email/password account.": "O início de sessão falhou. Verifique o e-mail e a palavra-passe. O acesso por rede social pode exigir uma conta hOn com e-mail e palavra-passe.",
     "Could not reach the cloud service. Check internet access and try again.": "Não foi possível contactar o serviço na nuvem. Verifique a ligação à Internet e tente novamente.",
     "The cloud service returned an unexpected response ({kind}). The community integration may need updating.": "O serviço devolveu uma resposta inesperada ({kind}). A integração da comunidade pode precisar de atualização.",
     "{error} The request outcome is unknown. Refresh and check hOn before retrying.": "{error} O resultado do pedido é desconhecido. Atualize e verifique o hOn antes de repetir.",

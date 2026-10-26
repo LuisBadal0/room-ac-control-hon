@@ -9,6 +9,12 @@ from .dashboard import App
 from . import __version__
 
 
+def check(condition):
+    """Self-test check that still runs when Python optimizations strip asserts."""
+    if not condition:
+        raise RuntimeError("Self-test check failed")
+
+
 def self_test(output):
     """Check the frozen runtime without loading an account or contacting hOn."""
     root = None
@@ -23,32 +29,32 @@ def self_test(output):
         app = App(root,demo=True,enable_tray=False,language="en")
         root.update_idletasks()
         encrypted = protect(b"offline-package-check")
-        assert protect(encrypted,decrypt=True) == b"offline-package-check"
-        assert app.unit_image.width()>200
+        check(protect(encrypted,decrypt=True) == b"offline-package-check")
+        check(app.unit_image.width()>200)
         app.login_view.set_loading(True)
         root.update_idletasks()
-        assert app.login_view.animation.active and app.login_view.animation.job is not None
+        check(app.login_view.animation.active and app.login_view.animation.job is not None)
         app.login_view.set_loading(False)
-        assert app.login_view.animation.job is None
+        check(app.login_view.animation.job is None)
         from .demo import devices
         app.connected(devices())
         root.update_idletasks()
-        assert set(app.inline_timers.cards) == {"on", "off"}
+        check(set(app.inline_timers.cards) == {"on", "off"})
         from .temperature_wheel import TemperatureWheel
         wheel = TemperatureWheel(root, {"min":16, "max":30, "step":.5}, 23.5)
-        assert wheel.get() == "23.5"
+        check(wheel.get() == "23.5")
         wheel.step(1)
-        assert wheel.get() == "24"
+        check(wheel.get() == "24")
         app.set_language("pt-PT")
-        assert app.all_button.cget("text") == "Todas as funções"
-        assert app.i18n.number("23.5") == "23,5"
-        assert wheel.get() == "24"
+        check(app.all_button.cget("text") == "Todas as funções")
+        check(app.i18n.number("23.5") == "23,5")
+        check(wheel.get() == "24")
         app.set_language("en")
-        assert app.all_button.cget("text") == "All functions"
+        check(app.all_button.cget("text") == "All functions")
         wheel.destroy()
         from .cloud_timers import select_timers
         timers, _ = select_timers({"scheduledPrograms": [], "scheduleRunningProgramEnd": []})
-        assert all(value["due"] is None for value in timers.values())
+        check(all(value["due"] is None for value in timers.values()))
         result = {"ok":True,"version":__version__,"assets":True,"encryption":True,"tray":True,"mqtt":True,"timers":True,"login_animation":True,"temperature_wheel":True,"multilingual":True}
     except Exception as error:
         result = {"ok":False,"error":type(error).__name__}
