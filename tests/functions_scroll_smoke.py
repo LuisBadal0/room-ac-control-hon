@@ -24,8 +24,9 @@ try:
     app.connected([snapshot])
     app.open_functions()
     view = app.functions_view
-    view.window.geometry("740x760")  # The compact header leaves more room for cards.
-    root.update()
+    for _ in range(20): root.update(); root.after(30)  # Let the fixed-size fit finish.
+    assert view.window.resizable() == (False, False)
+    assert (view.window.winfo_width(), view.window.winfo_height()) == (620, 700)
 
     def wheel(widget, delta=-120):
         widget.event_generate("<MouseWheel>", delta=delta)
@@ -76,12 +77,6 @@ try:
     view.search.set("")
     root.update()
     assert view.scrollable
-    view.window.geometry("740x1450")
-    root.update()
-    assert not view.scrollable and view.scroll.yview() == (0, 1)
-    view.window.geometry("740x700")
-    root.update()
-    assert view.scrollable
 
     # Nested preset labels scroll the pane; numeric inputs keep their own behavior.
     preset = {"kind": "function", "command": "startProgram", "label": "Offline preset",
@@ -106,6 +101,6 @@ try:
     root.update()
     wheel(view.inner)
     assert view.scroll.yview()[0] > 0
-    print("Blank-space wheel routing, content-fit limits, search, resizing and preset input isolation passed offline.")
+    print("Blank-space wheel routing, content-fit limits, search, fixed window size and preset input isolation passed offline.")
 finally:
     app.close()

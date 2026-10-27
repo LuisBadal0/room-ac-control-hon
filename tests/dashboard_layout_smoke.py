@@ -6,7 +6,7 @@ import sys
 import tkinter as tk
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
-from room_ac_control.dashboard import App, WIDTH, TIMER_TOP, TILE_TOP
+from room_ac_control.dashboard import App, WIDTH, TIMER_TOP, TILE_TOP, WINDOW_SIZE
 from room_ac_control.demo import devices
 from room_ac_control.inline_timers import TimerCard
 
@@ -17,6 +17,7 @@ try:
     fixture = devices()[0]
     fixture["controls"].pop("ecoMode")
     app.connected([fixture])
+    for _ in range(20): root.update(); root.after(30)  # Let the fixed-size fit finish.
     requests = []
     for card in app.inline_timers.cards.values():
         card.changed = lambda action, due: requests.append((action, due))
@@ -24,9 +25,10 @@ try:
     for theme in ("light", "dark"):
         app.theme_preference = theme
         app.apply_theme()
-        for geometry in ("540x920", "560x960", "900x1100", "540x920"):
-            root.geometry(geometry)
+        if True:  # The window has one fixed size; check it in each theme.
             root.update()
+            assert root.resizable() == (False, False)
+            assert (root.winfo_width(), root.winfo_height()) == WINDOW_SIZE
             scale = app.canvas.winfo_width() / WIDTH
             timers = app.inline_timers
             start, end = timers.cards["on"], timers.cards["off"]
@@ -70,6 +72,6 @@ try:
                 # The value stays centred between the − and + buttons.
                 assert number[0] > 64 * scale and unit[2] < 456 * scale
             assert app.status_label.winfo_y() + app.status_label.winfo_height() <= app.body.winfo_height()
-    print("Light/dark minimum, default and wide layouts, timer bounds and clicks, active Stop and temperature centring passed offline.")
+    print("Light/dark fixed-size layout, timer bounds and clicks, active Stop and temperature centring passed offline.")
 finally:
     app.close()

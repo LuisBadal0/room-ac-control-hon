@@ -73,14 +73,15 @@ class FunctionsView:
         app.dialog = self.window
         app.dialog_view = self
         localized_title(self.window,"Room AC Control · All functions")
-        self.window.geometry("740x820")
-        self.window.minsize(620, 700)
+        # Fixed at the minimum size; cards scroll when a section needs more room.
+        self.window.geometry("620x700")
+        self.window.resizable(False, False)
         paint(self.window, bg="BG")
         self.window.transient(app.root)
         self.window.grab_set()
         self.window.protocol("WM_DELETE_WINDOW", self.close)
         from .window_header import WindowHeader
-        self.header = WindowHeader(self.window, "Room AC Control · All functions", self.close, maximize=False)
+        self.header = WindowHeader(self.window, "Room AC Control · All functions", self.close, maximize=False, size=(620, 700))
         self.photo = unit_photo(self.window, 230)
         self.section = "settings"
         self.settings_changes = dict(app.dirty)
@@ -401,6 +402,7 @@ class FunctionsView:
         window = tk.Toplevel(self.window)
         localized_title(window,spec["label"])
         paint(window, bg="BG")
+        window.resizable(False, False)
         window.transient(self.window)
         window.grab_set()
         def close_detail():
