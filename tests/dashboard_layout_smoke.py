@@ -28,7 +28,11 @@ try:
         if True:  # The window has one fixed size; check it in each theme.
             root.update()
             assert root.resizable() == (False, False)
-            assert (root.winfo_width(), root.winfo_height()) == WINDOW_SIZE
+            # Windows clamps a window to short screens (CI runners use 1024x768).
+            if root.winfo_screenheight() >= WINDOW_SIZE[1] + 80:
+                assert (root.winfo_width(), root.winfo_height()) == WINDOW_SIZE
+            else:
+                assert root.winfo_width() == WINDOW_SIZE[0] and root.winfo_height() <= root.winfo_screenheight()
             scale = app.canvas.winfo_width() / WIDTH
             timers = app.inline_timers
             start, end = timers.cards["on"], timers.cards["off"]
