@@ -40,11 +40,13 @@ for frame in range(24):
     app.header.drag(SimpleNamespace(x_root=rect.left+200,y_root=rect.top+25))
 app.header.end_drag()
 assert app.header.max_button is None  # No maximize: the layout is designed for one size.
-# Windows clamps a window to short screens (CI runners use 1024x768).
+# Windows caps a window at about the screen height, so short screens
+# (CI runners use 1024x768) cannot show the full 920 px.
+size = (root.winfo_width(), root.winfo_height(), root.winfo_screenheight())
 if root.winfo_screenheight() >= 1000:
-    assert (root.winfo_width(), root.winfo_height()) == (540, 920)
+    assert size[:2] == (540, 920), size
 else:
-    assert root.winfo_width() == 540 and root.winfo_height() <= root.winfo_screenheight()
+    assert size[0] == 540 and size[1] <= 920, size
 assert app.body.winfo_width() == 540 and app.canvas.winfo_width() == 500
 app.open_functions()
 root.update()
