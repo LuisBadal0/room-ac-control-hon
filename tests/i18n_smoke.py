@@ -47,7 +47,6 @@ try:
     assert app.temp.get()=="26.5" and app.mode.get()=="Cool"
     assert app.canvas.itemcget(app.canvas.find_withtag("target-temperature")[0],"text")=="26,5"
     assert app.apply_button.cget("text")=="Aplicar alterações (1)"  # One staged change is counted.
-    root.geometry("540x920")
     app.staged("silentSleepStatus","1")
     root.update()
     texts={app.canvas.itemcget(item,"text"):item for item in app.canvas.find_all() if app.canvas.type(item)=="text"}

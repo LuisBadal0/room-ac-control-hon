@@ -12,11 +12,11 @@ from tests.ui_smoke import demo_device
 root = tk.Tk()
 app = App(root, demo=True, enable_tray=False,language="en")
 root.title("Room AC Control · Drag regression test")
-root.update()
+for _ in range(20): root.update(); root.after(30)  # Let the fixed-size fit finish.
 native = app.header.native
 style = native.get_style(native.hwnd, -16)
 assert not style & native.CAPTION
-assert style & 0x00040000  # resize frame
+assert root.resizable() == (False, False)  # Fixed at the minimum size
 assert style & 0x00080000  # system menu / taskbar commands
 app.connected([demo_device()])
 root.update()
@@ -39,14 +39,15 @@ for frame in range(24):
     assert not native.get_style(native.hwnd,-16) & native.CAPTION
     app.header.drag(SimpleNamespace(x_root=rect.left+200,y_root=rect.top+25))
 app.header.end_drag()
-app.header.max_button.invoke()
-root.update()
-assert root.state() == "zoomed"
-assert app.body.winfo_width() == 560
-assert app.canvas.winfo_width() <= 520
-app.header.max_button.invoke()
-root.update()
-assert root.state() == "normal"
+assert app.header.max_button is None  # No maximize: the layout is designed for one size.
+# Windows caps a window at about the screen height, so short screens
+# (CI runners use 1024x768) cannot show the full 920 px.
+size = (root.winfo_width(), root.winfo_height(), root.winfo_screenheight())
+if root.winfo_screenheight() >= 1000:
+    assert size[:2] == (540, 920), size
+else:
+    assert size[0] == 540 and size[1] <= 920, size
+assert app.body.winfo_width() == 540 and app.canvas.winfo_width() == 500
 app.open_functions()
 root.update()
 view = app.functions_view
@@ -66,4 +67,4 @@ if "--preview" in sys.argv:
 else:
     app.header.close_button.invoke()
 assert app.closing
-print("Fast-drag frame stability, integrated headers, maximize/restore, centered content and dialog close passed.")
+print("Fast-drag frame stability, integrated headers, fixed window size, centered content and dialog close passed.")

@@ -81,8 +81,9 @@ class WindowsFrame:
         self.user.RedrawWindow(self.hwnd, None, None, 0x0001 | 0x0004 | 0x0080 | 0x0400)
 
 class WindowHeader:
-    def __init__(self, window, title, close, minimize=None, maximize=True):
+    def __init__(self, window, title, close, minimize=None, maximize=True, size=None):
         self.window = window
+        self.size = size
         self.drag_origin = None
         self.drag_pending = None
         self.drag_job = None
@@ -126,6 +127,23 @@ class WindowHeader:
     def apply_frame(self):
         if self.window.winfo_exists() and self.native:
             self.native.apply()
+            if self.size:
+                self.window.after(50, lambda: self.fit(self.size, 5))
+
+    def fit(self, request, attempts):
+        """Keep a fixed-size window's client area exact after the caption is removed.
+
+        Tk still adds its own frame allowance to requested sizes, so nudge the
+        request by the measured error until the client matches."""
+        if not self.window.winfo_exists():
+            return
+        width, height = self.size
+        error = (self.window.winfo_width()-width, self.window.winfo_height()-height)
+        if error == (0, 0) or attempts == 0:
+            return
+        request = (request[0]-error[0], request[1]-error[1])
+        self.window.geometry(f"{request[0]}x{request[1]}")
+        self.window.after(50, lambda: self.fit(request, attempts-1))
 
     def mapped(self, event):
         if event.widget is self.window:

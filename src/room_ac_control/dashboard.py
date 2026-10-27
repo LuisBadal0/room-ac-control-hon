@@ -30,6 +30,8 @@ TIMER_TOP = 368
 TILE_TOP = TIMER_TOP + TimerCard.HEIGHT + 12
 TILE_HEIGHT = 104
 CANVAS_HEIGHT = TILE_TOP + TILE_HEIGHT + 2
+# The window opens at its minimum size and stays fixed; the layout is designed for it.
+WINDOW_SIZE = (540, 920)
 THEME_CHOICES = [
     {"label": "Follow Windows", "value": "system", "glyph": "monitor", "description": "Match the Windows app mode"},
     {"label": "Light mode", "value": "light", "glyph": "sun", "description": "Sand and white surfaces"},
@@ -79,12 +81,12 @@ class App:
         self.app_icon = tk.PhotoImage(master=root, file=str(ASSETS / "app-icon.png"))
         root.iconphoto(True, self.app_icon)
         localized_title(root,"Room AC Control for hOn" + (" · Design preview" if demo else ""))
-        root.geometry("560x960")
-        root.minsize(540, 920)
+        root.geometry("{}x{}".format(*WINDOW_SIZE))
+        root.resizable(False, False)
         paint(root, bg="BG")
         configure_styles(root)
         from .window_header import WindowHeader, HeaderIconButton
-        self.header = WindowHeader(root, "Room AC Control · hOn", self.close, self.minimize_window)
+        self.header = WindowHeader(root, "Room AC Control · hOn", self.close, self.minimize_window, maximize=False, size=WINDOW_SIZE)
         self.language_code = tk.StringVar(root, value="PT" if self.i18n.language == "pt-PT" else "EN")
         self.language_button = tk.Button(self.header.frame,textvariable=self.language_code,command=self.language_menu,
                                         relief="flat",bd=0,font=font(9,"black"),padx=10,cursor="hand2")
@@ -95,8 +97,7 @@ class App:
         self.content = ttk.Frame(root)
         self.content.pack(fill="both",expand=True)
         self.body = ttk.Frame(self.content, padding=(20,6,20,16))
-        self.body.place(relx=.5,y=0,anchor="n",relheight=1,width=560)
-        self.content.bind("<Configure>",lambda event:self.body.place_configure(width=min(560,event.width)))
+        self.body.pack(fill="both",expand=True)
         from .login_view import LoginView
         self.login_view = LoginView(self)
         self.login_frame = self.login_view.frame

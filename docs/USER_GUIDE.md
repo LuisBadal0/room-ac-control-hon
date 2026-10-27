@@ -62,9 +62,9 @@ Status updates through Cloud notifications with a check every 15 seconds as a ba
 
 After an accepted settings command, **Awaiting confirmation** keeps the values you sent visible while the cloud still reports older values. These are separate from unsent changes and are not automatically resent. Matching reports confirm them; after 60 seconds without confirmation, the next successful refresh shows the reported values with a warning. The power indicator and airflow animation continue to follow reported operation.
 
-Drag the integrated header to move the window, double-click to maximize/restore, or use its window controls. Minimize moves the app to the Windows notification area. Double-click the tray icon or choose **Open Room AC Control** to restore. **Exit** or the window's close button quits without turning the AC off.
+Drag the integrated header to move the window, or use its minimize and close controls. Minimize moves the app to the Windows notification area. Double-click the tray icon or choose **Open Room AC Control** to restore. **Exit** or the window's close button quits without turning the AC off.
 
-The dashboard stays centred when resized. At its minimum size, timer cards and action buttons remain aligned, and timer controls retain their full height.
+The main window and All functions open at a fixed size designed for their layout, so they cannot be resized or maximized. All functions scrolls when a section has more cards than fit.
 
 ## Sign out and privacy
 
