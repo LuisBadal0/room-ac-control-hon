@@ -24,6 +24,14 @@ The room card shows the active AC's name and model. Accounts with several units 
 
 Beside the unit picture the dashboard shows what the AC itself measures: **Outside** temperature (from the outdoor unit's sensor) and indoor **Humidity** on the left, and **Air quality** (Good, Medium or Poor) on the right. Each reading appears only when your model reports it. Units without a sensor report 0, so a reading of exactly 0 is hidden rather than shown as a real value. The outdoor sensor sits on the outdoor unit and can read warmer than the weather while the compressor runs in the sun.
 
+A coloured banner below the unit picture appears when the AC reports a condition, and disappears by itself when it clears:
+
+- **AC error** (red) with the code the unit reports. The code is shown as reported; check the unit or the troubleshooting section of the hOn app for its meaning.
+- **Defrosting** (blue): in Heat mode the AC pauses heating to melt ice on the outdoor unit. This is normal and ends on its own.
+- **Clean the air filter** (amber): the unit's filter reminder is on.
+
+If several apply, the most serious is shown with a count such as **+1**.
+
 ## Set comfort controls
 
 Move the temperature slider, use plus/minus, or select Mode, Fan speed, Sleep and Airflow. Changes are staged until you click **Apply changes**. Applying changes preserves the AC's power state.
@@ -52,11 +60,25 @@ Select a preset to inspect its options, then explicitly start it. A preset may t
 
 ## On / off timers
 
-**Start at** and **End at** are embedded directly below the temperature slider. Drag the hour or minute numbers up for later values, or down for earlier values; the wheel follows the pointer and snaps to the nearest number when released. You can also scroll, use the Up/Down keys, or click the neighbouring numbers. Click **Set** to save the next occurrence of that time, today or tomorrow, using your Windows local time zone. They are one-time controls only. A confirmed active schedule appears as a blue-tinted card with a **Stop** button inside its card; editing its time retains a separate Stop action.
+**Start at** and **End at** are embedded directly below the temperature slider. Drag the hour or minute numbers up for later values, or down for earlier values; the wheel follows the pointer and snaps to the nearest number when released. You can also scroll, use the Up/Down keys, or click the neighbouring numbers. Click **Set** to save the next occurrence of that time, today or tomorrow, using your Windows local time zone. The chip at the top right of each card says **Once**; select it to repeat instead (see below). A confirmed active schedule appears as a blue-tinted card with a **Stop** button inside its card; editing its time retains a separate Stop action.
 
 Schedules are saved to **hOn's cloud service** and read back before success is displayed. You can switch the computer off after saving; the AC and router still need power and internet. This does not claim that a timer is stored physically inside the AC. Start at captures the selected mode, remembered configuration and pending edits, without applying them immediately. End at schedules a future power-off. Refresh also reads one-time timers created in hOn. You can change or stop a single supported timer from either app; if it changed since the last refresh, refresh again before editing it.
 
-Stopping one half of a paired timer preserves the other half. Maintenance and recurring schedules are not exposed here. If several one-time schedules overlap or the cloud returns an unfamiliar format, the affected control becomes unavailable; manage those records in hOn. A failed or timed-out request may have reached the service: refresh and check hOn before retrying. There is no automatic retry of a timer mutation.
+Stopping one half of a paired timer preserves the other half. Maintenance routines are not exposed here. If several one-time schedules overlap or the cloud returns an unfamiliar format, the affected card becomes unavailable; delete the extra ones in **Schedules** or in hOn. A failed or timed-out request may have reached the service: refresh and check hOn before retrying. There is no automatic retry of a timer mutation.
+
+## Repeating schedules
+
+Select the **Once** chip on Start at or End at and choose **Every day**, **Weekdays**, **Weekend** or **Choose days…**. The chip turns blue and **Set** then saves a repeating schedule instead of a one-time timer; the card returns to Once afterwards. A Start at schedule uses the selected mode with its remembered settings, as a one-time start does.
+
+**Schedules**, next to All functions, lists every timer saved in hOn for the selected AC, including ones made in the phone app:
+
+- Repeating schedules show their times, days and the mode and temperature they apply. Use the switch to pause or resume one without deleting it, **Edit** to change its times, days, mode or temperature, or **Delete** to remove it.
+- Upcoming one-time timers are listed with their date and can be deleted.
+- Monthly or other repeats created in hOn are listed as **Manage in hOn**.
+
+**New schedule** opens the editor: tick **Turn on at**, **Turn off at** or both, choose the days, and pick the mode and temperature used when it turns on; fan, airflow and other settings follow what you last used in that mode. If another active schedule starts or ends at the same time on one of the same days, you are asked before it is saved.
+
+Repeating schedules are written in the same format the hOn app uses (days Monday to Sunday, repeated every day or weekly) and read back before success is shown. They run in hOn's cloud with the PC off, show in the phone app, and keep the clock time they were saved with: after a daylight-saving change, edit and save them again if the time looks an hour off.
 
 The previous PC scheduler is removed entirely, and old saved PC timers do not execute. Closing the application or signing out does not cancel cloud timers; use **Stop** explicitly. The offline preview uses fictional in-memory schedules and sends no requests. The cloud scheduling adapter was checked against hOn 2.30.7; future service changes may affect compatibility.
 

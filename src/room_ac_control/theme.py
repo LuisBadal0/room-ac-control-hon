@@ -22,6 +22,7 @@ PALETTES = {
         "OK": "#008000", "OK_BG": "#D1F6DB", "OK_TEXT": "#006008",
         "WARN_BG": "#FFF4D3", "WARN_TEXT": "#9A6000", "ECO": "#008000",
         "DANGER": "#D12E2E", "CLOSE_HOVER": "#D12E2E", "ON_DANGER": "#FFFFFF",
+        "DANGER_BG": "#FBE4E4", "DANGER_TEXT": "#A1191E",
         "DISABLED": "#F4F4F4", "ON_DISABLED": "#6E6E6E",
     },
     "dark": {
@@ -33,6 +34,7 @@ PALETTES = {
         "OK": "#76E392", "OK_BG": "#14381F", "OK_TEXT": "#A4EDB6",
         "WARN_BG": "#3D3110", "WARN_TEXT": "#FFDE79", "ECO": "#99CC99",
         "DANGER": "#E76868", "CLOSE_HOVER": "#A21919", "ON_DANGER": "#FFFFFF",
+        "DANGER_BG": "#3D1A1B", "DANGER_TEXT": "#F6A9A9",
         "DISABLED": "#313131", "ON_DISABLED": "#8E8E8E",
     },
 }
@@ -259,6 +261,11 @@ def icon(canvas, name, x, y, color=None, scale=1, bg=None, tags=()):
     elif name == "sparkle":
         canvas.create_polygon(x, y-11, x+2.5, y-2.5, x+11, y, x+2.5, y+2.5, x, y+11, x-2.5, y+2.5, x-11, y, x-2.5, y-2.5,
                               fill="", outline=color, width=1.5, tags=tags)
+    elif name == "alert":
+        canvas.create_polygon(x, y-11, x+11, y+9, x-11, y+9, fill="", outline=color, width=1.6,
+                              joinstyle="round", tags=tags)
+        line(x, y-3, x, y+2, width=1.8)
+        oval(x-1.2, y+4.8, x+1.2, y+7.2, fill=color, outline="")
     elif name == "wrench":
         line(x-8, y+8, x+2, y-2, width=3)
         oval(x, y-11, x+11, y, width=1.8)
