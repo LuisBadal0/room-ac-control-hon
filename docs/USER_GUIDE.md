@@ -20,6 +20,10 @@ Click the half-filled circle in the window header, or **Appearance** in All func
 
 The room card shows the active AC's name and model. Accounts with several units have a **Switch** button: choose a room tile to load its status. A single unit displays its connection status directly. Room names come from your cloud account.
 
+## Readings
+
+Beside the unit picture the dashboard shows what the AC itself measures: **Outside** temperature (from the outdoor unit's sensor) and indoor **Humidity** on the left, and **Air quality** (Good, Medium or Poor) on the right. Each reading appears only when your model reports it. Units without a sensor report 0, so a reading of exactly 0 is hidden rather than shown as a real value. The outdoor sensor sits on the outdoor unit and can read warmer than the weather while the compressor runs in the sun.
+
 ## Set comfort controls
 
 Move the temperature slider, use plus/minus, or select Mode, Fan speed, Sleep and Airflow. Changes are staged until you click **Apply changes**. Applying changes preserves the AC's power state.

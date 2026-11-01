@@ -30,6 +30,12 @@ TIMER_TOP = 368
 TILE_TOP = TIMER_TOP + TimerCard.HEIGHT + 12
 TILE_HEIGHT = 104
 CANVAS_HEIGHT = TILE_TOP + TILE_HEIGHT + 2
+# The unit artwork spans x 110–410 and y 37–127; sensor readings use the free
+# columns beside it.
+ART = (110, 37, 410, 127)
+READINGS_TOP = 48
+READING_STEP = 42
+AIR_COLORS = {"Good": "OK", "Medium": "WARN_TEXT", "Poor": "DANGER"}
 # The window opens at its minimum size and stays fixed; the layout is designed for it.
 WINDOW_SIZE = (540, 920)
 THEME_CHOICES = [
@@ -400,6 +406,7 @@ class App:
         c.create_oval(WIDTH-chip-23,10.5,WIDTH-chip-16,17.5,fill=ink,outline="")
         text(WIDTH-12,14,status,9,ink,"e","bold",translate=False)
         ac_art(c,260,82,photo=self.unit_image)
+        self.draw_readings(c,text)
         # Target temperature card: −/+, Eco toggle and the stepped slider.
         T=TEMP_TOP
         rounded(c,0,T,WIDTH,T+182,12,fill=C.CARD,outline=C.EDGE)
@@ -476,6 +483,26 @@ class App:
         self.canvas_hover.update()
         if self.busy:
             self.hits=[]
+
+    def draw_readings(self,c,text):
+        """Outside temperature and humidity on the left, air quality on the right."""
+        sensors=self.selected.get("sensors",{})
+        rows=[]
+        if "outdoor" in sensors:rows.append(("Outside","thermo",self.i18n.number(degrees(sensors["outdoor"]))))
+        if "humidity" in sensors:rows.append(("Humidity","drop",f"{sensors['humidity']:.0f}%"))
+        for index,(label,glyph,value) in enumerate(rows):
+            y=READINGS_TOP+index*READING_STEP
+            icon(c,glyph,9,y+8,C.MUTED,scale=.6,bg=C.BG,tags=("reading",))
+            for item in (text(22,y,label,8,C.MUTED),text(22,y+16,value,11,weight="bold",translate=False)):
+                c.addtag_withtag("reading",item)
+        quality=sensors.get("air")
+        if quality:
+            label=text(WIDTH-8,READINGS_TOP,"Air quality",8,C.MUTED,"e")
+            value=text(WIDTH-8,READINGS_TOP+16,quality,11,anchor="e",weight="bold")
+            left=c.bbox(value)[0]
+            dot=c.create_oval(left-14,READINGS_TOP+12,left-6,READINGS_TOP+20,
+                              fill=getattr(C,AIR_COLORS[quality]),outline="")
+            for item in (label,value,dot):c.addtag_withtag("reading",item)
 
     def click(self,event):
         if self.busy:return

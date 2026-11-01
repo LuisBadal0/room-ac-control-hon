@@ -170,6 +170,34 @@ def mode_label(snapshot, pending=None):
     return label + " Night" if label in {"Cool", "Heat"} and code(sleep_value) == "1" else label
 
 
+# hOn 2.30.7 colours the AC's airQuality level: 0/1 good, 2 medium, 3 bad. Units
+# without the sensor also report 0, so only levels 1–3 are shown.
+AIR_QUALITY = {"1": "Good", "2": "Medium", "3": "Poor"}
+
+
+def reading(device, key, low, high):
+    """A reported sensor value; sensors a unit lacks report 0, so 0 is hidden."""
+    try:
+        number = float(device.get(key))
+    except (TypeError, ValueError):
+        return None
+    return number if number != 0 and low <= number <= high else None
+
+
+def sensors(device):
+    """Read-only values the AC reports alongside its settings."""
+    result = {}
+    outdoor = reading(device, "tempOutdoor", -40, 60)
+    if outdoor is not None:
+        result["outdoor"] = outdoor
+    humidity = reading(device, "humidityIndoor", 1, 100)
+    if humidity is not None:
+        result["humidity"] = humidity
+    if quality := AIR_QUALITY.get(code(device.get("airQuality"))):
+        result["air"] = quality
+    return result
+
+
 def describe(device):
     settings = device.settings
     temp = settings.get("settings.tempSel")
@@ -194,6 +222,7 @@ def describe(device):
         "connection": device.get("attributes.lastConnEvent.category", "Unknown"),
         "fetched": datetime.now().strftime("%H:%M:%S"),
         "controls": controls, "programs": programs, "commands": commands,
+        "sensors": sensors(device),
     }
 
 

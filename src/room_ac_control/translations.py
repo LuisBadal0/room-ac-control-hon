@@ -142,4 +142,7 @@ PORTUGUESE = {
     "This timer changed in hOn. Refresh its status before trying again.": "Este temporizador foi alterado no hOn. Atualize o estado antes de tentar novamente.",
     "The paired timer has an unfamiliar format. Manage it in hOn.": "O temporizador emparelhado tem um formato desconhecido. Faça a gestão no hOn.",
     "The timer request was sent, but its saved status is not confirmed. Check hOn before retrying.": "O pedido foi enviado, mas o estado guardado não foi confirmado. Verifique o hOn antes de repetir.",
+    # Sensor readings beside the unit artwork. Air quality is "a qualidade" (feminine).
+    "Outside": "Exterior", "Humidity": "Humidade", "Air quality": "Qualidade do ar",
+    "Good": "Boa", "Poor": "Má",
 }

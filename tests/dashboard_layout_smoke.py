@@ -6,7 +6,7 @@ import sys
 import tkinter as tk
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
-from room_ac_control.dashboard import App, WIDTH, TIMER_TOP, TILE_TOP, WINDOW_SIZE
+from room_ac_control.dashboard import App, WIDTH, TIMER_TOP, TILE_TOP, WINDOW_SIZE, ART
 from room_ac_control.demo import devices
 from room_ac_control.inline_timers import TimerCard
 
@@ -78,6 +78,21 @@ try:
                 # The value stays centred between the − and + buttons.
                 assert number[0] > 64 * scale and unit[2] < 456 * scale
             assert app.status_label.winfo_y() + app.status_label.winfo_height() <= app.body.winfo_height()
+            # Sensor readings stay beside the unit artwork, above the airflow,
+            # in English and in the longer Portuguese labels.
+            for language in ("en", "pt-PT"):
+                app.set_language(language)
+                app.draw()
+                root.update_idletasks()
+                readings = app.canvas.find_withtag("reading")
+                assert len(readings) >= 8, readings
+                art = [value * scale for value in ART]
+                for item in readings:
+                    left, top, right, bottom = app.canvas.bbox(item)
+                    assert right <= art[0] or left >= art[2], (language, app.canvas.bbox(item))
+                    assert top >= 30 * scale and bottom <= art[3], (language, app.canvas.bbox(item))
+                    assert left >= 0 and right <= app.canvas.winfo_width()
+            app.set_language("en")
     print("Light/dark fixed-size layout, timer bounds and clicks, active Stop and temperature centring passed offline.")
 finally:
     app.close()
