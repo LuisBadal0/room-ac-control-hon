@@ -257,6 +257,23 @@ class CommandTests(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(describe(device)["sensors"], expected)
                 self.assertEqual(api.sent, [])
 
+    async def test_alerts_follow_hon_rules_and_are_ordered_by_severity(self):
+        for extra, expected in (
+            ({"errors": "00", "defrostStatus": "0", "filterChangeStatusLocal": "0"}, []),
+            ({}, []),  # A unit that reports none of these has no alerts.
+            ({"errors": "E7"}, [{"kind": "error", "code": "E7"}]),
+            ({"errors": "12", "manualDefrostingStatus": "1", "filterChangeStatusLocal": "1"},
+             [{"kind": "error", "code": "12"}, {"kind": "defrost"}, {"kind": "filter"}]),
+            ({"defrostStatus": "1"}, [{"kind": "defrost"}]),
+            ({"filterChangeStatusLocal": "1"}, [{"kind": "filter"}]),
+        ):
+            with self.subTest(extra=extra):
+                device, api = make_device()
+                api.extra = extra
+                await device.update(force=True)
+                self.assertEqual(describe(device)["alerts"], expected)
+                self.assertEqual(api.sent, [])
+
 
 if __name__ == "__main__":
     unittest.main()

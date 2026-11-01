@@ -198,6 +198,24 @@ def sensors(device):
     return result
 
 
+def alerts(device):
+    """Conditions the AC reports, most severe first (hOn 2.30.7 AC parameters).
+
+    hOn treats any errors value other than "00" as an error. Defrosting is
+    defrostStatus, or manualDefrostingStatus on units with manual defrost.
+    filterChangeStatusLocal is the unit's filter flag.
+    """
+    result = []
+    error = device.get("errors")
+    if error is not None and str(error).strip() and code(error) != "0":
+        result.append({"kind": "error", "code": str(error).strip()})
+    if "1" in {code(device.get("defrostStatus")), code(device.get("manualDefrostingStatus"))}:
+        result.append({"kind": "defrost"})
+    if code(device.get("filterChangeStatusLocal")) == "1":
+        result.append({"kind": "filter"})
+    return result
+
+
 def describe(device):
     settings = device.settings
     temp = settings.get("settings.tempSel")
@@ -222,7 +240,7 @@ def describe(device):
         "connection": device.get("attributes.lastConnEvent.category", "Unknown"),
         "fetched": datetime.now().strftime("%H:%M:%S"),
         "controls": controls, "programs": programs, "commands": commands,
-        "sensors": sensors(device),
+        "sensors": sensors(device), "alerts": alerts(device),
     }
 
 

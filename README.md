@@ -26,6 +26,7 @@ Keep the `runtime/` folder next to the launcher: it contains the application, Py
 
 - A dashboard with room temperature, target temperature, power, Eco, fan, Sleep and airflow controls, styled after the hOn app's colours and Lato typeface.
 - Outside temperature, indoor humidity and air quality beside the unit picture, when your AC reports them.
+- Banners for AC errors (with the reported code), defrosting and filter-cleaning reminders.
 - Light and dark modes. **Appearance** follows the Windows app mode by default, or stays on Light or Dark; the choice is saved.
 - A room card showing the selected AC, with a chooser for multiple units.
 - Auto, Cool, Dry, Heat and Fan modes when supported by your AC. Cool Night and Heat Night use the unit's Sleep feature.
@@ -77,11 +78,11 @@ Runtime builds, local environments, shortcuts and account files are excluded fro
 .\tools\Build.ps1
 ```
 
-The preview uses fictional rooms and does not load saved credentials. Use `--preview login` to review the welcome screen. Add `--language pt-PT` or `--language en`, or `--theme light` or `--theme dark`, to preview a specific language or appearance without changing your saved preferences. `tools/Build.ps1` produces `releases/Room-AC-Control-for-hOn-0.1.18-Windows-x64.zip` and a local app-icon shortcut. The build checks bundled assets, Windows encryption, tray imports and MQTT libraries without contacting an account.
+The preview uses fictional rooms and does not load saved credentials. Use `--preview login` to review the welcome screen. Add `--language pt-PT` or `--language en`, or `--theme light` or `--theme dark`, to preview a specific language or appearance without changing your saved preferences. `tools/Build.ps1` produces `releases/Room-AC-Control-for-hOn-0.1.19-Windows-x64.zip` and a local app-icon shortcut. The build checks bundled assets, Windows encryption, tray imports and MQTT libraries without contacting an account.
 
 Setup and build install full hash-verified Windows dependency locks. `Setup.ps1` prepares source execution; `Build.ps1` produces the portable executable. See [build verification](docs/BUILD_VERIFICATION.md) for checksums, source manifests, optional signing and CI attestations. Binaries remain unsigned until a valid signing certificate is supplied.
 
-Windows UI checks: `tests/ui_smoke.py`, `tests/refresh_smoke.py`, `tests/desktop_smoke.py`, `tests/timer_smoke.py` (also run by ui_smoke), and `tests/window_header_smoke.py`. Active CI in `.github/workflows/windows.yml` pins actions to immutable commits, runs offline checks, and builds a portable Windows artifact for pull requests and pushes to main. Merging a PR that bumps the app version automatically builds, attests and publishes the release (for example `v0.1.18`); merges that keep the current version only build.
+Windows UI checks: `tests/ui_smoke.py`, `tests/refresh_smoke.py`, `tests/desktop_smoke.py`, `tests/timer_smoke.py` (also run by ui_smoke), and `tests/window_header_smoke.py`. Active CI in `.github/workflows/windows.yml` pins actions to immutable commits, runs offline checks, and builds a portable Windows artifact for pull requests and pushes to main. Merging a PR that bumps the app version automatically builds, attests and publishes the release (for example `v0.1.19`); merges that keep the current version only build.
 
 See [Contributing](CONTRIBUTING.md) and the [user guide](docs/USER_GUIDE.md) for more detail.
 

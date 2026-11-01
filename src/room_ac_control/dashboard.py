@@ -36,6 +36,13 @@ ART = (110, 37, 410, 127)
 READINGS_TOP = 48
 READING_STEP = 42
 AIR_COLORS = {"Good": "OK", "Medium": "WARN_TEXT", "Poor": "DANGER"}
+# Alerts cover the airflow strip below the unit; the most severe one is shown.
+BANNER = (0, 132, WIDTH, 166)
+ALERTS = {
+    "error": ("alert", "DANGER_BG", "DANGER_TEXT", "AC error {code}", "Check the unit, or see troubleshooting in hOn."),
+    "defrost": ("snow", "SOFT", "ON_SOFT", "Defrosting", "Heating pauses while the outdoor unit melts ice."),
+    "filter": ("wrench", "WARN_BG", "WARN_TEXT", "Clean the air filter", "The AC reports that its filter needs cleaning."),
+}
 # The window opens at its minimum size and stays fixed; the layout is designed for it.
 WINDOW_SIZE = (540, 920)
 THEME_CHOICES = [
@@ -407,6 +414,7 @@ class App:
         text(WIDTH-12,14,status,9,ink,"e","bold",translate=False)
         ac_art(c,260,82,photo=self.unit_image)
         self.draw_readings(c,text)
+        self.draw_alert(c,text)
         # Target temperature card: −/+, Eco toggle and the stepped slider.
         T=TEMP_TOP
         rounded(c,0,T,WIDTH,T+182,12,fill=C.CARD,outline=C.EDGE)
@@ -479,7 +487,8 @@ class App:
         number=c.bbox(temperature)
         c.coords(unit,number[2]+8,number[1]+12)
         self.canvas.configure(height=int(CANVAS_HEIGHT*s))
-        self.airflow.set_state(self.selected,260,129,275,38,s)
+        # An alert banner covers the airflow strip, so the animation pauses beneath it.
+        self.airflow.set_state(None if c.find_withtag("alert") else self.selected,260,129,275,38,s)
         self.canvas_hover.update()
         if self.busy:
             self.hits=[]
@@ -503,6 +512,22 @@ class App:
             dot=c.create_oval(left-14,READINGS_TOP+12,left-6,READINGS_TOP+20,
                               fill=getattr(C,AIR_COLORS[quality]),outline="")
             for item in (label,value,dot):c.addtag_withtag("reading",item)
+
+    def draw_alert(self,c,text):
+        """A banner for an error, defrosting or filter cleaning; it clears with the condition."""
+        alerts=[alert for alert in self.selected.get("alerts",[]) if alert.get("kind") in ALERTS]
+        if not alerts:return
+        alert=alerts[0]
+        glyph,surface,ink,title,detail=ALERTS[alert["kind"]]
+        fill,color=getattr(C,surface),getattr(C,ink)
+        x1,y1,x2,y2=BANNER
+        items=[rounded(c,x1,y1,x2,y2,10,fill=fill,outline="")]
+        icon(c,glyph,20,(y1+y2)/2,color,scale=.62,bg=fill,tags=("alert",))
+        items.append(text(38,y1+10,title.format(code=alert.get("code","")),9,color,weight="bold"))
+        items.append(text(38,y1+24,detail,8,color))
+        if len(alerts)>1:
+            items.append(text(x2-12,(y1+y2)/2,f"+{len(alerts)-1}",9,color,"e","bold",translate=False))
+        for item in items:c.addtag_withtag("alert",item)
 
     def click(self,event):
         if self.busy:return

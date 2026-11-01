@@ -145,4 +145,11 @@ PORTUGUESE = {
     # Sensor readings beside the unit artwork. Air quality is "a qualidade" (feminine).
     "Outside": "Exterior", "Humidity": "Humidade", "Air quality": "Qualidade do ar",
     "Good": "Boa", "Poor": "Má",
+    # Alert banners below the unit artwork.
+    "AC error {code}": "Erro do ar condicionado {code}",
+    "Check the unit, or see troubleshooting in hOn.": "Verifique a unidade ou consulte a resolução de problemas no hOn.",
+    "Defrosting": "A descongelar",
+    "Heating pauses while the outdoor unit melts ice.": "O aquecimento pausa enquanto a unidade exterior derrete o gelo.",
+    "Clean the air filter": "Limpe o filtro de ar",
+    "The AC reports that its filter needs cleaning.": "O ar condicionado indica que o filtro precisa de limpeza.",
 }

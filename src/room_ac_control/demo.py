@@ -19,7 +19,8 @@ def devices():
     room = {"id":"preview-living-room","name":"Living room","model":"DEMO-AC","power":"On","mode":"Cool",
             "room":23,"target":23,"fan":"Auto","connection":"CONNECTED","fetched":"Preview",
             "controls":controls,"modes":modes,"fans":fans,"temperatures":[str(n) for n in range(16,33)],"commands":{},
-            "sensors":{"outdoor":31,"humidity":58,"air":"Good"}}
+            "sensors":{"outdoor":31,"humidity":58,"air":"Good"},"alerts":[]}
     bedroom = deepcopy(room)
-    bedroom.update(id="preview-bedroom",name="Bedroom",power="Off",room=22,sensors={"outdoor":31,"air":"Medium"})
+    bedroom.update(id="preview-bedroom",name="Bedroom",power="Off",room=22,sensors={"outdoor":31,"air":"Medium"},
+                   alerts=[{"kind":"filter"}])
     return [room,bedroom]

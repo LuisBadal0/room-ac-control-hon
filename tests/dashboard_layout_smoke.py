@@ -6,7 +6,7 @@ import sys
 import tkinter as tk
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
-from room_ac_control.dashboard import App, WIDTH, TIMER_TOP, TILE_TOP, WINDOW_SIZE, ART
+from room_ac_control.dashboard import App, WIDTH, TIMER_TOP, TILE_TOP, WINDOW_SIZE, ART, BANNER
 from room_ac_control.demo import devices
 from room_ac_control.inline_timers import TimerCard
 
@@ -92,6 +92,24 @@ try:
                     assert right <= art[0] or left >= art[2], (language, app.canvas.bbox(item))
                     assert top >= 30 * scale and bottom <= art[3], (language, app.canvas.bbox(item))
                     assert left >= 0 and right <= app.canvas.winfo_width()
+                # Each alert banner fits the strip between the unit and the
+                # temperature card, with its text inside the banner.
+                for alerts in ([{"kind": "error", "code": "E7"}, {"kind": "filter"}],
+                               [{"kind": "defrost"}], [{"kind": "filter"}]):
+                    app.selected["alerts"] = alerts
+                    app.draw()
+                    root.update_idletasks()
+                    items = app.canvas.find_withtag("alert")
+                    assert len(items) >= 4, items
+                    for item in items:
+                        left, top, right, bottom = app.canvas.bbox(item)
+                        margin = 2 if app.canvas.type(item) == "polygon" else 0
+                        assert top >= (BANNER[1] * scale) - margin and bottom <= BANNER[3] * scale + margin, (language, alerts)
+                        assert left >= -margin and right <= app.canvas.winfo_width() + margin, (language, alerts)
+                    assert bottom < TIMER_TOP * scale
+                app.selected["alerts"] = []
+                app.draw()
+                assert not app.canvas.find_withtag("alert")
             app.set_language("en")
     print("Light/dark fixed-size layout, timer bounds and clicks, active Stop and temperature centring passed offline.")
 finally:

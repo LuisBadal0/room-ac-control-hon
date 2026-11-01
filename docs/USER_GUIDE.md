@@ -24,6 +24,14 @@ The room card shows the active AC's name and model. Accounts with several units 
 
 Beside the unit picture the dashboard shows what the AC itself measures: **Outside** temperature (from the outdoor unit's sensor) and indoor **Humidity** on the left, and **Air quality** (Good, Medium or Poor) on the right. Each reading appears only when your model reports it. Units without a sensor report 0, so a reading of exactly 0 is hidden rather than shown as a real value. The outdoor sensor sits on the outdoor unit and can read warmer than the weather while the compressor runs in the sun.
 
+A coloured banner below the unit picture appears when the AC reports a condition, and disappears by itself when it clears:
+
+- **AC error** (red) with the code the unit reports. The code is shown as reported; check the unit or the troubleshooting section of the hOn app for its meaning.
+- **Defrosting** (blue): in Heat mode the AC pauses heating to melt ice on the outdoor unit. This is normal and ends on its own.
+- **Clean the air filter** (amber): the unit's filter reminder is on.
+
+If several apply, the most serious is shown with a count such as **+1**.
+
 ## Set comfort controls
 
 Move the temperature slider, use plus/minus, or select Mode, Fan speed, Sleep and Airflow. Changes are staged until you click **Apply changes**. Applying changes preserves the AC's power state.
