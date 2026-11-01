@@ -70,8 +70,9 @@ Review the report before sharing; event times reveal when failures happened.
 The app uses the hOn cloud for authentication, status and control. It runs no
 local network server, opens no router ports and collects no telemetry.
 Menus, timer previews, status refresh and offline tests do not operate the AC.
-Live **Set** and **Stop** timer buttons create, update or cancel schedules in
-hOn's authenticated cloud scheduling service. Scheduled commands include the
+Live **Set** and **Stop** timer buttons, and the **Schedules** window, create,
+update, pause or cancel schedules in hOn's authenticated cloud scheduling
+service. Scheduled commands include the
 AC identifier and selected settings; they are held by hOn and survive closing
 the application or signing out. Timer status and returned command payloads
 stay in process memory and are excluded from diagnostics. Use **Stop** to

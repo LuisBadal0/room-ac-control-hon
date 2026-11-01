@@ -170,6 +170,52 @@ def mode_label(snapshot, pending=None):
     return label + " Night" if label in {"Cool", "Heat"} and code(sleep_value) == "1" else label
 
 
+# hOn 2.30.7 colours the AC's airQuality level: 0/1 good, 2 medium, 3 bad. Units
+# without the sensor also report 0, so only levels 1–3 are shown.
+AIR_QUALITY = {"1": "Good", "2": "Medium", "3": "Poor"}
+
+
+def reading(device, key, low, high):
+    """A reported sensor value; sensors a unit lacks report 0, so 0 is hidden."""
+    try:
+        number = float(device.get(key))
+    except (TypeError, ValueError):
+        return None
+    return number if number != 0 and low <= number <= high else None
+
+
+def sensors(device):
+    """Read-only values the AC reports alongside its settings."""
+    result = {}
+    outdoor = reading(device, "tempOutdoor", -40, 60)
+    if outdoor is not None:
+        result["outdoor"] = outdoor
+    humidity = reading(device, "humidityIndoor", 1, 100)
+    if humidity is not None:
+        result["humidity"] = humidity
+    if quality := AIR_QUALITY.get(code(device.get("airQuality"))):
+        result["air"] = quality
+    return result
+
+
+def alerts(device):
+    """Conditions the AC reports, most severe first (hOn 2.30.7 AC parameters).
+
+    hOn treats any errors value other than "00" as an error. Defrosting is
+    defrostStatus, or manualDefrostingStatus on units with manual defrost.
+    filterChangeStatusLocal is the unit's filter flag.
+    """
+    result = []
+    error = device.get("errors")
+    if error is not None and str(error).strip() and code(error) != "0":
+        result.append({"kind": "error", "code": str(error).strip()})
+    if "1" in {code(device.get("defrostStatus")), code(device.get("manualDefrostingStatus"))}:
+        result.append({"kind": "defrost"})
+    if code(device.get("filterChangeStatusLocal")) == "1":
+        result.append({"kind": "filter"})
+    return result
+
+
 def describe(device):
     settings = device.settings
     temp = settings.get("settings.tempSel")
@@ -194,6 +240,7 @@ def describe(device):
         "connection": device.get("attributes.lastConnEvent.category", "Unknown"),
         "fetched": datetime.now().strftime("%H:%M:%S"),
         "controls": controls, "programs": programs, "commands": commands,
+        "sensors": sensors(device), "alerts": alerts(device),
     }
 
 
@@ -409,6 +456,32 @@ class Controller:
         snapshot = describe(device)
         snapshot["timers"] = {"available": True, "values": values}
         return snapshot
+
+    def schedules(self):
+        if self.cloud_timers is None:
+            raise ControlError("The hOn timer connection is unavailable. Sign in again.")
+        from .schedules import Schedules
+        return Schedules(self.cloud_timers)
+
+    async def schedule_list(self, device_id):
+        return await self.schedules().rows(self.devices[device_id])
+
+    async def change_schedule(self, device_id, operation, **options):
+        """Save, switch on/off or delete a schedule, then refresh the inline timers."""
+        device = self.devices[device_id]
+        service = self.schedules()
+        if operation == "save":
+            result = await service.save(device, **options)
+        elif operation == "active":
+            result = {"saved": True, "rows": await service.set_active(device, options["ident"], options["active"]), "conflicts": []}
+        elif operation == "delete":
+            result = {"saved": True, "rows": await service.delete(device, options["ident"]), "conflicts": []}
+        else:
+            raise ControlError("Unknown schedule action.")
+        snapshot = describe(device)
+        snapshot["timers"] = await self.timer_status(device)
+        result["snapshot"] = snapshot
+        return result
 
     async def action(self, device_id, action, requested):
         device = self.devices[device_id]

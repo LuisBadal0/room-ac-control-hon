@@ -172,3 +172,4 @@ if __name__ == "__main__":
         subprocess.run([sys.executable, str(Path(__file__).with_name("temperature_wheel_smoke.py"))], check=True)
         subprocess.run([sys.executable, str(Path(__file__).with_name("i18n_smoke.py"))], check=True)
         subprocess.run([sys.executable, str(Path(__file__).with_name("theme_smoke.py"))], check=True)
+        subprocess.run([sys.executable, str(Path(__file__).with_name("schedules_smoke.py"))], check=True)

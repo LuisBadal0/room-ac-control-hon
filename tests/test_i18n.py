@@ -58,7 +58,7 @@ class LanguageTests(unittest.TestCase):
             self.assertEqual(fields(source), fields(target), source)
         for label in FIELDS.values():self.assertIn(label, PORTUGUESE)
         folder = Path(__file__).resolve().parents[1]/"src"/"room_ac_control"
-        for filename in ("controller.py", "cloud_timers.py"):
+        for filename in ("controller.py", "cloud_timers.py", "schedules.py"):
             for node in ast.walk(ast.parse((folder/filename).read_text(encoding="utf8"))):
                 if isinstance(node,ast.Call) and isinstance(node.func,ast.Name) and node.func.id=="ControlError":
                     if isinstance(node.args[0],ast.Constant):self.assertIn(node.args[0].value, PORTUGUESE)

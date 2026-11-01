@@ -14,6 +14,7 @@ class FakeAPI:
         self.accepted = accepted
         self.fan = "3"
         self.sent = []
+        self.extra = {}  # Further reported parameters, such as sensors or alerts.
 
     async def load_attributes(self, device):
         return {
@@ -22,7 +23,7 @@ class FakeAPI:
                 "machMode": "1", "windSpeed": self.fan, "ecoMode": "1",
                 "silentSleepStatus": "0", "windDirectionVertical": "8", "windDirectionHorizontal": "0",
                 "rapidMode": "0", "healthMode": "0", "screenDisplayStatus": "1",
-                "muteStatus": "0", "echoStatus": "0",
+                "muteStatus": "0", "echoStatus": "0", **self.extra,
             }.items()}},
             "lastConnEvent": {"category": "CONNECTED"},
         }
@@ -236,6 +237,42 @@ class CommandTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(snapshot["modes"]["Heat"], "4")
         self.assertEqual(snapshot["fans"]["Auto"], "5")
         self.assertEqual([float(v) for v in snapshot["temperatures"]], list(range(16, 31)))
+        self.assertEqual(snapshot["sensors"], {})  # Nothing reported, nothing shown.
+
+    async def test_sensor_readings_hide_absent_sensors_and_map_air_quality(self):
+        # Parameter names and values as in hOn 2.30.7's own AC data.
+        for extra, expected in (
+            ({"tempOutdoor": "31.00", "humidityIndoor": "58", "airQuality": "1"},
+             {"outdoor": 31.0, "humidity": 58.0, "air": "Good"}),
+            # Sensors a unit lacks report 0; level 0 is not shown as good air.
+            ({"tempOutdoor": "0", "humidityIndoor": "0", "airQuality": "0"}, {}),
+            ({"tempOutdoor": "-4.50", "airQuality": "2"}, {"outdoor": -4.5, "air": "Medium"}),
+            ({"tempOutdoor": "-64", "humidityIndoor": "140", "airQuality": "3"}, {"air": "Poor"}),
+            ({"tempOutdoor": "n/a", "airQuality": "9"}, {}),
+        ):
+            with self.subTest(extra=extra):
+                device, api = make_device()
+                api.extra = extra
+                await device.update(force=True)
+                self.assertEqual(describe(device)["sensors"], expected)
+                self.assertEqual(api.sent, [])
+
+    async def test_alerts_follow_hon_rules_and_are_ordered_by_severity(self):
+        for extra, expected in (
+            ({"errors": "00", "defrostStatus": "0", "filterChangeStatusLocal": "0"}, []),
+            ({}, []),  # A unit that reports none of these has no alerts.
+            ({"errors": "E7"}, [{"kind": "error", "code": "E7"}]),
+            ({"errors": "12", "manualDefrostingStatus": "1", "filterChangeStatusLocal": "1"},
+             [{"kind": "error", "code": "12"}, {"kind": "defrost"}, {"kind": "filter"}]),
+            ({"defrostStatus": "1"}, [{"kind": "defrost"}]),
+            ({"filterChangeStatusLocal": "1"}, [{"kind": "filter"}]),
+        ):
+            with self.subTest(extra=extra):
+                device, api = make_device()
+                api.extra = extra
+                await device.update(force=True)
+                self.assertEqual(describe(device)["alerts"], expected)
+                self.assertEqual(api.sent, [])
 
 
 if __name__ == "__main__":

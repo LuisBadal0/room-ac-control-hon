@@ -1,4 +1,4 @@
-"""One-time AC schedule controls embedded below the temperature slider."""
+"""Start at / End at controls below the temperature slider; a repeat makes a schedule."""
 from .i18n import tr, refresh_on_language, translator
 from datetime import datetime, timedelta
 import tkinter as tk
@@ -122,9 +122,12 @@ class NumberWheel(tk.Canvas):
 class TimerCard(tk.Canvas):
     HEIGHT = 138
 
-    def __init__(self, parent, action, changed):
+    def __init__(self, parent, action, changed, scheduled=None, choose_repeat=None):
         super().__init__(parent, width=248, height=self.HEIGHT, highlightthickness=0, takefocus=True)
         self.action, self.changed = action, changed
+        # () is a one-time timer; days (0 = Monday) save a repeating schedule instead.
+        self.scheduled, self.choose_repeat, self.repeat = scheduled, choose_repeat, ()
+        self.chip_box = (0, 0, 0, 0)
         self.active, self.supported, self.busy, self.draft = False, False, False, False
         self.hover, self.due = False, None
         self.hint, self.preview = "", False
@@ -143,6 +146,23 @@ class TimerCard(tk.Canvas):
     def edited(self):
         self.draft = True
         self.draw()
+
+    def set_repeat(self, days):
+        self.repeat = tuple(sorted(days))
+        self.edited()
+
+    def repeat_label(self):
+        if not self.repeat:
+            return tr(self, "Once")
+        from .schedules import day_labels
+        labels = day_labels(self.repeat)
+        if len(labels) > 3:
+            return tr(self, f"{len(labels)} days")
+        return ", ".join(tr(self, label) for label in labels)
+
+    def in_chip(self, x, y):
+        x1, y1, x2, y2 = self.chip_box
+        return x1 <= x <= x2 and y1 - 4 <= y <= y2 + 4
 
     def set_status(self, supported, due, busy, hint="", preview=False):
         self.supported, self.busy = supported, busy
@@ -163,14 +183,21 @@ class TimerCard(tk.Canvas):
 
     def motion(self, event):
         self.highlight(self.in_button(event.x, event.y))
+        chip = self.choose_repeat is not None and self.supported and not self.busy and self.in_chip(event.x, event.y)
+        self.configure(cursor="hand2" if chip else "")
 
     def run(self, stop=False):
         if self.supported and not self.busy:
-            self.changed(self.action, None if stop else next_time(self.hour.value, self.minute.value))
+            if self.repeat and not stop and self.scheduled:
+                self.scheduled(self.action, (self.hour.value, self.minute.value), self.repeat)
+            else:
+                self.changed(self.action, None if stop else next_time(self.hour.value, self.minute.value))
         return "break"
 
     def click(self, event):
-        if self.in_button(event.x, event.y):
+        if self.choose_repeat and self.supported and not self.busy and self.in_chip(event.x, event.y):
+            self.choose_repeat(self)
+        elif self.in_button(event.x, event.y):
             self.run(stop=self.active and not self.draft)
 
     def card_width(self):
@@ -188,10 +215,13 @@ class TimerCard(tk.Canvas):
         icon(self, "clock", 24, 23, C.ON_SOFT if active else C.MUTED, scale=.78, bg=surface)
         self.create_text(40, 23, text=tr(self, "Start at" if self.action == "on" else "End at"), anchor="w",
                          fill=ink, font=font(10, "bold"))
-        once = tr(self, "Once")
-        chip = measure(self, once, 8, "bold")
-        rounded(self, width-26-chip, 12, width-12, 34, 10, fill=C.CARD if active else C.SURFACE, outline="")
-        self.create_text(width-19, 23, text=once, anchor="e", fill=C.TEXT, font=font(8, "bold"))
+        repeat = self.repeat_label() + ("  ▾" if self.choose_repeat else "")
+        chip = measure(self, repeat, 8, "bold")
+        self.chip_box = (width-26-chip, 12, width-12, 34)
+        chip_fill = C.BRAND if self.repeat else (C.CARD if active else C.SURFACE)
+        rounded(self, *self.chip_box, 10, fill=chip_fill, outline="", tags=("repeat",))
+        self.create_text(width-19, 23, text=repeat, anchor="e", fill=C.ON_BRAND if self.repeat else C.TEXT,
+                         font=font(8, "bold"), tags=("repeat",))
         for x, wheel in ((14, self.hour), (76, self.minute)):
             wheel.surface, wheel.pill = surface, (C.CARD if active else C.SURFACE)
             wheel.tone, wheel.enabled = C.TEXT, not self.busy
@@ -199,7 +229,7 @@ class TimerCard(tk.Canvas):
             self.create_window(x, 38, window=wheel, anchor="nw")
         self.create_text(69, 70, text=":", fill=ink, font=font(16, "black"))
         enabled = self.supported and not self.busy
-        button = "Stop" if active and not self.draft else "Set" if self.supported else "Unavailable"
+        button = "Stop" if active and not self.draft and not self.repeat else "Set" if self.supported else "Unavailable"
         hover = self.hover and enabled
         rounded(self, width-86, 54, width-14, 90, 12,
                 fill=(C.CARD if active else C.SURFACE) if hover else surface,
@@ -211,7 +241,7 @@ class TimerCard(tk.Canvas):
             icon(self, "check", 21, 118, C.ON_SOFT, scale=.6, bg=surface)
             self.create_text(30, 118, text=tr(self, hint), anchor="w", fill=C.ON_SOFT, font=font(9, "bold"))
         else:
-            hint = "Select a time" if self.supported else self.hint or "Timers unavailable · Refresh"
+            hint = ("Saves a repeating schedule" if self.repeat else "Select a time") if self.supported else self.hint or "Timers unavailable · Refresh"
             self.create_text(14, 118, text=tr(self, hint), anchor="w", fill=C.MUTED, font=font(9), width=width-28)
         # An edited active timer retains an independent Stop button.
         if active and self.draft:
@@ -229,14 +259,14 @@ class InlineTimers(tk.Frame):
         self.columnconfigure(0, weight=1, uniform="timers")
         self.columnconfigure(1, weight=1, uniform="timers")
         for index, action in enumerate(("on", "off")):
-            self.cards[action] = TimerCard(self, action, app.change_timer)
+            self.cards[action] = TimerCard(self, action, app.change_timer, app.save_repeating_timer, app.timer_repeat_menu)
             self.cards[action].grid(row=0, column=index, sticky="ew", padx=(0, 6) if not index else (6, 0))
 
     def refresh(self, snapshot, busy):
         device = snapshot["id"]
         if device != self.device:
             for action, card in self.cards.items():
-                card.draft = False
+                card.draft, card.repeat = False, ()
                 card.hour.cancel_drag()
                 card.minute.cancel_drag()
                 card.hour.value, card.minute.value = (8 if action == "on" else 22), 0
@@ -245,5 +275,5 @@ class InlineTimers(tk.Frame):
         for action, card in self.cards.items():
             item = status.get(action, {}) if not self.app.demo else {}
             supported = self.app.demo or (snapshot.get("timers", {}).get("available", False) and item.get("supported", False))
-            hint = "Manage timers in hOn" if item.get("count", 0) > 1 else snapshot.get("timers", {}).get("error", "Timers unavailable · Refresh")
+            hint = "Manage timers in Schedules" if item.get("count", 0) > 1 else snapshot.get("timers", {}).get("error", "Timers unavailable · Refresh")
             card.set_status(supported, status.get(action) if self.app.demo else item.get("due"), busy, hint, self.app.demo)

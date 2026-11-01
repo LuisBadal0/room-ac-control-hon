@@ -35,7 +35,7 @@ class PaletteTests(unittest.TestCase):
 
     def test_text_pairs_meet_wcag_contrast_in_light_and_dark(self):
         text_pairs = [("TEXT","BG"),("TEXT","CARD"),("TEXT","SURFACE"),("MUTED","BG"),("MUTED","CARD"),
-                      ("ON_BRAND","BRAND"),("ON_SOFT","SOFT"),("OK_TEXT","OK_BG"),("WARN_TEXT","WARN_BG"),
+                      ("ON_BRAND","BRAND"),("ON_SOFT","SOFT"),("OK_TEXT","OK_BG"),("WARN_TEXT","WARN_BG"),("DANGER_TEXT","DANGER_BG"),
                       ("BRAND","CARD"),("BRAND","BG"),("TEXT","SEGMENT"),("TEXT","RAISED")]
         for mode, palette in PALETTES.items():
             for foreground, background in text_pairs:
