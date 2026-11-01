@@ -457,6 +457,32 @@ class Controller:
         snapshot["timers"] = {"available": True, "values": values}
         return snapshot
 
+    def schedules(self):
+        if self.cloud_timers is None:
+            raise ControlError("The hOn timer connection is unavailable. Sign in again.")
+        from .schedules import Schedules
+        return Schedules(self.cloud_timers)
+
+    async def schedule_list(self, device_id):
+        return await self.schedules().rows(self.devices[device_id])
+
+    async def change_schedule(self, device_id, operation, **options):
+        """Save, switch on/off or delete a schedule, then refresh the inline timers."""
+        device = self.devices[device_id]
+        service = self.schedules()
+        if operation == "save":
+            result = await service.save(device, **options)
+        elif operation == "active":
+            result = {"saved": True, "rows": await service.set_active(device, options["ident"], options["active"]), "conflicts": []}
+        elif operation == "delete":
+            result = {"saved": True, "rows": await service.delete(device, options["ident"]), "conflicts": []}
+        else:
+            raise ControlError("Unknown schedule action.")
+        snapshot = describe(device)
+        snapshot["timers"] = await self.timer_status(device)
+        result["snapshot"] = snapshot
+        return result
+
     async def action(self, device_id, action, requested):
         device = self.devices[device_id]
         await send_action(device, action, requested)

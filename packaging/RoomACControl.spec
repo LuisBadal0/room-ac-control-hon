@@ -5,7 +5,7 @@ root = Path(SPECPATH).parent
 data = [(str(root / 'src' / 'room_ac_control' / 'assets'), 'room_ac_control/assets')]
 data += collect_data_files('pyhon')
 hidden = collect_submodules('pyhon') + collect_submodules('awsiot') + collect_submodules('awscrt')
-hidden += ['pystray._win32', 'room_ac_control.demo']
+hidden += ['pystray._win32', 'room_ac_control.demo', 'room_ac_control.schedules', 'room_ac_control.schedules_view']
 
 analysis = Analysis([str(root / 'tools' / 'run.py')],pathex=[str(root / 'src')],
                     datas=data,hiddenimports=hidden,

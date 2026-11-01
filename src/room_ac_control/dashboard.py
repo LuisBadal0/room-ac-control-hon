@@ -69,6 +69,8 @@ class App:
         self.theme_checks = 0
         self.memory = ProgramMemory(self.storage)
         self.preview_timers = {}
+        self.preview_records = {}  # Fictional schedules for the offline preview.
+        self.schedules_view = None
         self.worker = Worker(memory=self.memory)
         self.tray = None
         self.closing = False
@@ -138,14 +140,17 @@ class App:
         self.mode,self.temp,self.fan=tk.StringVar(),tk.StringVar(),tk.StringVar()
         controls=ttk.Frame(self.panel)
         controls.pack(fill="x",pady=(12,10))
-        controls.columnconfigure(0,weight=13,uniform="actions")
-        controls.columnconfigure(1,weight=10,uniform="actions")
+        controls.columnconfigure(0,weight=12,uniform="actions")
+        controls.columnconfigure(1,weight=9,uniform="actions")
+        controls.columnconfigure(2,weight=10,uniform="actions")
         self.apply_button=ttk.Button(controls,style="Accent.TButton",command=lambda:self.action("apply"))
         refresh_on_language(self.apply_button,self.update_apply_label)
         self.update_apply_label()
         self.apply_button.grid(row=0,column=0,sticky="ew",padx=(0,6))
+        self.schedules_button=localized(ttk.Button(controls,text="Schedules",command=self.open_schedules))
+        self.schedules_button.grid(row=0,column=1,sticky="ew",padx=6)
         self.all_button=localized(ttk.Button(controls,text="All functions",command=self.open_functions))
-        self.all_button.grid(row=0,column=1,sticky="ew",padx=(6,0))
+        self.all_button.grid(row=0,column=2,sticky="ew",padx=(6,0))
         footer=ttk.Frame(self.panel)
         footer.pack(fill="x")
         self.connection=tk.StringVar()
@@ -217,7 +222,7 @@ class App:
                 if operation != "auto-refresh":
                     self.set_busy(False)
                 if error:
-                    if operation in {"auto-refresh", "login", "timer"}:
+                    if operation in {"auto-refresh", "login", "timer", "schedule", "schedule-list"}:
                         callback(error)
                     else:
                         self.status.set(error)
@@ -270,7 +275,7 @@ class App:
         for widget in (self.email,self.password,self.login_button):
             widget.configure(state=state)
         available=self.selected is not None and not value
-        for widget in (self.refresh_button,self.logout_button,self.all_button):
+        for widget in (self.refresh_button,self.logout_button,self.all_button,self.schedules_button):
             widget.configure(state="normal" if available else "disabled")
         self.apply_button.configure(state="normal" if available and self.dirty else "disabled")
         self.update_apply_label()
@@ -729,6 +734,135 @@ class App:
         self.inline_timers.cards[action].draft = False
         self.status.set("Offline timer preview only. No schedule or AC command was sent.")
         self.draw()
+
+    # Repeating schedules. The offline preview keeps fictional records locally.
+
+    def open_schedules(self):
+        if self.busy or not self.selected:
+            return
+        if self.schedules_view and self.schedules_view.window.winfo_exists():
+            self.schedules_view.window.lift()
+            return
+        from .schedules_view import SchedulesView
+        SchedulesView(self)
+
+    def preview_rows(self):
+        from .schedules import schedule_rows
+        return schedule_rows({"scheduledPrograms": self.preview_records.get(self.selected["id"], [])})
+
+    def load_schedules(self, done, failed):
+        if self.demo:
+            done(self.preview_rows())
+            return
+        device_id = self.selected["id"]
+        self.worker.submit(self.worker.controller.schedule_list(device_id), done, "schedule-list", on_error=failed)
+
+    def confirm_conflict(self, found, parent):
+        from .schedules import clock_text, day_labels
+        item = found[0]
+        days = ", ".join(tr(self.root, label) for label in day_labels(item["days"]))
+        message = f"This overlaps another schedule at {clock_text(item['time'])} on {days}. Save anyway?"
+        return messagebox.askyesno("Room AC Control", tr(self.root, message), parent=parent)
+
+    def save_schedule(self, ident, start, end, days, requested, done, failed, parent=None, cancelled=None, allow_conflict=False):
+        """Create or edit a repeating schedule, asking before saving over an overlap."""
+        parent = parent or self.root
+        if self.demo:
+            from .schedules import conflicts, preview_record
+            from .controller import ControlError
+            rows = self.preview_rows()
+            found = conflicts(rows, start, end, days, ignore=ident)
+            if found and not allow_conflict and not self.confirm_conflict(found, parent):
+                if cancelled: cancelled()
+                return
+            records = self.preview_records.setdefault(self.selected["id"], [])
+            try:
+                record = preview_record(ident or f"preview-{len(records)+1}", start, end, days, requested)
+            except ControlError as error:
+                failed(str(error))
+                return
+            records[:] = [item for item in records if item["id"] != ident] + [record]
+            done(self.preview_rows())
+            return
+        device_id = self.selected["id"]
+        def finished(result):
+            if not result["saved"]:
+                if self.confirm_conflict(result["conflicts"], parent):
+                    if parent is self.root:
+                        self.set_busy(True)  # The dashboard stays locked for the second request.
+                    self.save_schedule(ident, start, end, days, requested, done, failed, parent, cancelled, allow_conflict=True)
+                elif cancelled:
+                    cancelled()
+                return
+            if self.selected and self.selected["id"] == device_id:
+                self.show_device(result["snapshot"], preserve_edits=True)
+            done(result["rows"])
+        self.worker.submit(self.worker.controller.change_schedule(
+            device_id, "save", ident=ident, start=start, end=end, days=days, requested=requested,
+            allow_conflict=allow_conflict), finished, "schedule", on_error=failed)
+
+    def change_schedule(self, operation, ident, done, failed, active=None):
+        """Pause, resume or delete a schedule."""
+        if self.demo:
+            records = self.preview_records.get(self.selected["id"], [])
+            if operation == "delete":
+                records[:] = [item for item in records if item["id"] != ident]
+            else:
+                for item in records:
+                    if item["id"] == ident:
+                        item["isActive"] = bool(active)
+            done(self.preview_rows())
+            return
+        device_id = self.selected["id"]
+        options = {"ident": ident} if operation == "delete" else {"ident": ident, "active": active}
+        def finished(result):
+            if self.selected and self.selected["id"] == device_id:
+                self.show_device(result["snapshot"], preserve_edits=True)
+            done(result["rows"])
+        self.worker.submit(self.worker.controller.change_schedule(device_id, operation, **options),
+                           finished, "schedule", on_error=failed)
+
+    def timer_repeat_menu(self, card):
+        """Once, every day, weekdays, weekend or chosen days for a Start at / End at card."""
+        from .schedules import EVERY_DAY, WEEKDAYS, WEEKEND
+        presets = {"every": EVERY_DAY, "weekdays": WEEKDAYS, "weekend": WEEKEND}
+        current = next((key for key, days in presets.items() if days == card.repeat), "custom") if card.repeat else "once"
+        options = [{"label": "Once", "value": "once", "glyph": "clock", "description": "Runs one time, then clears"},
+                   {"label": "Every day", "value": "every", "glyph": "clock", "description": "Saved as a repeating schedule"},
+                   {"label": "Weekdays", "value": "weekdays", "glyph": "clock", "description": "Monday to Friday"},
+                   {"label": "Weekend", "value": "weekend", "glyph": "clock", "description": "Saturday and Sunday"},
+                   {"label": "Choose days…", "value": "custom", "glyph": "clock", "description": "Pick days of the week"}]
+        def chosen(value):
+            if value == "custom":
+                from .schedules_view import DayPicker
+                DayPicker(self.root, card.repeat or WEEKDAYS, lambda days: card.set_repeat(days))
+            else:
+                card.set_repeat(presets.get(value, ()))
+        self.repeat_panel = ChoicePanel(self.root, "Repeat", options, current, chosen)
+
+    def save_repeating_timer(self, action, clock, days):
+        """A Start at / End at card with a repeat creates a repeating schedule."""
+        if self.busy or not self.selected:
+            return
+        start, end = (clock, None) if action == "on" else (None, clock)
+        requested = self.memory.mode_values(self.selected, dict(self.dirty)) if action == "on" else {}
+        card = self.inline_timers.cards[action]
+        def saved(rows):
+            card.repeat, card.draft = (), False
+            self.status.set("Offline timer preview only. No schedule or AC command was sent." if self.demo
+                            else "Repeating schedule saved in hOn. Manage it in Schedules.")
+            self.draw()
+            if not self.demo:
+                self.schedule_auto(750)
+        def failed(error):
+            self.status.set(error)
+            if not self.demo:
+                self.schedule_auto(750)
+        if not self.demo:
+            self.set_busy(True)
+            self.status.set("Saving schedule to hOn…")
+        self.save_schedule(None, start, end, days, requested, saved, failed,
+                           cancelled=lambda: self.status.set("Not saved. Adjust the time or days."))
 
     def field(self,parent,spec,override=None,use_reported=False,show_label=True):
         row=ttk.Frame(parent,padding=(0,7))
