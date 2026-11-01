@@ -43,7 +43,7 @@ class Worker:
                         text = "Could not reach the cloud service. Check internet access and try again."
                     else:
                         text = f"The cloud service returned an unexpected response ({type(error).__name__}). The community integration may need updating."
-                    if operation in {"command", "timer"} and not isinstance(error, ControlError):
+                    if operation in {"command", "timer", "schedule"} and not isinstance(error, ControlError):
                         text += " The request outcome is unknown. Refresh and check hOn before retrying."
                     self.results.put((on_error or callback, None, text, operation))
         asyncio.run_coroutine_threadsafe(perform(), self.loop)
