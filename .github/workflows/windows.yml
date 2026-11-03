@@ -109,14 +109,16 @@ jobs:
                             "sha256": digest, "size": os.path.getsize(path)}, indent=2))
           PY
           key="$RUNNER_TEMP/update-signing-key.pem"
-          (umask 077; printf '%s
-' "$UPDATE_SIGNING_KEY" > "$key")
-          openssl dgst -sha256 -sign "$key" -sigopt rsa_padding_mode:pss -sigopt rsa_pss_saltlen:32             -out release/update.json.sig release/update.json
+          (umask 077; printenv UPDATE_SIGNING_KEY > "$key")
+          openssl dgst -sha256 -sign "$key" -sigopt rsa_padding_mode:pss -sigopt rsa_pss_saltlen:32 \
+            -out release/update.json.sig release/update.json
           rm -f "$key"
           # Check against the public key committed at this exact commit (the app embeds the same key).
-          gh api -H "Accept: application/vnd.github.raw"             "repos/$GH_REPO/contents/packaging/update-signing-key.pub?ref=$GITHUB_SHA" > "$RUNNER_TEMP/update-signing-key.pub"
+          gh api -H "Accept: application/vnd.github.raw" \
+            "repos/$GH_REPO/contents/packaging/update-signing-key.pub?ref=$GITHUB_SHA" > "$RUNNER_TEMP/update-signing-key.pub"
           openssl pkey -pubin -in "$RUNNER_TEMP/update-signing-key.pub" -out "$RUNNER_TEMP/update-signing-spki.pub"
-          openssl dgst -sha256 -verify "$RUNNER_TEMP/update-signing-spki.pub" -sigopt rsa_padding_mode:pss             -sigopt rsa_pss_saltlen:32 -signature release/update.json.sig release/update.json
+          openssl dgst -sha256 -verify "$RUNNER_TEMP/update-signing-spki.pub" -sigopt rsa_padding_mode:pss \
+            -sigopt rsa_pss_saltlen:32 -signature release/update.json.sig release/update.json
       - name: Publish release
         if: steps.decide.outputs.publish == 'true'
         env:
@@ -124,4 +126,5 @@ jobs:
           GH_REPO: ${{ github.repository }}
           TAG: ${{ steps.decide.outputs.tag }}
         run: |
-          gh release create "$TAG" release/*.zip release/SHA256SUMS.txt release/update.json release/update.json.sig             --target "$GITHUB_SHA" --title "Room AC Control for hOn $TAG" --generate-notes
+          gh release create "$TAG" release/*.zip release/SHA256SUMS.txt release/update.json release/update.json.sig \
+            --target "$GITHUB_SHA" --title "Room AC Control for hOn $TAG" --generate-notes
