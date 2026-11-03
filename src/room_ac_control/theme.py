@@ -136,10 +136,12 @@ def measure(widget, text, size, weight="normal"):
 
 
 def unit_photo(master, width=390):
-    """Load original, unbranded appliance artwork."""
-    photo = tk.PhotoImage(master=master, file=str(ASSETS / "unit.png"))
-    factor = max(1, math.ceil(photo.width() / width))
-    return photo.subsample(factor)
+    """Load original, unbranded appliance artwork, smoothly scaled to fit width."""
+    from PIL import Image, ImageTk
+    with Image.open(ASSETS / "unit.png") as image:
+        factor = max(1, math.ceil(image.width / width))
+        size = (image.width // factor, image.height // factor)
+        return ImageTk.PhotoImage(image.resize(size, Image.Resampling.LANCZOS), master=master)
 
 
 def rounded(canvas, x1, y1, x2, y2, radius=12, **options):

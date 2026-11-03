@@ -81,7 +81,8 @@ class FunctionsView:
         self.window.grab_set()
         self.window.protocol("WM_DELETE_WINDOW", self.close)
         from .window_header import WindowHeader
-        self.header = WindowHeader(self.window, "Room AC Control · All functions", self.close, maximize=False, size=(620, 700))
+        self.header = WindowHeader(self.window, "Room AC Control · All functions", self.close, maximize=False,
+                                   size=(620, 700), owner=app.root)
         self.photo = unit_photo(self.window, 230)
         self.section = "settings"
         self.settings_changes = dict(app.dirty)
@@ -153,7 +154,6 @@ class FunctionsView:
         self.apply_button.pack(side="left", expand=True, fill="x", padx=(0, 10))
         localized(ttk.Button(self.footer, text="Close", command=self.close)).pack(side="right")
         localized(ttk.Button(self.footer, text="Diagnostics", style="Ghost.TButton", command=app.export_diagnostics)).pack(side="right", padx=(0, 6))
-        localized(ttk.Button(self.footer, text="Appearance", style="Ghost.TButton", command=lambda:app.theme_menu(self.window))).pack(side="right",padx=(0,2))
         localized(ttk.Button(self.footer, text="Language", style="Ghost.TButton", command=lambda:app.language_menu(self.window))).pack(side="right",padx=(0,2))
         self.search.trace_add("write", lambda *args: self.update_placeholder())
         self.search.trace_add("write", lambda *args: self.render_section())

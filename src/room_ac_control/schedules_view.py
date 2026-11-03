@@ -221,7 +221,7 @@ class SchedulesView:
         self.window.grab_set()
         self.window.protocol("WM_DELETE_WINDOW", self.close)
         from .window_header import WindowHeader
-        self.header = WindowHeader(self.window, "Room AC Control · Schedules", self.close, maximize=False, size=SIZE)
+        self.header = WindowHeader(self.window, "Room AC Control · Schedules", self.close, maximize=False, size=SIZE, owner=app.root)
         self.body = ttk.Frame(self.window, padding=(24, 4, 24, 20))
         self.body.pack(fill="both", expand=True)
         localized(ttk.Label(self.body, text="Schedules", font=font(21, "black"))).pack(anchor="w")
