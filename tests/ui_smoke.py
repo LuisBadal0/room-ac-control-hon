@@ -50,6 +50,9 @@ if __name__ == "__main__":
     app.choice_panel.close()
     app.open_functions()
     view=app.functions_view
+    # Appearance lives only in the main window header, not the All functions footer.
+    footer=[child.cget("text") for child in view.footer.winfo_children() if child.winfo_class()=="TButton"]
+    assert "Appearance" not in footer and "Language" in footer and "Close" in footer, footer
     view.edit_setting(app.selected["controls"]["machMode"],None)
     assert view.choice_panel.options==main_modes
     view.choice_panel.choose(next(option["value"] for option in main_modes if option["label"]=="Heat Night"))

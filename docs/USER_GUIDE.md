@@ -14,7 +14,7 @@ Changing language keeps your signed-in account, pending settings and open preset
 
 ## Choose light or dark
 
-Click the half-filled circle in the window header, or **Appearance** in All functions, to choose **Follow Windows**, **Light mode** or **Dark mode**. Follow Windows uses the app mode set in Windows Settings › Personalization › Colors and switches within a couple of seconds when you change it there. The choice applies immediately to every open window, keeps pending settings and drafts, and is saved for later launches.
+Click the half-filled circle in the main window header to open **Appearance** and choose **Follow Windows**, **Light mode** or **Dark mode**. Follow Windows uses the app mode set in Windows Settings › Personalization › Colors and switches within a couple of seconds when you change it there. The choice applies immediately to every open window, keeps pending settings and drafts, and is saved for later launches.
 
 ## Select an AC
 
