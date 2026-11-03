@@ -48,11 +48,37 @@ if root.winfo_screenheight() >= 1000:
 else:
     assert size[0] == 540 and size[1] <= 920, size
 assert app.body.winfo_width() == 540 and app.canvas.winfo_width() == 500
+def opened_cleanly(header, size):
+    """The dialog stays hidden until its frame and size are final, then shows
+    once with no caption, no dialog edge (the white border) and its exact size."""
+    window = header.window
+    shown = []
+    def watch():
+        if not window.winfo_exists():
+            return
+        if float(window.attributes("-alpha")) == 1.0:
+            shown.append((window.winfo_width(), window.winfo_height(),
+                          header.native.get_style(header.native.hwnd, -16) & native.CAPTION))
+        root.after(5, watch)
+    watch()
+    for _ in range(40):
+        root.update(); root.after(15)
+    assert shown, "the dialog never became visible"
+    assert shown[0] == (*size, 0), shown[0]  # First visible frame is already final.
+    assert not header.native.get_style(header.native.hwnd, -20) & header.native.EDGES
+    # Centred over the main window.
+    centre = lambda widget: (widget.winfo_rootx()+widget.winfo_width()//2, widget.winfo_rooty()+widget.winfo_height()//2)
+    assert all(abs(a-b) <= 2 for a, b in zip(centre(window), centre(root))), (centre(window), centre(root))
+
+from room_ac_control.schedules_view import SIZE as SCHEDULES_SIZE
 app.open_functions()
-root.update()
 view = app.functions_view
-assert not view.header.native.get_style(view.header.native.hwnd, -16) & native.CAPTION
+opened_cleanly(view.header, (620, 700))
 view.close()
+app.open_schedules()
+opened_cleanly(app.schedules_view.header, SCHEDULES_SIZE)
+app.schedules_view.close()
+root.update()
 app.choice_menu("machMode")
 root.update()
 chooser = app.choice_panel

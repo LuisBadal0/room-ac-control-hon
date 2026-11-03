@@ -12,6 +12,9 @@ from .theme import C, font, icon, paint, refresh_on_theme
 class WindowsFrame:
     """Remove the caption while preserving the existing Tk window and frame."""
     CAPTION = 0x00C00000
+    # Tk gives transient dialogs a modal-dialog frame; Windows paints these
+    # extended edges as a classic white and grey 3D border around the page.
+    EDGES = 0x00000001 | 0x00000100 | 0x00000200 | 0x00020000  # dialog-modal, window, client, static
 
     def __init__(self, window):
         self.window = window
@@ -33,18 +36,24 @@ class WindowsFrame:
         self.user.RedrawWindow.restype = wintypes.BOOL
 
     def apply(self):
+        """Restyle the native frame; False until Windows has created it."""
         self.hwnd = self.user.GetParent(self.window.winfo_id())
         if not self.hwnd:
-            return
-        style = self.get_style(self.hwnd, -16)
-        if style & self.CAPTION:
-            ctypes.set_last_error(0)
-            self.set_style(self.hwnd, -16, style & ~self.CAPTION)
-            if ctypes.get_last_error():
-                raise ctypes.WinError(ctypes.get_last_error())
+            return False
+        changed = False
+        for index, remove in ((-16, self.CAPTION), (-20, self.EDGES)):
+            style = self.get_style(self.hwnd, index)
+            if style & remove:
+                ctypes.set_last_error(0)
+                self.set_style(self.hwnd, index, style & ~remove)
+                if ctypes.get_last_error():
+                    raise ctypes.WinError(ctypes.get_last_error())
+                changed = True
+        if changed:
             # Recalculate the non-client region without moving or hiding the window.
             self.user.SetWindowPos(self.hwnd, None, 0, 0, 0, 0, 0x0027)
         self.apply_colors()
+        return True
 
     def apply_colors(self):
         if not self.hwnd:
@@ -81,7 +90,11 @@ class WindowsFrame:
         self.user.RedrawWindow(self.hwnd, None, None, 0x0001 | 0x0004 | 0x0080 | 0x0400)
 
 class WindowHeader:
-    def __init__(self, window, title, close, minimize=None, maximize=True, size=None):
+    hidden = False
+    reveal_job = None
+    fit_job = None
+
+    def __init__(self, window, title, close, minimize=None, maximize=True, size=None, owner=None):
         self.window = window
         self.size = size
         self.drag_origin = None
@@ -110,9 +123,33 @@ class WindowHeader:
         window.bind("<Map>", self.mapped, add="+")
         window.bind("<Configure>", self.configured, add="+")
         window.bind("<Destroy>", self.destroyed, add="+")
+        if size and owner is not None:
+            self.center(owner)
         if self.native:
+            # Stay invisible until the caption is gone and the size is exact, so
+            # the window appears once instead of flashing and then resizing.
+            window.attributes("-alpha", 0.0)
+            self.hidden = True
+            self.reveal_job = window.after(1000, self.reveal)  # Never leave a window hidden.
             window.after_idle(self.apply_frame)
             refresh_on_theme(self.frame, self.native.apply_colors)
+
+    def center(self, owner):
+        """Open a fixed-size window centred over the window that opened it."""
+        width, height = self.size
+        x = owner.winfo_rootx() + (owner.winfo_width() - width) // 2
+        y = owner.winfo_rooty() + (owner.winfo_height() - height) // 2
+        self.window.geometry(f"{width}x{height}+{max(0, x)}+{max(0, y)}")
+
+    def reveal(self):
+        if self.reveal_job is not None:
+            self.window.after_cancel(self.reveal_job)
+            self.reveal_job = None
+        if self.hidden and self.window.winfo_exists():
+            self.hidden = False
+            # Paint the area the size check just added before it becomes visible.
+            self.window.update_idletasks()
+            self.window.attributes("-alpha", 1.0)
 
     def button(self, text, command, hover="SURFACE"):
         button = tk.Button(self.frame, text=text, command=command, bd=0, relief="flat",
@@ -125,25 +162,44 @@ class WindowHeader:
         return button
 
     def apply_frame(self):
-        if self.window.winfo_exists() and self.native:
-            self.native.apply()
-            if self.size:
-                self.window.after(50, lambda: self.fit(self.size, 5))
+        if not (self.window.winfo_exists() and self.native):
+            return
+        try:
+            applied = self.native.apply()
+        except OSError:
+            self.reveal()
+            raise
+        if not applied:
+            return  # Not mapped yet; its <Map> event applies the frame.
+        # Several <Map> events can arrive together; run one size check at a time.
+        self.cancel_fit()
+        if self.size:
+            self.fit_job = self.window.after(15, lambda: self.fit(self.size, 8))
+        else:
+            self.fit_job = self.window.after(15, self.reveal)
+
+    def cancel_fit(self):
+        if self.fit_job is not None:
+            self.window.after_cancel(self.fit_job)
+            self.fit_job = None
 
     def fit(self, request, attempts):
         """Keep a fixed-size window's client area exact after the caption is removed.
 
         Tk still adds its own frame allowance to requested sizes, so nudge the
-        request by the measured error until the client matches."""
+        request by the measured error until the client matches, then show it."""
+        self.fit_job = None
         if not self.window.winfo_exists():
             return
         width, height = self.size
         error = (self.window.winfo_width()-width, self.window.winfo_height()-height)
         if error == (0, 0) or attempts == 0:
+            # Let Windows deliver the paint events for the final size first.
+            self.fit_job = self.window.after(40, self.reveal)
             return
         request = (request[0]-error[0], request[1]-error[1])
         self.window.geometry(f"{request[0]}x{request[1]}")
-        self.window.after(50, lambda: self.fit(request, attempts-1))
+        self.fit_job = self.window.after(15, lambda: self.fit(request, attempts-1))
 
     def mapped(self, event):
         if event.widget is self.window:
@@ -206,6 +262,10 @@ class WindowHeader:
                 self.drag_job = None
             self.drag_pending = None
             self.drag_origin = None
+            self.cancel_fit()
+            if self.reveal_job is not None:
+                self.window.after_cancel(self.reveal_job)
+                self.reveal_job = None
 
     def toggle_maximize(self):
         self.window.state("normal" if self.window.state() == "zoomed" else "zoomed")

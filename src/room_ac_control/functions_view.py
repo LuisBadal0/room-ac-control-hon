@@ -81,7 +81,8 @@ class FunctionsView:
         self.window.grab_set()
         self.window.protocol("WM_DELETE_WINDOW", self.close)
         from .window_header import WindowHeader
-        self.header = WindowHeader(self.window, "Room AC Control · All functions", self.close, maximize=False, size=(620, 700))
+        self.header = WindowHeader(self.window, "Room AC Control · All functions", self.close, maximize=False,
+                                   size=(620, 700), owner=app.root)
         self.photo = unit_photo(self.window, 230)
         self.section = "settings"
         self.settings_changes = dict(app.dirty)
