@@ -113,8 +113,9 @@ class App:
         self.language_button.pack(side="right",fill="y")
         self.theme_button = HeaderIconButton(self.header.frame,"half",self.theme_menu)
         self.theme_button.pack(side="right")
-        # Shown left of Appearance only while a signed update is waiting.
-        self.update_button = HeaderIconButton(self.header.frame,"update",self.open_updates,color="BRAND",badge=True)
+        # Updates, left of Appearance; a dot marks a signed update waiting to install.
+        self.update_button = HeaderIconButton(self.header.frame,"update",self.open_updates)
+        self.update_button.pack(side="right")
         location = None if demo else updates.install_location()
         self.updater = updates.Updater(__version__, location, enabled=self.storage.auto_update(), demo=demo)
         self.updater.listen(self.updates_changed)
@@ -949,10 +950,7 @@ class App:
     def updates_changed(self):
         if self.closing:return
         waiting = self.updater.release is not None and self.updater.state in {"available", "downloading", "verifying", "ready", "failed"}
-        if waiting and not self.update_button.winfo_ismapped():
-            self.update_button.pack(side="right")
-        elif not waiting and self.update_button.winfo_ismapped():
-            self.update_button.pack_forget()
+        self.update_button.set_badge(waiting)
         if self.updater.state == "ready":
             # The person clicked Update; the helper waits for this process to exit.
             try:applied = self.updater.apply()

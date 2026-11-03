@@ -285,6 +285,11 @@ class HeaderIconButton(tk.Canvas):
         refresh_on_theme(self, self.draw)
         self.draw()
 
+    def set_badge(self, value):
+        if self.badge != bool(value):
+            self.badge = bool(value)
+            self.draw()
+
     def highlight(self, value):
         self.hover = value
         self.draw()

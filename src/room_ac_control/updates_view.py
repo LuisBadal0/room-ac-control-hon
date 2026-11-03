@@ -52,6 +52,8 @@ class UpdatesView:
         self.primary = ttk.Button(footer, style="Accent.TButton", command=self.primary_action, cursor="hand2")
         self.primary.pack(side="left", expand=True, fill="x", padx=(0, 10))
         localized(ttk.Button(footer, text="Close", command=self.close)).pack(side="right")
+        localized(ttk.Button(footer, text="Diagnostics", style="Ghost.TButton",
+                             command=app.export_diagnostics)).pack(side="right", padx=(0, 6))
         self.notes = localized(ttk.Button(footer, text="What's new", style="Ghost.TButton", command=self.open_notes))
         refresh_on_language(self.primary, self.refresh)
         self.unlisten = self.updater.listen(self.refresh)

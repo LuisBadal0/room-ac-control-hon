@@ -63,7 +63,7 @@ paths, authentication URLs or raw cloud payloads. They are cleared on exit.
 Potentially sensitive third-party logging is suppressed without globally
 disabling application logging.
 
-Use **Export diagnostics** on the login screen or **Diagnostics** in All functions
+Use **Export diagnostics** on the login screen or **Diagnostics** in the Updates window
 to choose a local JSON file. Nothing is automatically written or uploaded.
 Review the report before sharing; event times reveal when failures happened.
 
