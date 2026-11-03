@@ -64,15 +64,15 @@ class LoginView:
         c.delete("all")
         c.configure(bg=C.BG)
         center = c.winfo_width()/2
-        c.create_image(center, 46, image=self.mark)
-        c.create_text(center, 104, text=tr(c, "Room AC Control"), fill=C.TEXT, font=font(21, "black"))
-        c.create_text(center, 133, text=tr(c, "Your room. Your comfort."), fill=C.MUTED, font=font(11))
-        c.create_text(center, 155, text=tr(c, "for hOn accounts · unofficial"), fill=C.MUTED, font=font(9))
-        ac_art(c, center, 204, photo=self.photo)
+        c.create_image(center, 42, image=self.mark)
+        c.create_text(center, 98, text=tr(c, "Room AC Control"), fill=C.TEXT, font=font(21, "black"), tags="title")
+        c.create_text(center, 126, text=tr(c, "Your room. Your comfort."), fill=C.MUTED, font=font(11), tags="tagline")
+        c.create_text(center, 147, text=tr(c, "for hOn accounts · unofficial"), fill=C.MUTED, font=font(9), tags="unofficial")
+        ac_art(c, center, 212, photo=self.photo)
         stroke = blend(C.BRAND, C.BG, .45)
         for offset in range(-3, 4):
             x = center+offset*31
-            c.create_line(x, 252, x-5, 258, x+5, 266, x, 274, fill=stroke, width=2, smooth=True, capstyle="round")
+            c.create_line(x, 260, x-5, 265, x+5, 272, x, 279, fill=stroke, width=2, smooth=True, capstyle="round")
 
     def draw_card(self, event=None):
         c = self.surface

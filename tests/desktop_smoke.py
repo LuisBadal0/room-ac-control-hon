@@ -20,6 +20,15 @@ with tempfile.TemporaryDirectory() as directory:
         coroutine.close()
         submissions.append((callback,operation,on_error))
     app.worker.submit=submit
+    # The "unofficial" line keeps clear of the unit picture, in both languages.
+    for language in ("en","pt-PT"):
+        app.set_language(language)
+        root.update()
+        hero=app.login_view.hero
+        app.login_view.draw_hero()
+        picture=hero.bbox([item for item in hero.find_all() if hero.type(item)=="image"][-1])
+        assert picture[1]-hero.bbox("unofficial")[3]>=10, (language, picture, hero.bbox("unofficial"))
+    app.set_language("en")
     assert not app.remember_account.get()
     app.connect()
     assert not app.login_view.loading  # Empty fields do not start a spinner.

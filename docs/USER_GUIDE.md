@@ -8,7 +8,7 @@ During manual or automatic sign-in, a rotating loading ring appears while your a
 
 ## Choose a language
 
-The interface starts in your Windows display language: English or Portuguese (Portugal). Other system languages use English as the fallback. Click **EN** or **PT** in the window header, or **Language** in All functions, to select **System language**, **English**, or **Português (Portugal)**. The choice takes effect immediately and is saved for later launches, including after signing out.
+The interface starts in your Windows display language: English or Portuguese (Portugal). Other system languages use English as the fallback. Click **EN** or **PT** in the window header to select **System language**, **English**, or **Português (Portugal)**. The choice takes effect immediately and is saved for later launches, including after signing out.
 
 Changing language keeps your signed-in account, pending settings and open preset drafts. Account room names and model identifiers stay as supplied by hOn. Search accepts English and Portuguese labels, with or without accents. Portuguese shows decimal temperatures with a comma; command values sent to the service retain their original format. Unrecognized cloud labels remain in their original language.
 
@@ -94,7 +94,7 @@ The main window and All functions open at a fixed size designed for their layout
 
 ## Updates
 
-The portable app checks for a newer version shortly after it starts and then about once a day. When one is available, a download icon with a dot appears in the main window header, left of **Appearance**. Click it, or **Updates** in All functions, to see the new version and **What's new**.
+The portable app checks for a newer version shortly after it starts and then about once a day. The download icon in the main window header, left of **Appearance**, opens **Updates**; it shows a dot when a new version is available. The Updates window shows the new version and **What's new**.
 
 Nothing is installed until you click **Update**. Room AC Control then downloads the new version and checks that it is signed by this project and matches its published fingerprint. It unpacks the new version next to the current one and runs its offline checks. Only when all of that passes does the app close, swap the folders and open the new version, usually within a few seconds. If the swap fails, the previous version is put back and the app tells you on its next start. Your remembered sign-in, settings and schedules are kept because they live in your Windows profile, not in the app folder. Unapplied changes are discarded, and the app asks before discarding them.
 
@@ -104,6 +104,6 @@ Turn off **Check for updates automatically** in the Updates window to stop the d
 
 **Sign out** removes remembered credentials but retains your program preferences. Credentials and preferences are protected by Windows DPAPI in `%LOCALAPPDATA%\RoomACControl\state.dpapi`. They are separate from the application folder and are not part of a source upload or portable release.
 
-For troubleshooting, use **Export diagnostics** on the login screen or **Diagnostics** in All functions. You choose the local JSON file; no report is automatically saved or uploaded. It contains the app version and up to 100 event times, event codes and error categories from this session. It excludes credentials, account/device names, identifiers and raw cloud responses. Review it before sharing. Report vulnerabilities through the [private security form](https://github.com/LuisBadal0/room-ac-control-hon/security/advisories/new).
+For troubleshooting, use **Export diagnostics** on the login screen or **Diagnostics** in the Updates window (the download icon in the header). You choose the local JSON file; no report is automatically saved or uploaded. It contains the app version and up to 100 event times, event codes and error categories from this session. It excludes credentials, account/device names, identifiers and raw cloud responses. Review it before sharing. Report vulnerabilities through the [private security form](https://github.com/LuisBadal0/room-ac-control-hon/security/advisories/new).
 
 Login, menus, inline timer previews and status refresh do not send AC control commands. An offline preview uses fictional rooms and never loads a saved account. If a command times out, refresh and check the physical unit before retrying: cloud acceptance does not guarantee that the unit has acted.

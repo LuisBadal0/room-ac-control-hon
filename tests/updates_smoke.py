@@ -31,23 +31,22 @@ app = App(root, demo=True, enable_tray=False, language="en", theme="light")
 temporary = tempfile.TemporaryDirectory()
 try:
     app.connected(devices())
-    settle(root, lambda: root.winfo_width() > 1)
-    # The preview never checks: no badge, and the window says so.
-    assert not app.updater.supported and not app.update_button.winfo_ismapped()
-    app.open_functions()
+    settle(root, lambda: float(root.attributes("-alpha")) == 1.0 and app.update_button.winfo_ismapped())
+    # The header icon is always there, left of Appearance; the preview never checks, so no dot.
+    assert app.update_button.winfo_ismapped() and not app.update_button.badge
+    assert app.update_button.winfo_rootx() < app.theme_button.winfo_rootx()
+    app.update_button.event_generate("<Button-1>")
     root.update()
-    footer = {child.cget("text"): child for child in app.functions_view.footer.winfo_children() if child.winfo_class() == "TButton"}
-    footer["Updates"].invoke()
     view = app.updates_view
     settle(root, lambda: float(view.window.attributes("-alpha")) == 1.0)
     texts = [view.card.itemcget(item, "text") for item in view.card.find_all() if view.card.type(item) == "text"]
     assert "Updates are off in the preview" in texts, texts
     assert view.primary.instate(["disabled"]) and view.toggle.instate(["disabled"])
+    buttons = [child.cget("text") for child in view.primary.master.winfo_children() if child.winfo_class() == "TButton"]
+    assert "Diagnostics" in buttons and "Close" in buttons, buttons  # Diagnostics moved here from All functions.
     view.close()
     root.update()
     assert app.updates_view is None
-    assert app.functions_view.window.grab_current() is not None  # All functions keeps its grab.
-    app.functions_view.close()
 
     # A portable install: a check finds a signed release and shows the badge.
     location = Path(temporary.name) / "runtime" / "RoomACControl"
@@ -60,8 +59,7 @@ try:
     with patch.object(updates, "check", return_value=dict(RELEASE)):
         view.primary.invoke()
         settle(root, lambda: app.updater.state == "available")
-    assert app.update_button.winfo_ismapped()
-    assert app.update_button.winfo_rootx() < app.theme_button.winfo_rootx()  # Left of Appearance.
+    assert app.update_button.badge  # The dot marks a waiting update.
     assert view.primary.cget("text") == "Update" and view.notes.winfo_ismapped()
     texts = [view.card.itemcget(item, "text") for item in view.card.find_all() if view.card.type(item) == "text"]
     assert "Version 9.9.9 is available." in texts, texts
