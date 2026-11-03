@@ -127,5 +127,29 @@ class ThemePreferenceTests(unittest.TestCase):
             self.assertIn(text, PORTUGUESE)
 
 
+
+class UnitArtworkTests(unittest.TestCase):
+    def test_artwork_has_no_hard_outline_and_scales_smoothly(self):
+        from PIL import Image
+        with Image.open(theme.ASSETS / "unit.png") as image:
+            image = image.convert("RGBA")
+            # Shaded like hOn's unit: no grey outline ring around the body edge.
+            middle = image.height // 2
+            edge = next(x for x in range(image.width) if image.getpixel((x, middle))[3] == 255)
+            self.assertGreater(sum(image.getpixel((edge, middle))[:3]) / 3, 200)
+        import tkinter as tk
+        try:
+            root = tk.Tk()
+        except tk.TclError as error:
+            self.skipTest(f"No display: {error}")
+        try:
+            root.withdraw()
+            for width, expected in ((330, (300, 90)), (230, (200, 60)), (300, (300, 90))):
+                photo = theme.unit_photo(root, width)
+                self.assertEqual((photo.width(), photo.height()), expected)
+        finally:
+            root.destroy()
+
+
 if __name__ == "__main__":
     unittest.main()
