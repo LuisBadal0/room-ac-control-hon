@@ -129,6 +129,26 @@ class SecureState:
                 self.dirty = dirty
                 raise
 
+    def auto_update(self):
+        """Whether to look for app updates automatically (on unless turned off)."""
+        with self.lock:
+            value = self.data.get("auto_update", True)
+            return value if isinstance(value, bool) else True
+
+    def save_auto_update(self, value):
+        if not isinstance(value, bool):
+            raise ValueError("Unsupported update preference")
+        with self.lock:
+            previous, dirty = self.data.get("auto_update"), self.dirty
+            self.data["auto_update"], self.dirty = value, True
+            try:
+                self.write()
+            except OSError:
+                if previous is None:self.data.pop("auto_update", None)
+                else:self.data["auto_update"] = previous
+                self.dirty = dirty
+                raise
+
     def schedules(self, account):
         with self.lock:
             accounts = self.data.get("schedules", {})

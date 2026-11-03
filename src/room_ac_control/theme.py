@@ -268,6 +268,11 @@ def icon(canvas, name, x, y, color=None, scale=1, bg=None, tags=()):
                               joinstyle="round", tags=tags)
         line(x, y-3, x, y+2, width=1.8)
         oval(x-1.2, y+4.8, x+1.2, y+7.2, fill=color, outline="")
+    elif name == "update":
+        # An arrow settling into a tray: a new version to install.
+        line(x, y-10, x, y+3)
+        line(x-5, y-2, x, y+3, x+5, y-2)
+        line(x-10, y+2, x-10, y+9, x+10, y+9, x+10, y+2)
     elif name == "wrench":
         line(x-8, y+8, x+2, y-2, width=3)
         oval(x, y-11, x+11, y, width=1.8)

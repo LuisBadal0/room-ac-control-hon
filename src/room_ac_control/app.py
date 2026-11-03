@@ -60,7 +60,16 @@ def self_test(output):
         from .cloud_timers import select_timers
         timers, _ = select_timers({"scheduledPrograms": [], "scheduleRunningProgramEnd": []})
         check(all(value["due"] is None for value in timers.values()))
-        result = {"ok":True,"version":__version__,"assets":True,"encryption":True,"tray":True,"mqtt":True,"timers":True,"login_animation":True,"temperature_wheel":True,"multilingual":True,"themes":True}
+        # The updater's signature check must work in this build before it may replace another.
+        from . import updates
+        from awscrt.crypto import RSA
+        check(RSA.new_public_key_from_pem_data(updates.PUBLIC_KEY) is not None)
+        try:
+            updates.read_manifest(b'{"schema": 1}', b"not-a-signature")
+            check(False)
+        except updates.UpdateError:
+            pass
+        result = {"ok":True,"version":__version__,"updates":True,"assets":True,"encryption":True,"tray":True,"mqtt":True,"timers":True,"login_animation":True,"temperature_wheel":True,"multilingual":True,"themes":True}
     except Exception as error:
         result = {"ok":False,"error":type(error).__name__}
     finally:

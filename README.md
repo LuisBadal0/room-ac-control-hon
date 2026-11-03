@@ -38,6 +38,7 @@ Keep the `runtime/` folder next to the launcher: it contains the application, Py
 - Optional encrypted sign-in that reconnects automatically on later launches.
 - Animated loading feedback while manual or remembered-account sign-in completes.
 - English and Portuguese (Portugal), following the Windows display language by default, with a saved language choice.
+- Signed in-app updates for the portable app. It checks GitHub about once a day (you can turn this off) and installs only after you click **Update**, keeping your sign-in and settings.
 - An integrated window header; minimizing moves the app to the system tray.
 - Inline **Start at / End at** time wheels below the temperature slider. One-time timers are saved to hOn's cloud, read back for confirmation, highlighted in blue when active, and cancelled with **Stop** inside the card.
 - Repeating schedules: choose **Every day**, **Weekdays**, **Weekend** or chosen days on a Start at / End at card, or use **Schedules** to see every timer saved in hOn and to edit, pause, resume or delete repeating ones. Overlapping times on the same day are flagged before saving.
@@ -79,11 +80,11 @@ Runtime builds, local environments, shortcuts and account files are excluded fro
 .\tools\Build.ps1
 ```
 
-The preview uses fictional rooms and does not load saved credentials. Use `--preview login` to review the welcome screen. Add `--language pt-PT` or `--language en`, or `--theme light` or `--theme dark`, to preview a specific language or appearance without changing your saved preferences. `tools/Build.ps1` produces `releases/Room-AC-Control-for-hOn-0.1.22-Windows-x64.zip` and a local app-icon shortcut. The build checks bundled assets, Windows encryption, tray imports and MQTT libraries without contacting an account.
+The preview uses fictional rooms and does not load saved credentials. Use `--preview login` to review the welcome screen. Add `--language pt-PT` or `--language en`, or `--theme light` or `--theme dark`, to preview a specific language or appearance without changing your saved preferences. `tools/Build.ps1` produces `releases/Room-AC-Control-for-hOn-0.1.23-Windows-x64.zip` and a local app-icon shortcut. The build checks bundled assets, Windows encryption, tray imports and MQTT libraries without contacting an account.
 
 Setup and build install full hash-verified Windows dependency locks. `Setup.ps1` prepares source execution; `Build.ps1` produces the portable executable. See [build verification](docs/BUILD_VERIFICATION.md) for checksums, source manifests, optional signing and CI attestations. Binaries remain unsigned until a valid signing certificate is supplied.
 
-Windows UI checks: `tests/ui_smoke.py`, `tests/refresh_smoke.py`, `tests/desktop_smoke.py`, and `tests/timer_smoke.py`, `tests/schedules_smoke.py` and `tests/window_header_smoke.py` (all three also run by ui_smoke). Active CI in `.github/workflows/windows.yml` pins actions to immutable commits, runs offline checks, and builds a portable Windows artifact for pull requests and pushes to main. Merging a PR that bumps the app version automatically builds, attests and publishes the release (for example `v0.1.22`); merges that keep the current version only build.
+Windows UI checks: `tests/ui_smoke.py`, `tests/refresh_smoke.py`, `tests/desktop_smoke.py`, and `tests/timer_smoke.py`, `tests/schedules_smoke.py`, `tests/window_header_smoke.py` and `tests/updates_smoke.py` (all four also run by ui_smoke). Active CI in `.github/workflows/windows.yml` pins actions to immutable commits, runs offline checks, and builds a portable Windows artifact for pull requests and pushes to main. Merging a PR that bumps the app version automatically builds, attests and publishes the release (for example `v0.1.23`); merges that keep the current version only build.
 
 See [Contributing](CONTRIBUTING.md) and the [user guide](docs/USER_GUIDE.md) for more detail.
 

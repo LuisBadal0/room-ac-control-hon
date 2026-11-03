@@ -86,6 +86,37 @@ jobs:
         uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v3
         with:
           subject-path: release/*.zip
+      - name: Sign the in-app update manifest
+        # The app installs an update only when update.json verifies against the
+        # public key built into it, so a release is never published unsigned.
+        if: steps.decide.outputs.publish == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ steps.decide.outputs.tag }}
+          UPDATE_SIGNING_KEY: ${{ secrets.UPDATE_SIGNING_KEY }}
+        run: |
+          if [ -z "$UPDATE_SIGNING_KEY" ]; then
+            echo "UPDATE_SIGNING_KEY is not set; refusing to publish an unsigned update." >&2
+            exit 1
+          fi
+          archive=$(ls release/Room-AC-Control-for-hOn-*-Windows-x64.zip)
+          python3 - "$archive" "${TAG#v}" "$TAG" > release/update.json <<'PY'
+          import hashlib, json, os, sys
+          path, version, tag = sys.argv[1:]
+          digest = hashlib.sha256(open(path, "rb").read()).hexdigest()
+          print(json.dumps({"schema": 1, "version": version, "tag": tag, "archive": os.path.basename(path),
+                            "sha256": digest, "size": os.path.getsize(path)}, indent=2))
+          PY
+          key="$RUNNER_TEMP/update-signing-key.pem"
+          (umask 077; printf '%s
+' "$UPDATE_SIGNING_KEY" > "$key")
+          openssl dgst -sha256 -sign "$key" -sigopt rsa_padding_mode:pss -sigopt rsa_pss_saltlen:32             -out release/update.json.sig release/update.json
+          rm -f "$key"
+          # Check against the public key committed at this exact commit (the app embeds the same key).
+          gh api -H "Accept: application/vnd.github.raw"             "repos/$GH_REPO/contents/packaging/update-signing-key.pub?ref=$GITHUB_SHA" > "$RUNNER_TEMP/update-signing-key.pub"
+          openssl pkey -pubin -in "$RUNNER_TEMP/update-signing-key.pub" -out "$RUNNER_TEMP/update-signing-spki.pub"
+          openssl dgst -sha256 -verify "$RUNNER_TEMP/update-signing-spki.pub" -sigopt rsa_padding_mode:pss             -sigopt rsa_pss_saltlen:32 -signature release/update.json.sig release/update.json
       - name: Publish release
         if: steps.decide.outputs.publish == 'true'
         env:
@@ -93,4 +124,4 @@ jobs:
           GH_REPO: ${{ github.repository }}
           TAG: ${{ steps.decide.outputs.tag }}
         run: |
-          gh release create "$TAG" release/*.zip release/SHA256SUMS.txt --target "$GITHUB_SHA" --title "Room AC Control for hOn $TAG" --generate-notes
+          gh release create "$TAG" release/*.zip release/SHA256SUMS.txt release/update.json release/update.json.sig             --target "$GITHUB_SHA" --title "Room AC Control for hOn $TAG" --generate-notes

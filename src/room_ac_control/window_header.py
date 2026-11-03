@@ -273,9 +273,10 @@ class WindowHeader:
 
 class HeaderIconButton(tk.Canvas):
     """A 40 px title-bar control drawn with the shared stroke icons."""
-    def __init__(self, parent, glyph, command):
+    def __init__(self, parent, glyph, command, color="TEXT", badge=False):
         super().__init__(parent, width=40, height=40, highlightthickness=0, takefocus=True, cursor="hand2")
         self.glyph, self.command, self.hover = glyph, command, False
+        self.color, self.badge = color, badge
         self.bind("<Button-1>", lambda event: self.command())
         self.bind("<Return>", lambda event: self.command())
         self.bind("<space>", lambda event: self.command())
@@ -292,4 +293,6 @@ class HeaderIconButton(tk.Canvas):
         self.delete("all")
         background = C.SURFACE if self.hover else C.BG
         self.configure(bg=background)
-        icon(self, self.glyph, 20, 20, C.TEXT, scale=.75, bg=background)
+        icon(self, self.glyph, 20, 20, getattr(C, self.color), scale=.75, bg=background)
+        if self.badge:
+            self.create_oval(25, 9, 33, 17, fill=C.BRAND, outline=background, width=2)

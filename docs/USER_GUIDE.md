@@ -92,6 +92,14 @@ Drag the integrated header to move the window, or use its minimize and close con
 
 The main window and All functions open at a fixed size designed for their layout, so they cannot be resized or maximized. All functions scrolls when a section has more cards than fit.
 
+## Updates
+
+The portable app checks for a newer version shortly after it starts and then about once a day. When one is available, a download icon with a dot appears in the main window header, left of **Appearance**. Click it, or **Updates** in All functions, to see the new version and **What's new**.
+
+Nothing is installed until you click **Update**. Room AC Control then downloads the new version and checks that it is signed by this project and matches its published fingerprint. It unpacks the new version next to the current one and runs its offline checks. Only when all of that passes does the app close, swap the folders and open the new version, usually within a few seconds. If the swap fails, the previous version is put back and the app tells you on its next start. Your remembered sign-in, settings and schedules are kept because they live in your Windows profile, not in the app folder. Unapplied changes are discarded, and the app asks before discarding them.
+
+Turn off **Check for updates automatically** in the Updates window to stop the daily checks; **Check now** still works. Source checkouts and the offline preview never check or install updates. If the app folder is not writable (for example, under Program Files), download the new release from GitHub instead.
+
 ## Sign out and privacy
 
 **Sign out** removes remembered credentials but retains your program preferences. Credentials and preferences are protected by Windows DPAPI in `%LOCALAPPDATA%\RoomACControl\state.dpapi`. They are separate from the application folder and are not part of a source upload or portable release.

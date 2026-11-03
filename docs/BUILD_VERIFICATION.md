@@ -43,7 +43,8 @@ and read-only permissions for PR builds. Only the release job, which runs after
 pushes to `main` and version tags, uses temporary write permissions for
 attestations and release assets. Editing workflows through the
 CLI requires a credential permitted to manage them; the GitHub web editor is
-also supported. No credentials or signing secrets are stored in the workflow.
+also supported. The workflow file stores no credentials; the release job reads
+the update-signing key from the `UPDATE_SIGNING_KEY` secret.
 
 Releases are automatic: when a merge to `main` carries an app version with no
 release yet, CI builds, attests and publishes `v<version>` with the ZIP and
@@ -60,6 +61,28 @@ Verification should identify this repository and the workflow's source commit.
 Failing verification means provenance has not been established. CI runner
 images, the Python installation and build tooling remain trusted inputs; this
 project does not claim byte-identical reproducible Windows binaries.
+
+## In-app update signing
+
+Each release also publishes `update.json` (version, tag, ZIP name, size and
+SHA-256) and `update.json.sig`, an RSA-PSS SHA-256 signature. The release job
+signs with the `UPDATE_SIGNING_KEY` repository secret. Before publishing, it
+verifies the signature against `packaging/update-signing-key.pub` at the release
+commit, and it refuses to publish when the secret is missing. The app embeds the
+same public key (`room_ac_control.updates.PUBLIC_KEY`, kept equal to the file by
+`tests/test_updates.py`) and verifies with `awscrt`, which it already ships, so
+no extra dependency is needed. To check a release by hand:
+
+```bash
+openssl pkey -pubin -in packaging/update-signing-key.pub -out key.spki.pub
+openssl dgst -sha256 -verify key.spki.pub -sigopt rsa_padding_mode:pss -sigopt rsa_pss_saltlen:32 -signature update.json.sig update.json
+```
+
+To rotate the key, ship a release that still verifies with the old key but
+embeds the new public key. Change the secret only after that release. Apps
+that skip that release must download the next one manually. The offline test
+fixtures in `tests/fixtures` are signed with a throwaway key; regenerate them with
+`tests/fixtures/make_update_fixtures.py`.
 
 ## Optional Authenticode signing
 

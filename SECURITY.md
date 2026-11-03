@@ -69,6 +69,32 @@ Review the report before sharing; event times reveal when failures happened.
 
 The app uses the hOn cloud for authentication, status and control. It runs no
 local network server, opens no router ports and collects no telemetry.
+
+The portable app also contacts GitHub to check for updates: shortly after it
+starts and about once a day, unless **Check for updates automatically** is
+turned off in the Updates window. A check downloads only `update.json` and its
+signature from this repository's latest release. It sends no account, device
+or usage information beyond what any HTTPS request reveals (IP address and a
+fixed `RoomACControl-Updater` user agent). An update is installed only after
+the person clicks **Update**, and only if:
+
+- `update.json` verifies with RSA-PSS SHA-256 against the public key built into
+  the app. The private key exists only as the `UPDATE_SIGNING_KEY` CI secret
+  and an offline backup kept by the maintainer.
+- its version is newer than the installed one, so a signed older release cannot
+  downgrade the app;
+- the downloaded ZIP matches the signed size and SHA-256;
+- the new runtime unpacks without unsafe paths and passes its own `--self-test`,
+  including the updater's signature check.
+
+A small helper (`%LOCALAPPDATA%\RoomACControl\updates\apply-update.cmd`) waits
+for the app to exit, renames `runtime\RoomACControl` to `RoomACControl.old` and the
+new copy into place, then starts it. If either rename fails, it restores the
+previous folder. Paths reach the helper only through environment variables.
+Someone who controls both the signing key and the release page could ship a
+malicious update; the key is kept separate from the GitHub account credentials
+for that reason. Source checkouts and the offline preview never check or
+install updates.
 Menus, timer previews, status refresh and offline tests do not operate the AC.
 Live **Set** and **Stop** timer buttons, and the **Schedules** window, create,
 update, pause or cancel schedules in hOn's authenticated cloud scheduling
