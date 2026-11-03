@@ -15,6 +15,7 @@ from .secure_state import SecureState
 from .program_memory import ProgramMemory
 from .airflow import AirflowAnimation
 from pathlib import Path
+from . import updates, __version__
 from .device_picker import DevicePicker, PowerButton
 from .diagnostics import diagnostics
 from .inline_timers import InlineTimers, TimerCard
@@ -71,6 +72,9 @@ class App:
         self.preview_timers = {}
         self.preview_records = {}  # Fictional schedules for the offline preview.
         self.schedules_view = None
+        self.updates_view = None
+        self.update_job = None
+        self.update_notice = None
         self.worker = Worker(memory=self.memory)
         self.tray = None
         self.closing = False
@@ -109,6 +113,14 @@ class App:
         self.language_button.pack(side="right",fill="y")
         self.theme_button = HeaderIconButton(self.header.frame,"half",self.theme_menu)
         self.theme_button.pack(side="right")
+        # Shown left of Appearance only while a signed update is waiting.
+        self.update_button = HeaderIconButton(self.header.frame,"update",self.open_updates,color="BRAND",badge=True)
+        location = None if demo else updates.install_location()
+        self.updater = updates.Updater(__version__, location, enabled=self.storage.auto_update(), demo=demo)
+        self.updater.listen(self.updates_changed)
+        if location is not None:
+            try:self.update_notice = updates.finish(location, __version__)
+            except OSError as error:diagnostics.record("update_failed", error)
         self.content = ttk.Frame(root)
         self.content.pack(fill="both",expand=True)
         self.body = ttk.Frame(self.content, padding=(20,6,20,16))
@@ -175,8 +187,11 @@ class App:
         self.root.protocol("WM_DELETE_WINDOW",self.close)
         self.root.report_callback_exception = self.callback_failed
         self.root.bind("<Unmap>",self.on_minimize,add="+")
-        root.after(100,self.poll)
+        self.poll_job = root.after(100,self.poll)
         if not demo:root.after(200,self.auto_sign_in)
+        if self.update_notice:self.status.set(self.update_notice)
+        if self.updater.supported:
+            self.update_job = root.after(updates.FIRST_CHECK_MS, self.auto_check_updates)
 
     def language_menu(self, parent=None):
         parent = parent or self.root
@@ -253,13 +268,14 @@ class App:
                         return
             except queue.Empty:
                 pass
+        self.updater.poll()
         # Follow Windows: notice an app-mode switch within about two seconds.
         self.theme_checks += 1
         if self.theme_checks >= 20:
             self.theme_checks = 0
             if self.theme_preference == "system":
                 self.apply_theme()
-        self.root.after(100,self.poll)
+        self.poll_job = self.root.after(100,self.poll)
 
     def update_apply_label(self):
         count = len(self.dirty)
@@ -337,6 +353,9 @@ class App:
         self.device_picker.current(index)
         self.show_device(devices[index])
         self.status.set("Design preview · No AC commands are sent." if self.demo else "Connected. Select changes, then apply.")
+        if self.update_notice:
+            self.status.set(self.update_notice)
+            self.update_notice = None
         self.schedule_auto()
 
     def show_device(self,device,preserve_edits=False):
@@ -912,9 +931,55 @@ class App:
             self.set_busy(False)
         self.worker.submit(self.worker.controller.close(),done,"logout")
 
+    # Signed app updates for the portable build.
+
+    def auto_check_updates(self):
+        self.update_job = None
+        if self.closing:return
+        if self.updater.enabled:self.updater.check(quiet=True)
+        self.update_job = self.root.after(updates.CHECK_EVERY_MS, self.auto_check_updates)
+
+    def set_auto_update(self, value):
+        self.updater.enabled = bool(value)
+        try:self.storage.save_auto_update(bool(value))
+        except OSError:self.status.set("Update setting changed for this session, but the preference could not be saved.")
+        if value and self.updater.state in {"idle", "current"}:self.updater.check(quiet=True)
+        self.updater.notify()
+
+    def updates_changed(self):
+        if self.closing:return
+        waiting = self.updater.release is not None and self.updater.state in {"available", "downloading", "verifying", "ready", "failed"}
+        if waiting and not self.update_button.winfo_ismapped():
+            self.update_button.pack(side="right")
+        elif not waiting and self.update_button.winfo_ismapped():
+            self.update_button.pack_forget()
+        if self.updater.state == "ready":
+            # The person clicked Update; the helper waits for this process to exit.
+            try:applied = self.updater.apply()
+            except OSError as error:
+                diagnostics.record("update_failed", error)
+                self.updater.state, self.updater.error = "failed", "Could not start the update helper. Nothing was changed."
+                self.updater.notify()
+                return
+            if applied:self.root.after(300, self.close)
+
+    def open_updates(self, parent=None):
+        if self.updates_view and self.updates_view.window.winfo_exists():
+            self.updates_view.window.lift()
+            return
+        from .updates_view import UpdatesView
+        UpdatesView(self, parent or self.root)
+
     def close(self):
         if self.closing:return
         self.closing=True
+        self.updater.close()
+        if getattr(self, "poll_job", None) is not None:
+            self.root.after_cancel(self.poll_job)
+            self.poll_job = None
+        if self.update_job is not None:
+            self.root.after_cancel(self.update_job)
+            self.update_job = None
         self.login_view.close()
         self.reset_auto()
         self.airflow.close()
