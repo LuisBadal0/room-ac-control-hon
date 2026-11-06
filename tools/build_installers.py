@@ -61,9 +61,74 @@ def license_rtf(text):
 
 
 def logo(target):
+    app_icon(64).save(target)
+
+
+# Sizes WiX expects for the MSI pages (pixels at 100% scaling).
+DIALOG_SIZE = (493, 312)   # Welcome and Finish pages; text sits on the right of x=164.
+BANNER_SIZE = (493, 58)    # Top of the other pages; text sits on the left.
+BRAND, BRAND_DEEP, SOFT = (10, 108, 165), (6, 61, 94), (220, 239, 250)  # theme.py BRAND, BRAND_ACTIVE, SOFT
+
+
+def app_icon(size):
     from PIL import Image
     with Image.open(ROOT / "src" / "room_ac_control" / "assets" / "app-icon.png") as image:
-        image.convert("RGBA").resize((64, 64), Image.LANCZOS).save(target)
+        return image.convert("RGBA").resize((size, size), Image.LANCZOS)
+
+
+def dialog_artwork():
+    """Welcome/Finish page: a brand-blue panel with the app icon and soft airflow arcs."""
+    from PIL import Image, ImageDraw, ImageFilter
+    scale = 4  # Draw large, then shrink, for smooth curves.
+    width, height = DIALOG_SIZE
+    panel = 164
+    art = Image.new("RGB", (width * scale, height * scale), (255, 255, 255))
+    gradient = Image.new("RGB", (1, height * scale))
+    for y in range(height * scale):
+        t = y / (height * scale - 1)
+        gradient.putpixel((0, y), tuple(round(a + (b - a) * t) for a, b in zip(BRAND, BRAND_DEEP)))
+    art.paste(gradient.resize((panel * scale, height * scale)), (0, 0))
+    arcs = Image.new("RGBA", art.size, (0, 0, 0, 0))
+    draw = ImageDraw.Draw(arcs)
+    centre_x, centre_y = -40 * scale, (height + 60) * scale
+    for index, radius in enumerate((120, 160, 200, 240, 280)):
+        r = radius * scale
+        draw.arc((centre_x - r, centre_y - r, centre_x + r, centre_y + r), 270, 360,
+                 fill=(255, 255, 255, 34 - index * 5), width=3 * scale)
+    art.paste(arcs.crop((0, 0, panel * scale, height * scale)), (0, 0), arcs.crop((0, 0, panel * scale, height * scale)))
+    art = art.resize(DIALOG_SIZE, Image.LANCZOS)
+    icon = app_icon(96)
+    shadow = Image.new("RGBA", (136, 136), (0, 0, 0, 0))
+    shadow.paste((0, 0, 0, 90), (20, 26, 116, 122), icon.getchannel("A").point(lambda a: a))
+    shadow = shadow.filter(ImageFilter.GaussianBlur(8))
+    left, top = (panel - 96) // 2, 44
+    art.paste(shadow, (left - 20, top - 20), shadow)
+    art.paste(icon, (left, top), icon)
+    return art
+
+
+def banner_artwork():
+    """Other pages: white, fading to the soft brand blue on the right, with the app icon."""
+    from PIL import Image
+    width, height = BANNER_SIZE
+    art = Image.new("RGB", BANNER_SIZE, (255, 255, 255))
+    start = width - 170
+    for x in range(start, width):
+        t = ((x - start) / (width - start - 1)) ** 1.6
+        colour = tuple(round(255 + (c - 255) * t) for c in SOFT)
+        for y in range(height):
+            art.putpixel((x, y), colour)
+    icon = app_icon(42)
+    art.paste(icon, (width - 42 - 12, (height - 42) // 2), icon)
+    return art
+
+
+def installer_artwork(work):
+    """Write the MSI page bitmaps (24-bit BMP, as Windows Installer needs)."""
+    dialog, banner = work / "dialog.bmp", work / "banner.bmp"
+    dialog_artwork().save(dialog, "BMP")
+    banner_artwork().save(banner, "BMP")
+    return dialog, banner
 
 
 def wix(*args, cwd):
@@ -93,6 +158,7 @@ def main():
     stage_files(archive, stage)
     (work / "License.rtf").write_text(license_rtf((ROOT / "LICENSE").read_text(encoding="utf-8")), encoding="ascii")
     logo(work / "logo.png")
+    dialog_bmp, banner_bmp = installer_artwork(work)
 
     subprocess.run([shutil.which("dotnet") or "dotnet", "tool", "restore"], check=True, cwd=ROOT)
     pinned = wix_version()
@@ -106,7 +172,7 @@ def main():
     wix("build", str(sources / "RoomACControl.wxs"), str(sources / "InstallerUI.wxs"), "-arch", "x64",
         "-ext", "WixToolset.UI.wixext", "-ext", "WixToolset.Util.wixext",
         "-d", f"Version={app_version}", "-d", f"StageDir={stage}", "-d", f"Icon={icon}",
-        "-d", f"LicenseRtf={work / 'License.rtf'}",
+        "-d", f"LicenseRtf={work / 'License.rtf'}", "-d", f"DialogBmp={dialog_bmp}", "-d", f"BannerBmp={banner_bmp}",
         "-intermediatefolder", str(work / "obj-msi"), "-pdbtype", "none", "-o", str(msi), cwd=work)
     wix("build", str(sources / "Setup.wxs"), "-arch", "x64", "-ext", "WixToolset.BootstrapperApplications.wixext", "-ext", "WixToolset.Util.wixext",
         "-d", f"Version={app_version}", "-d", f"Msi={msi}", "-d", f"Icon={icon}", "-d", f"Logo={work / 'logo.png'}",

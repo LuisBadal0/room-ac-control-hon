@@ -34,7 +34,8 @@ The WiX Toolset is the .NET local tool pinned in `.config/dotnet-tools.json`
 extensions are pinned to the same version. The recipes are in
 `packaging/installer/`: `RoomACControl.wxs` (the MSI), `InstallerUI.wxs` (its pages, with the
 desktop-shortcut checkbox), `Setup.wxs` (the bundle) and `SetupTheme.xml`/`.wxl`
-(its window, adapted from WiX's HyperlinkTheme). Keep their `UpgradeCode`s unchanged, or new installers
+(its window, adapted from WiX's HyperlinkTheme). The MSI's page artwork (`dialog.bmp`,
+`banner.bmp`) and the Setup.exe logo are drawn from the app icon at build time. Keep their `UpgradeCode`s unchanged, or new installers
 will no longer upgrade old ones. `SHA256SUMS.txt` lists the ZIP, MSI and
 Setup.exe. The installers are not Authenticode-signed.
 

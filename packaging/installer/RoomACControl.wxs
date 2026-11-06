@@ -99,6 +99,9 @@
     </Feature>
 
     <WixVariable Id="WixUILicenseRtf" Value="$(var.LicenseRtf)" />
+    <!-- Page artwork drawn from the app icon by tools/build_installers.py. -->
+    <WixVariable Id="WixUIDialogBmp" Value="$(var.DialogBmp)" />
+    <WixVariable Id="WixUIBannerBmp" Value="$(var.BannerBmp)" />
     <UIRef Id="RoomACControlUI" />
   </Package>
 </Wix>

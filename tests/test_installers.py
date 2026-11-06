@@ -102,6 +102,19 @@ class InstallerTests(unittest.TestCase):
         self.assertIn("InstallDesktopShortcutCheckbox",
                       {s.get("Id") for s in strings.iter("{http://wixtoolset.org/schemas/v4/wxl}String")})
 
+    def test_msi_page_artwork_is_drawn_from_the_app_icon(self):
+        dialog, banner = build_installers.dialog_artwork(), build_installers.banner_artwork()
+        self.assertEqual((dialog.size, dialog.mode), ((493, 312), "RGB"))
+        self.assertEqual((banner.size, banner.mode), ((493, 58), "RGB"))
+        # Page text is drawn over these areas, so they stay plain white.
+        self.assertEqual(dialog.crop((170, 0, 493, 312)).getextrema(), ((255, 255),) * 3)
+        self.assertEqual(banner.crop((0, 0, 300, 58)).getextrema(), ((255, 255),) * 3)
+        top_left = dialog.getpixel((5, 5))
+        self.assertTrue(all(abs(a - b) <= 3 for a, b in zip(top_left, build_installers.BRAND)), top_left)
+        package = (ROOT / "packaging" / "installer" / "RoomACControl.wxs").read_text(encoding="utf-8")
+        self.assertIn('<WixVariable Id="WixUIDialogBmp" Value="$(var.DialogBmp)" />', package)
+        self.assertIn('<WixVariable Id="WixUIBannerBmp" Value="$(var.BannerBmp)" />', package)
+
     def test_upgrade_codes_never_change(self):
         package = ElementTree.parse(ROOT / "packaging" / "installer" / "RoomACControl.wxs").find(f"{WXS}Package")
         bundle = ElementTree.parse(ROOT / "packaging" / "installer" / "Setup.wxs").find(f"{WXS}Bundle")
