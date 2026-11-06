@@ -911,11 +911,30 @@ class FunctionsView(SheetHost):
         return y+((len(items)+1)//2)*210
 
     def start_routine(self, item):
-        """Start a maintenance routine straight from its card, after the person confirms it."""
-        name = tr(self.window, item["label"])
-        question = tr(self.window, "Start {name}? It may interrupt what the AC is doing.").replace("{name}", name)
-        if not messagebox.askyesno("Room AC Control", question, parent=self.window):
-            return
+        """Ask in a bottom sheet, in the app's own style, before starting a maintenance routine."""
+        index = next((i for i, other in enumerate(self.visible_items) if other["label"] == item["label"]), 0)
+        color = accent(("cool", "heat", "dry", "fan", "auto")[index % 5])
+        turn_on = item["kind"] == "setting"
+
+        def draw(c, width):
+            y = 34
+            tint = self.app.soft(color)
+            rounded(c, 24, y, 92, y+68, 20, fill=tint, outline="")
+            icon(c, glyph_for(item["label"]), 58, y+34, color, scale=1.25, bg=tint)
+            self.text(c, 108, y+12, tr(c, "Maintenance routine").upper(), -11, color, weight="black", translate=False)
+            self.text(c, 108, y+40, item["label"], -22, weight="black", width=width-132)
+            y += 68+20
+            rounded(c, 24, y, width-24, y+48, 14, fill=C.WARN_BG, outline="")
+            icon(c, "alert", 46, y+24, C.WARN_TEXT, scale=.55, bg=C.WARN_BG)
+            self.text(c, 64, y+24, "It may interrupt what the AC is doing.", -12, C.WARN_TEXT, weight="semibold",
+                      width=width-100)
+            y += 48+20
+            return self.sheet_buttons(c, y, width, "Cancel", "Turn on" if turn_on else "Start",
+                                      lambda: self.run_routine(item), 1.4)
+        self.open_sheet(draw)
+
+    def run_routine(self, item):
+        self.close_sheet()
         if item["kind"] == "setting":
             value = next((option for option in item["spec"]["options"].values() if code(option) == "1"), "1")
             self.app.action("configure", {item["key"]: value})
