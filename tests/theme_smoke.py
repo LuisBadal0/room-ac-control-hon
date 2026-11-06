@@ -46,6 +46,17 @@ def stale_colours(root, previous):
                         continue
                     if value in stale:
                         found.append((str(widget), widget.type(item), option, value))
+            # Smooth shapes and text are images; check the colours they were drawn with.
+            alive = set(widget.find_all())
+            for item, ops in widget.__dict__.get("smooth_items", {}).items():
+                if item in alive:
+                    for kind, coords, options in ops:
+                        for option in ("fill", "outline"):
+                            if str(options.get(option, "")).lower() in stale:
+                                found.append((str(widget), "smooth " + kind, option, options[option]))
+            for item, label in widget.__dict__.get("smooth_texts", {}).items():
+                if item in alive and str(label["fill"]).lower() in stale:
+                    found.append((str(widget), "smooth text", label["text"], label["fill"]))
     return found
 
 
@@ -61,9 +72,9 @@ with tempfile.TemporaryDirectory() as folder:
         app.staged("tempSel", "21")
         app.open_functions()
         view = app.functions_view
-        view.change_setting("windSpeed", "3")
+        view.stage("windSpeed", "3")
         root.update()
-        drafts = (dict(app.dirty), dict(view.settings_changes))
+        drafts = dict(app.dirty)
 
         app.theme_menu(view.window)
         assert [tile for tile in app.theme_panel.tiles] and len(app.theme_panel.tiles) == 3
@@ -71,9 +82,9 @@ with tempfile.TemporaryDirectory() as folder:
         root.update()
         assert C.mode == "dark" and app.theme_preference == "dark"
         assert SecureState(path).theme() == "dark"
-        assert view.window.winfo_exists() and (dict(app.dirty), dict(view.settings_changes)) == drafts
+        assert view.window.winfo_exists() and dict(app.dirty) == drafts
         assert app.canvas.cget("bg") == C.BG and app.status_label.cget("bg") == C.SOFT
-        assert view.search_entry.cget("bg") == C.CARD and view.hero.cget("bg") == C.BG
+        assert view.search_entry.cget("bg") == C.CARD and view.top.cget("bg") == C.BG and view.content.cget("bg") == C.BG
         assert ttk.Style(root).lookup("TFrame", "background") == C.BG
         assert ttk.Style(root).lookup("Accent.TButton", "foreground") == C.ON_BRAND
         leftovers = stale_colours(root, "light")
@@ -101,8 +112,8 @@ with tempfile.TemporaryDirectory() as folder:
         # Language switching still works in the dark palette, with drafts intact.
         app.set_language("pt-PT")
         root.update()
-        assert app.apply_button.cget("text") == "Aplicar alterações (1)"
-        assert view.window.winfo_exists() and (dict(app.dirty), dict(view.settings_changes)) == drafts
+        assert app.apply_button.label() == "Aplicar" and app.apply_button.badge == 2
+        assert view.window.winfo_exists() and dict(app.dirty) == drafts
         app.set_language("en")
         view.close()
         assert not submissions  # Theme changes never contact the cloud or send AC commands.

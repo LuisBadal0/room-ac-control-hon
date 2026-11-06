@@ -4,6 +4,7 @@ from decimal import Decimal, InvalidOperation
 from .inline_timers import NumberWheel
 from .theme import C, font, rounded
 from .i18n import translator
+from .smooth import aa_text
 
 
 class TemperatureWheel(NumberWheel):
@@ -85,6 +86,6 @@ class TemperatureWheel(NumberWheel):
             y = 54+offset*self.ROW_HEIGHT+self.drag_offset
             emphasis = max(0, 1-abs(y-54)/self.ROW_HEIGHT)
             text = "—" if offset == 0 and not self.chosen else translator(self).number(self.number(index))+"°C"
-            self.create_text(118, y, text=text,
+            aa_text(self, 118, y, text=text,
                              fill=C.TEXT if emphasis >= .5 and self.enabled else C.MUTED,
                              font=font(round(11+12*emphasis), "black" if emphasis >= .5 else "normal"))

@@ -4,6 +4,7 @@ import tkinter as tk
 from tkinter import ttk
 
 from .theme import C, font, paint, rounded, icon, refresh_on_theme
+from .smooth import aa_oval, aa_text
 
 
 def matches(value, current):
@@ -52,14 +53,14 @@ class ChoicePanel:
                         width=1.5 if active or hover else 1)
                 glyph = "moon" if "night" in item["label"].lower() else item.get("glyph", "snow")
                 circle = C.CARD if active else C.SOFT
-                widget.create_oval(14, 12, 46, 44, fill=circle, outline="")
+                aa_oval(widget, 14, 12, 46, 44, fill=circle, outline="")
                 icon(widget, glyph, 30, 28, C.ON_SOFT, scale=.72, bg=circle)
                 foreground = C.ON_SOFT if active else C.TEXT
                 label = tr(widget, item["label"]) if item.get("translate_label",True) else item["label"]
-                widget.create_text(56, 28, text=label, anchor="w", fill=foreground, width=132, font=font(11, "bold"))
+                aa_text(widget, 56, 28, text=label, anchor="w", fill=foreground, width=132, font=font(11, "bold"))
                 if active: icon(widget, "check", 201, 28, C.ON_SOFT, scale=.8, bg=fill)
                 description = tr(widget, item.get("description", "")) if item.get("translate_label",True) else item.get("description","")
-                widget.create_text(15, 66, text=description, anchor="w", fill=C.ON_SOFT if active else C.MUTED, font=font(9), width=194)
+                aa_text(widget, 15, 66, text=description, anchor="w", fill=C.ON_SOFT if active else C.MUTED, font=font(9), width=194)
             draw()
             refresh_on_language(tile,draw)
             refresh_on_theme(tile,draw)
@@ -114,7 +115,7 @@ class SelectField(tk.Canvas):
         self.delete("all")
         self.configure(bg=C.BG)
         rounded(self, 1, 1, 235, 43, 8, fill=C.HOVER if self.hover else C.CARD, outline=C.BRAND if self.hover else C.FIELD)
-        self.create_text(14, 22, text=tr(self, self.variable.get()), anchor="w", fill=C.TEXT, font=font(10))
+        aa_text(self, 14, 22, text=tr(self, self.variable.get()), anchor="w", fill=C.TEXT, font=font(10))
         icon(self, "chevron", 214, 22, C.MUTED)
 
     def highlight(self, active):

@@ -1,6 +1,6 @@
 import unittest
 
-from room_ac_control.airflow import AirflowAnimation, airflow_tone, tint
+from room_ac_control.airflow import AirflowAnimation, airflow_tone
 
 
 class Canvas:
@@ -44,11 +44,17 @@ class AirflowTests(unittest.TestCase):
         self.assertIsNone(airflow_tone({"mode": "Heat", "power": "Unknown"}))
         self.assertEqual(airflow_tone({"mode": "Cool", "power": "On", "dirty": {"machMode": "4"}}), "cool")
 
-    def test_color_channels(self):
+    def test_lines_take_the_reported_mode_accent(self):
         rgb = lambda value: tuple(int(value[i:i+2], 16) for i in (1, 3, 5))
-        cool, heat = rgb(tint("cool", .5)), rgb(tint("heat", .5))
+        animation = AirflowAnimation(Canvas())
+        animation.set_state({"mode": "Cool", "power": "On"}, 250, 76, 230, 30)
+        cool = rgb(animation.color)
+        animation.set_state({"mode": "Heat", "power": "On"}, 250, 76, 230, 30)
+        heat = rgb(animation.color)
         self.assertGreater(cool[2], cool[0])
         self.assertGreater(heat[0], heat[2])
+        self.assertEqual(len(animation.strokes), AirflowAnimation.LINES*4)
+        animation.close()
 
     def test_motion_reuses_strokes_and_keeps_one_timer(self):
         canvas = Canvas()

@@ -39,18 +39,18 @@ def self_test(output):
         from .demo import devices
         app.connected(devices())
         root.update_idletasks()
-        check(set(app.inline_timers.cards) == {"on", "off"})
+        check(set(app.inline_timers.cards) == {"off"} and app.settings_button.winfo_exists())
         from .temperature_wheel import TemperatureWheel
         wheel = TemperatureWheel(root, {"min":16, "max":30, "step":.5}, 23.5)
         check(wheel.get() == "23.5")
         wheel.step(1)
         check(wheel.get() == "24")
         app.set_language("pt-PT")
-        check(app.all_button.cget("text") == "Todas as funções")
+        check(app.all_button.label() == "Todas as funções")
         check(app.i18n.number("23.5") == "23,5")
         check(wheel.get() == "24")
         app.set_language("en")
-        check(app.all_button.cget("text") == "All functions")
+        check(app.all_button.label() == "All functions")
         from .theme import C
         app.theme_preference = "dark"
         check(app.apply_theme() and C.mode == "dark" and app.canvas.cget("bg") == C.BG)

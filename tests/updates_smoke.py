@@ -11,6 +11,7 @@ from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1])); sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from room_ac_control import updates
+from room_ac_control.smooth import texts as canvas_texts
 from room_ac_control.dashboard import App
 from room_ac_control.demo import devices
 
@@ -31,38 +32,59 @@ app = App(root, demo=True, enable_tray=False, language="en", theme="light")
 temporary = tempfile.TemporaryDirectory()
 try:
     app.connected(devices())
-    settle(root, lambda: float(root.attributes("-alpha")) == 1.0 and app.update_button.winfo_ismapped())
-    # The header icon is always there, left of Appearance; the preview never checks, so no dot.
-    assert app.update_button.winfo_ismapped() and not app.update_button.badge
-    assert app.update_button.winfo_rootx() < app.theme_button.winfo_rootx()
-    app.update_button.event_generate("<Button-1>")
+    settle(root, lambda: float(root.attributes("-alpha")) == 1.0 and app.settings_button.winfo_ismapped())
+    # One Settings button in the header; the preview never checks, so no dot.
+    assert app.settings_button.winfo_ismapped() and not app.settings_button.badge
+    app.settings_button.event_generate("<Button-1>")
     root.update()
+    panel = app.settings_panel
+    actions = lambda: [action for box, action in panel.regions]
+    # The dropdown opens inside the main window, under the button, over a dimmed page.
+    assert app.settings_button.pressed and panel.canvas.winfo_ismapped() and panel.canvas.master is root
+    assert panel.canvas.winfo_rootx() + panel.canvas.winfo_width() <= root.winfo_rootx() + root.winfo_width()
+    texts = panel.texts()
+    assert "Updates are off in the preview" in texts and "Check now" in texts, texts
+    assert panel.primary not in actions() and panel.toggle_automatic not in actions()  # Shown, but not clickable.
+    assert "Sign out" in texts and panel.logout not in actions()  # The preview has no account to sign out of.
+    # The version line opens the Updates window, which keeps What's new and Diagnostics.
+    app.open_updates()
     view = app.updates_view
     settle(root, lambda: float(view.window.attributes("-alpha")) == 1.0)
-    texts = [view.card.itemcget(item, "text") for item in view.card.find_all() if view.card.type(item) == "text"]
+    texts = [text for item, text in canvas_texts(view.card)]
     assert "Updates are off in the preview" in texts, texts
     assert view.primary.instate(["disabled"]) and view.toggle.instate(["disabled"])
     buttons = [child.cget("text") for child in view.primary.master.winfo_children() if child.winfo_class() == "TButton"]
-    assert "Diagnostics" in buttons and "Close" in buttons, buttons  # Diagnostics moved here from All functions.
+    assert "Diagnostics" in buttons and "Close" in buttons, buttons
     view.close()
+    app.settings_button.event_generate("<Button-1>")  # The button toggles the dropdown closed.
     root.update()
-    assert app.updates_view is None
+    assert app.updates_view is None and app.settings_panel is None and not app.settings_button.pressed
 
-    # A portable install: a check finds a signed release and shows the badge.
+    # A portable install: Check now in Settings finds a signed release and shows the badge.
     location = Path(temporary.name) / "runtime" / "RoomACControl"
     location.mkdir(parents=True)
     app.updater = updates.Updater("0.1.23", location)
     app.updater.listen(app.updates_changed)
+    app.open_settings()
+    panel = app.settings_panel
+    assert "Check now" in panel.texts() and panel.primary in actions()
+    with patch.object(updates, "check", return_value=dict(RELEASE)):
+        panel.primary()
+        assert "Checking for updates…" in panel.texts()
+        settle(root, lambda: app.updater.state == "available")
+    assert app.settings_button.badge  # The dot marks a waiting update.
+    texts = panel.texts()
+    assert "Update" in texts and "Version 9.9.9 is available." in texts, texts
+    # The automatic-check switch is saved.
+    panel.toggle_automatic()
+    assert app.updater.enabled is False and app.storage.auto_update() is False
+    panel.toggle_automatic()
+    assert app.updater.enabled is True
+    panel.close()
     app.open_updates()
     view = app.updates_view
-    assert view.primary.cget("text") == "Check now" and not view.notes.winfo_ismapped()
-    with patch.object(updates, "check", return_value=dict(RELEASE)):
-        view.primary.invoke()
-        settle(root, lambda: app.updater.state == "available")
-    assert app.update_button.badge  # The dot marks a waiting update.
+    settle(root, lambda: float(view.window.attributes("-alpha")) == 1.0)
     assert view.primary.cget("text") == "Update" and view.notes.winfo_ismapped()
-    texts = [view.card.itemcget(item, "text") for item in view.card.find_all() if view.card.type(item) == "text"]
-    assert "Version 9.9.9 is available." in texts, texts
 
     # Portuguese, live.
     app.set_language("pt-PT")
@@ -91,7 +113,7 @@ try:
         settle(root, lambda: app.closing)
     helper.assert_called_once_with(location, "9.9.9")
     assert (updates.staged(location) / "RoomACControl.exe").exists()
-    print("Updates window, preview lock, check, header badge, Portuguese, automatic-check setting and update hand-over passed offline.")
+    print("Settings panel and Updates window, preview lock, check, header badge, Portuguese, automatic-check setting and update hand-over passed offline.")
 finally:
     temporary.cleanup()
     if not app.closing:

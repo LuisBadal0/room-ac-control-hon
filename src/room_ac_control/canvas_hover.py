@@ -1,4 +1,6 @@
 """Highlight canvas controls without rebuilding their artwork or animation."""
+from .smooth import restyle
+
 class CanvasHover:
     def __init__(self, canvas):
         self.canvas = canvas
@@ -36,6 +38,6 @@ class CanvasHover:
         for index in self.active | active:
             if index in self.active and index in active:continue
             _,item,normal,hover = self.regions[index]
-            self.canvas.itemconfigure(item,**(hover if index in active else normal))
+            restyle(self.canvas,item,**(hover if index in active else normal))
         self.active = active
         self.canvas.configure(cursor="hand2" if active else "")

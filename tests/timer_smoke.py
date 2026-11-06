@@ -41,23 +41,26 @@ assert not app.preview_timers
 app.staged("tempSel", "26")
 card.run()
 assert card.active
-assert card.hour.surface == C.SOFT and card.hour.pill == C.CARD
+# Active: the row takes the mode's accent tint and the numbers its colour.
+assert card.hour.surface not in {C.CARD, C.BG} and card.hour.tone == app.dial_accent()
 assert app.preview_timers[app.selected["id"]]["off"] is not None
 assert app.dirty == {"tempSel": "26"}
 card.hour.step(1)
 assert card.draft
 card.run(stop=True)
 assert not card.active
-assert card.hour.surface == C.CARD and card.hour.pill == C.SURFACE
+assert card.hour.surface == C.CARD and card.hour.pill == C.SURFACE and card.hour.tone == C.TEXT
 assert app.preview_timers[app.selected["id"]]["off"] is None
-app.change_timer("on", datetime.now() + timedelta(hours=1))
+# The dashboard keeps only End at; start times are set in Schedules.
+assert set(app.inline_timers.cards) == {"off"}
+app.change_timer("off", datetime.now() + timedelta(hours=1))
 app.show_device(app.selected, preserve_edits=True)
-assert app.inline_timers.cards["on"].active
+assert card.active
 app.device_picker.current(1)
-app.inline_timers.cards["on"].hour.press(pointer(32))
+card.hour.press(pointer(32))
 app.select_device()
-assert not app.inline_timers.cards["on"].active
-assert app.inline_timers.cards["on"].hour.drag_state is None
+assert not card.active
+assert card.hour.drag_state is None
 app.set_busy(True)
 before = card.hour.value
 card.hour.step(1)
@@ -71,8 +74,8 @@ def submit(coroutine, callback, operation, on_error=None):
 app.worker.submit = submit
 app.demo = False
 app.draw()
-assert not app.inline_timers.cards["on"].supported
-app.change_timer("on", datetime.now() + timedelta(hours=1))
+assert not card.supported
+app.change_timer("off", datetime.now() + timedelta(hours=1))
 assert "Timers unavailable" in app.status.get()
 assert not submissions
 assert not app.dialog
@@ -82,24 +85,24 @@ from copy import deepcopy
 new = deepcopy(app.selected)
 due = datetime.now() + timedelta(hours=2)
 new["timers"] = {"available": True, "values": {
-    "on": {"supported": True, "due": due, "expected": ["fixture-1", "fixture-date"], "count": 1},
-    "off": {"supported": True, "due": None, "expected": None, "count": 0}}}
+    "on": {"supported": True, "due": None, "expected": None, "count": 0},
+    "off": {"supported": True, "due": due, "expected": ["fixture-1", "fixture-date"], "count": 1}}}
 app.show_device(new, preserve_edits=True)
-assert app.inline_timers.cards["on"].active
-assert app.inline_timers.cards["on"].supported
-assert app.inline_timers.cards["on"].hour.surface == C.SOFT
+assert card.active
+assert card.supported
+assert card.hour.surface not in {C.CARD, C.BG}
 callbacks = []
 def native_submit(coroutine, callback, operation, on_error=None):
     coroutine.close()
     callbacks.append((callback, operation, on_error))
 app.worker.submit = native_submit
 app.staged("tempSel", "26")
-app.change_timer("on", None)
+app.change_timer("off", None)
 assert app.busy and callbacks[-1][1] == "timer"
-new["timers"]["values"]["on"].update(due=None, expected=None, count=0)
+new["timers"]["values"]["off"].update(due=None, expected=None, count=0)
 app.set_busy(False)
 callbacks[-1][0](new)
-assert not app.inline_timers.cards["on"].active
+assert not card.active
 assert app.dirty == {"tempSel": "26"}
 assert "stopped in hOn" in app.status.get()
 app.change_timer("off", due)
@@ -109,4 +112,4 @@ assert not app.busy
 assert app.status.get() == "fixture error"
 assert app.auto_job is not None
 app.close()
-print("Inline wheels, cloud state, active color, Stop, draft preservation and failure refresh passed offline.")
+print("End at wheels, cloud state, active color, Stop, draft preservation and failure refresh passed offline.")

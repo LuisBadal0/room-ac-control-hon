@@ -1,4 +1,4 @@
-"""Real Tk scrolling checks with fictional AC data and no cloud commands."""
+"""Real Tk scrolling checks for All functions with fictional AC data and no cloud commands."""
 from copy import deepcopy
 from pathlib import Path
 import sys
@@ -7,11 +7,12 @@ import tkinter as tk
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from room_ac_control.dashboard import App
+from room_ac_control.functions_view import SIZE, SheetWheel
 from tests.ui_smoke import demo_device
 
 
 root = tk.Tk()
-app = App(root, demo=True, enable_tray=False,language="en")
+app = App(root, demo=True, enable_tray=False, language="en")
 try:
     snapshot = demo_device()
     for key, label in (("selfCleaningStatus", "Self cleaning"), ("selfCleaning56Status", "56°C self cleaning")):
@@ -26,81 +27,68 @@ try:
     view = app.functions_view
     for _ in range(20): root.update(); root.after(30)  # Let the fixed-size fit finish.
     assert view.window.resizable() == (False, False)
-    assert (view.window.winfo_width(), view.window.winfo_height()) == (620, 700)
+    size = (view.window.winfo_width(), view.window.winfo_height())
+    assert size == SIZE or (size[0] == SIZE[0] and root.winfo_screenheight() < SIZE[1] + 80), size
 
     def wheel(widget, delta=-120):
         widget.event_generate("<MouseWheel>", delta=delta)
         root.update()
 
-    assert view.scrollable and view.bar.winfo_manager() == "pack"
-    # A blank frame, the surrounding canvas, cards and scrollbar route one wheel event.
-    positions = []
-    for widget in (view.inner, view.scroll, view.card_widgets[0], view.bar):
-        view.scroll.yview_moveto(0)
+    # Settings is taller than the window: the list scrolls, the header, search and tabs do not.
+    assert view.scrollable
+    view.content.yview_moveto(0)
+    wheel(view.content)
+    first = view.content.yview()[0]
+    assert first > 0
+    for widget in (view.top, view.tabs, view.search_entry):
+        before = view.content.yview()
         wheel(widget)
-        positions.append(view.scroll.yview()[0])
-    assert all(position > 0 for position in positions)
-    assert len(set(positions)) == 1, positions  # Card bindings must not double-scroll.
-    before = view.scroll.yview()
-    wheel(view.search_entry)
-    assert view.scroll.yview() == before
+        assert view.content.yview() == before, widget
 
     # High-resolution wheel deltas accumulate instead of being dropped.
-    view.scroll.yview_moveto(0)
-    for _ in range(4): wheel(view.inner, -30)
-    assert view.scroll.yview()[0] == positions[0]
-    for _ in range(30): wheel(view.scroll)
-    assert view.scroll.yview()[1] == 1
-    for _ in range(30): wheel(view.scroll, 120)
-    assert view.scroll.yview()[0] == 0
+    view.content.yview_moveto(0)
+    for _ in range(4): wheel(view.content, -30)
+    assert view.content.yview()[0] == first
+    for _ in range(60): wheel(view.content)
+    assert view.content.yview()[1] == 1
+    for _ in range(60): wheel(view.content, 120)
+    assert view.content.yview()[0] == 0
 
-    view.section = "maintenance"
-    view.render_section()
+    # A short tab stays at the top.
+    view.navigate(2)
     root.update()
-    assert len(view.card_widgets) == 4
-    assert not view.scrollable and not view.bar.winfo_manager()
-    for widget in (view.inner, view.scroll, view.card_widgets[0]):
-        wheel(widget, 120)
-        wheel(widget, -120)
-        assert view.scroll.yview() == (0, 1)
-    view.scroll_to("moveto", 1)
-    assert view.scroll.yview() == (0, 1)
-
-    view.section = "settings"
-    view.render_section()
+    assert len(view.visible_items) == 4, view.visible_items
+    if not view.scrollable:
+        for delta in (120, -120):
+            wheel(view.content, delta)
+            assert view.content.yview()[0] == 0
+    view.navigate(0)
     root.update()
-    wheel(view.inner)
-    assert view.scroll.yview()[0] > 0
     view.search.set("no-such-function")
     root.update()
-    assert not view.scrollable and view.scroll.yview() == (0, 1)
+    assert not view.scrollable and view.content.yview()[0] == 0 and not view.visible_items
     view.search.set("")
     root.update()
     assert view.scrollable
 
-    # Nested preset labels scroll the pane; numeric inputs keep their own behavior.
-    preset = {"kind": "function", "command": "startProgram", "label": "Offline preset",
-              "section": "everyday", "form": {"category": "offline", "parameters": [
-                  {**snapshot["controls"]["tempSel"], "key": f"offlineTemperature{index}"}
-                  for index in range(12)]}}
-    view.configure_function(preset)
+    # With a preset sheet open, the page stays put and the temperature wheel keeps its own scrolling.
+    preset = {"kind": "function", "command": "startProgram", "label": "Offline preset", "section": "everyday",
+              "form": {"category": "offline", "parameters": [snapshot["controls"]["tempSel"]]}}
+    view.open_preset(preset)
     root.update()
-    detail = view.inner.winfo_children()[0]
-    nested = next(child for child in detail.winfo_children() if child.winfo_class() == "TFrame")
-    label = next(child for child in nested.winfo_children() if child.winfo_class() == "TLabel")
-    spinbox = next(child for child in nested.winfo_children() if child.winfo_class() == "TSpinbox")
-    assert view.scrollable
-    wheel(label)
-    assert view.scroll.yview()[0] > 0
-    before = view.scroll.yview()
-    wheel(spinbox)
-    assert view.scroll.yview() == before
+    wheel_widget = next(widget for widget in view.sheet["widgets"] if isinstance(widget, SheetWheel))
+    before_page, before_value = view.content.yview(), wheel_widget.value
+    wheel(wheel_widget, 120)
+    assert view.content.yview() == before_page and wheel_widget.value == before_value + 1
+    wheel(view.sheet["canvas"])
+    assert view.content.yview() == before_page
+    view.close_sheet()
     view.close()
     app.open_functions()
     view = app.functions_view
     root.update()
-    wheel(view.inner)
-    assert view.scroll.yview()[0] > 0
-    print("Blank-space wheel routing, content-fit limits, search, fixed window size and preset input isolation passed offline.")
+    wheel(view.content)
+    assert view.content.yview()[0] > 0
+    print("Wheel routing, content-fit limits, search, fixed window size and preset wheel isolation passed offline.")
 finally:
     app.close()

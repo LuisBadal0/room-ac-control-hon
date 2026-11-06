@@ -1,4 +1,5 @@
 """Render this project's original geometric artwork; no third-party images."""
+import math
 from pathlib import Path
 from PIL import Image, ImageDraw, ImageFilter
 
@@ -69,20 +70,63 @@ def render_unit():
     return Image.alpha_composite(shadow,unit).resize((1200,360),Image.Resampling.LANCZOS)
 
 
-def main():
-    ASSETS.mkdir(parents=True,exist_ok=True)
-    image=Image.new('RGBA',(512,512),(0,0,0,0))
+def render_icon(size=1024):
+    """The app icon: the dashboard's cool-to-heat dial ring with two gusts of wind, on charcoal.
+
+    Drawn at 1024 px; Windows' 16-48 px sizes are scaled down from it."""
+    rgb=lambda value:tuple(int(value[i:i+2],16) for i in (1,3,5))
+    image=Image.new('RGBA',(size,size),(0,0,0,0))
+    ImageDraw.Draw(image).rounded_rectangle((40,40,size-40,size-40),radius=230,fill='#0e1116')
+    ring,width=(190,190,size-190,size-190),80
+    start,end=135,405  # Open at the bottom, like the dial.
+    centre,radius=size/2,(ring[2]-ring[0])/2-width/2
+    # A soft glow behind the ring.
+    mask=Image.new('L',image.size,0)
+    ImageDraw.Draw(mask).arc(ring,start,end,fill=255,width=width)
+    glow=mask.filter(ImageFilter.GaussianBlur(70)).point(lambda a:int(a*.35))
+    image.paste(Image.new('RGBA',image.size,rgb('#8fb4ff')+(255,)),(0,0),glow)
+    # The ring runs from Cool blue through teal to Heat amber, with round ends.
+    stops=[rgb('#5cc8ff'),rgb('#8fe3d0'),rgb('#ff9f43')]
+    def colour(t):
+        segment=t*(len(stops)-1)
+        low=min(int(segment),len(stops)-2)
+        k=segment-low
+        return tuple(round(stops[low][i]+(stops[low+1][i]-stops[low][i])*k) for i in range(3))
+    steps=120
+    for index in range(steps):
+        a0=start+(end-start)*index/steps
+        a1=start+(end-start)*(index+1.4)/steps
+        piece=Image.new('L',image.size,0)
+        ImageDraw.Draw(piece).arc(ring,a0,a1,fill=255,width=width)
+        image.paste(Image.new('RGBA',image.size,colour(index/(steps-1))+(255,)),(0,0),piece)
     draw=ImageDraw.Draw(image)
-    draw.rounded_rectangle((12,12,500,500),radius=112,fill='#18201c',outline='#748875',width=8)
-    draw.arc((95,95,417,417),35,165,fill='#a7c9db',width=18)
-    draw.arc((95,95,417,417),215,345,fill='#dbbd99',width=18)
-    for y,end in [(216,326),(256,349),(296,309)]:
-        draw.line((150,y,end-16,y),fill='#e8eddf',width=14)
-        draw.arc((end-36,y-31,end+9,y+4),0,190,fill='#e8eddf',width=12)
-    image.save(ASSETS/'app-icon.png')
-    image.resize((52,52),Image.Resampling.LANCZOS).save(ASSETS/'app-mark.png')
-    image.save(ASSETS/'app.ico',sizes=[(16,16),(24,24),(32,32),(48,48),(64,64),(128,128),(256,256)])
-    render_unit().save(ASSETS/'unit.png')
+    for angle,t in ((start,0),(end,1)):
+        x=centre+radius*math.cos(math.radians(angle))
+        y=centre+radius*math.sin(math.radians(angle))
+        draw.ellipse((x-width/2,y-width/2,x+width/2,y+width/2),fill=colour(t)+(255,))
+    # Two gusts blowing left to right: the top one curls up, the bottom one down.
+    ink,stroke=rgb('#e8ecf1')+(255,),52
+    for x0,x1,y,r,up in ((330,610,460,50,True),(360,600,590,48,False)):
+        draw.line(((x0,y),(x1,y)),fill=ink,width=stroke)
+        draw.ellipse((x0-stroke/2,y-stroke/2,x0+stroke/2,y+stroke/2),fill=ink)
+        if up:
+            draw.arc((x1-r-stroke/2,y-2*r-stroke/2,x1+r+stroke/2,y+stroke/2),180,450,fill=ink,width=stroke)
+            tip=(x1-r,y-r)
+        else:
+            draw.arc((x1-r-stroke/2,y-stroke/2,x1+r+stroke/2,y+2*r+stroke/2),270,540,fill=ink,width=stroke)
+            tip=(x1-r,y+r)
+        draw.ellipse((tip[0]-stroke/2,tip[1]-stroke/2,tip[0]+stroke/2,tip[1]+stroke/2),fill=ink)
+    return image
 
 
-if __name__=='__main__':main()
+def main(unit=True):
+    ASSETS.mkdir(parents=True,exist_ok=True)
+    icon=render_icon()
+    icon.resize((512,512),Image.Resampling.LANCZOS).save(ASSETS/'app-icon.png')
+    icon.resize((52,52),Image.Resampling.LANCZOS).save(ASSETS/'app-mark.png')
+    icon.resize((256,256),Image.Resampling.LANCZOS).save(ASSETS/'app.ico',sizes=[(16,16),(24,24),(32,32),(48,48),(64,64),(128,128),(256,256)])
+    if unit:
+        render_unit().save(ASSETS/'unit.png')
+
+
+if __name__=='__main__':main(unit='--icon-only' not in __import__('sys').argv)
