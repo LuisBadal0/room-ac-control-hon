@@ -7,7 +7,7 @@ import unittest
 from unittest.mock import MagicMock, patch
 
 from room_ac_control import theme
-from room_ac_control.theme import PALETTES, Colors, resolve_theme, windows_mode
+from room_ac_control.theme import PALETTES, ACCENTS, Colors, accent, resolve_theme, windows_mode
 from room_ac_control.secure_state import SecureState
 from room_ac_control.translations import PORTUGUESE
 from room_ac_control.dashboard import THEME_CHOICES
@@ -46,16 +46,34 @@ class PaletteTests(unittest.TestCase):
                 with self.subTest(mode=mode, pair=(foreground, background)):
                     self.assertGreaterEqual(contrast(palette[foreground], palette[background]), 3)
 
-    def test_light_palette_keeps_hon_semantic_colours(self):
-        light = PALETTES["light"]
-        self.assertEqual((light["BG"], light["CARD"], light["TEXT"], light["MUTED"], light["BRAND"], light["SOFT"]),
-                         ("#F4F3EF", "#FFFFFF", "#313131", "#6E6E6E", "#0A648B", "#C6DDE6"))
+    def test_palettes_use_the_ambient_surfaces(self):
+        light, dark = PALETTES["light"], PALETTES["dark"]
+        self.assertEqual((light["BG"], light["CARD"], light["TEXT"]), ("#EEF1F5", "#FFFFFF", "#12161C"))
+        self.assertEqual((dark["BG"], dark["CARD"], dark["TEXT"]), ("#0E1116", "#161B22", "#E8ECF1"))
+
+    def test_mode_accents_are_readable_and_follow_the_mode(self):
+        for mode, accents in ACCENTS.items():
+            palette = PALETTES[mode]
+            self.assertEqual(set(accents), {"cool", "heat", "dry", "fan", "auto", "off"})
+            for name, color in accents.items():
+                with self.subTest(mode=mode, accent=name):
+                    self.assertRegex(color, re.compile(r"^#[0-9A-F]{6}$"))
+                    if name != "off":  # Mode names and the selected mode's label use it as text.
+                        self.assertGreaterEqual(contrast(color, palette["CARD"]), 4.5)
+                        self.assertGreaterEqual(contrast(palette["ON_BRAND"], color), 4.5)
+        try:
+            theme.C.use("dark")
+            self.assertEqual(accent("Heat Night"), ACCENTS["dark"]["heat"])
+            self.assertEqual(accent("Cool"), ACCENTS["dark"]["cool"])
+            self.assertEqual(accent("Unknown"), PALETTES["dark"]["BRAND"])
+        finally:
+            theme.C.use("light")
 
     def test_switching_updates_attributes_and_unknown_modes_fall_back_to_light(self):
         colors = Colors("dark")
-        self.assertEqual((colors.mode, colors.BG), ("dark", "#1C1C1E"))
+        self.assertEqual((colors.mode, colors.BG), ("dark", "#0E1116"))
         colors.use("sepia")
-        self.assertEqual((colors.mode, colors.BG), ("light", "#F4F3EF"))
+        self.assertEqual((colors.mode, colors.BG), ("light", "#EEF1F5"))
 
     def test_bundled_lato_loads_privately(self):
         self.assertTrue(theme.load_fonts())

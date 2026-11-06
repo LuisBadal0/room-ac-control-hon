@@ -50,7 +50,12 @@ try:
     app.staged("silentSleepStatus","1")
     root.update()
     texts={app.canvas.itemcget(item,"text"):item for item in app.canvas.find_all() if app.canvas.type(item)=="text"}
-    assert app.canvas.bbox(texts["Modo"])[3] < app.canvas.bbox(texts["Arrefecer à noite"])[1]
+    # Sleep with Cool is Cool Night: the mode bar keeps Cool and the Sleep tile says On.
+    assert "Arrefecer" in texts and "A ARREFECER ATÉ" in texts
+    assert app.canvas.bbox(texts["Sono"])[3] < app.canvas.bbox(texts["Ligado"])[1]
+    for label,item in texts.items():  # Longer Portuguese labels stay on the canvas.
+        left,top,right,bottom=app.canvas.bbox(item)
+        assert left>=0 and right<=app.canvas.winfo_width(), label
     assert app.status_label.winfo_y()+app.status_label.winfo_height() <= app.body.winfo_height()
     for timer in app.inline_timers.cards.values():
         # Portuguese labels stay inside; outlined polygons report one extra pixel.
@@ -58,7 +63,8 @@ try:
                    for item in timer.find_all() if timer.bbox(item))
     app.staged("silentSleepStatus","0")
     device_text=[app.device_picker.itemcget(item,"text") for item in app.device_picker.find_all() if app.device_picker.type(item)=="text"]
-    assert "Cool" in device_text and "Heat" in device_text  # Account names are never translated.
+    # Account names and models are never translated.
+    assert "Cool" in device_text and any(text.startswith("Heat · ") for text in device_text), device_text
     app.open_functions()
     view=app.functions_view
     view.search.set("posicao 1")

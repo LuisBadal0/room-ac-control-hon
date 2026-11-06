@@ -17,10 +17,10 @@ def airflow_tone(device):
     return "neutral"
 
 
-# Light airflow must darken the sand page, dark airflow must brighten charcoal.
+# Light airflow darkens the pale page; dark airflow brightens the charcoal one.
 COLORS = {
-    "light": {"cool": (31, 112, 168), "heat": (207, 89, 0), "neutral": (110, 110, 110)},
-    "dark": {"cool": (115, 201, 237), "heat": (242, 167, 106), "neutral": (198, 208, 195)},
+    "light": {"cool": (10, 108, 165), "heat": (163, 75, 12), "neutral": (85, 96, 112)},
+    "dark": {"cool": (92, 200, 255), "heat": (255, 159, 67), "neutral": (143, 153, 168)},
 }
 
 

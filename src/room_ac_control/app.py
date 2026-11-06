@@ -39,7 +39,7 @@ def self_test(output):
         from .demo import devices
         app.connected(devices())
         root.update_idletasks()
-        check(set(app.inline_timers.cards) == {"on", "off"})
+        check(set(app.inline_timers.cards) == {"off"} and app.settings_button.winfo_exists())
         from .temperature_wheel import TemperatureWheel
         wheel = TemperatureWheel(root, {"min":16, "max":30, "step":.5}, 23.5)
         check(wheel.get() == "23.5")

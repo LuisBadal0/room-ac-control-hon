@@ -237,4 +237,11 @@ PORTUGUESE = {
     "Could not reach the update service. Check your internet connection and try again.": "Não foi possível contactar o serviço de atualizações. Verifique a ligação à internet e tente novamente.",
     "Updated to version {version}.": "Atualizado para a versão {version}.",
     "The update could not be installed. Room AC Control is still on version {version}.": "Não foi possível instalar a atualização. O Room AC Control continua na versão {version}.",
+    # Ambient dashboard and Settings panel.
+    "Discard": "Descartar", "Changes discarded.": "Alterações descartadas.",
+    "Cooling to": "A arrefecer até", "Heating to": "A aquecer até", "Drying at": "A desumidificar a",
+    "Fan only": "Só ventilação", "Holding at": "A manter", "Running": "Em funcionamento", "Standby": "Em espera",
+    "Drag or scroll the time": "Arraste ou role a hora", "{count} rooms": "{count} divisões",
+    "Version {version}": "Versão {version}",
+    "Update details and diagnostics": "Detalhes da atualização e diagnóstico",
 }

@@ -1,4 +1,4 @@
-"""Light and dark palettes from the hOn design tokens, plus native vector artwork."""
+"""Light and dark "Ambient" palettes, mode accents and native vector artwork."""
 from .i18n import tr
 import ctypes
 import itertools
@@ -10,34 +10,45 @@ from pathlib import Path
 ASSETS = Path(__file__).resolve().parent / "assets"
 THEMES = ("system", "light", "dark")
 
-# Light mirrors hOn's semantic colours. hOn 2.30.7 maps dark to the same values,
-# so dark is built from hOn's own charcoal primitives with a lighter brand blue.
+# "Ambient": cool neutral surfaces, with one accent that follows the AC's mode.
 PALETTES = {
     "light": {
-        "BG": "#F4F3EF", "SURFACE": "#EDECE8", "RAISED": "#E4E3D9", "STRONG": "#E4E3D9",
-        "CARD": "#FFFFFF", "EDGE": "#E6E4DC", "HOVER": "#F7F6F2", "SEGMENT": "#FFFFFF",
-        "TEXT": "#313131", "MUTED": "#6E6E6E", "FAINT": "#B0B0B0", "FIELD": "#8C8C8C",
-        "BRAND": "#0A648B", "BRAND_ACTIVE": "#244766", "ON_BRAND": "#FFFFFF",
-        "SOFT": "#C6DDE6", "ON_SOFT": "#244766", "TRACK": "#C6DDE6", "THUMB": "#FFFFFF",
-        "OK": "#008000", "OK_BG": "#D1F6DB", "OK_TEXT": "#006008",
-        "WARN_BG": "#FFF4D3", "WARN_TEXT": "#9A6000", "ECO": "#008000",
-        "DANGER": "#D12E2E", "CLOSE_HOVER": "#D12E2E", "ON_DANGER": "#FFFFFF",
+        "BG": "#EEF1F5", "SURFACE": "#E6EAF0", "RAISED": "#E3E8EE", "STRONG": "#D5DBE3",
+        "CARD": "#FFFFFF", "EDGE": "#DDE2E9", "HOVER": "#F6F8FA", "SEGMENT": "#FFFFFF",
+        "TEXT": "#12161C", "MUTED": "#556070", "FAINT": "#8C95A2", "FIELD": "#8C95A2",
+        "BRAND": "#0A6CA5", "BRAND_ACTIVE": "#08557F", "ON_BRAND": "#FFFFFF",
+        "SOFT": "#DCEFFA", "ON_SOFT": "#07537E", "TRACK": "#E3E8EE", "THUMB": "#FFFFFF",
+        "OK": "#15803D", "OK_BG": "#DCF5E4", "OK_TEXT": "#166534",
+        "WARN_BG": "#FFF1DB", "WARN_TEXT": "#8A4B00", "ECO": "#277A3E",
+        "DANGER": "#C0392B", "CLOSE_HOVER": "#D12E2E", "ON_DANGER": "#FFFFFF",
         "DANGER_BG": "#FBE4E4", "DANGER_TEXT": "#A1191E",
-        "DISABLED": "#F4F4F4", "ON_DISABLED": "#6E6E6E",
+        "DISABLED": "#E6EAF0", "ON_DISABLED": "#556070",
     },
     "dark": {
-        "BG": "#1C1C1E", "SURFACE": "#3A3A3C", "RAISED": "#2B2B2C", "STRONG": "#4A4A4A",
-        "CARD": "#2B2B2C", "EDGE": "#38383A", "HOVER": "#333335", "SEGMENT": "#4A4A4A",
-        "TEXT": "#F4F3EF", "MUTED": "#B0B0B0", "FAINT": "#6E6E6E", "FIELD": "#858585",
-        "BRAND": "#74B4DB", "BRAND_ACTIVE": "#A7D4ED", "ON_BRAND": "#1C1C1E",
-        "SOFT": "#244766", "ON_SOFT": "#C6DDE6", "TRACK": "#244766", "THUMB": "#F4F3EF",
-        "OK": "#76E392", "OK_BG": "#14381F", "OK_TEXT": "#A4EDB6",
-        "WARN_BG": "#3D3110", "WARN_TEXT": "#FFDE79", "ECO": "#99CC99",
-        "DANGER": "#E76868", "CLOSE_HOVER": "#A21919", "ON_DANGER": "#FFFFFF",
-        "DANGER_BG": "#3D1A1B", "DANGER_TEXT": "#F6A9A9",
-        "DISABLED": "#313131", "ON_DISABLED": "#8E8E8E",
+        "BG": "#0E1116", "SURFACE": "#1E242D", "RAISED": "#161B22", "STRONG": "#2A313B",
+        "CARD": "#161B22", "EDGE": "#252C36", "HOVER": "#1E242D", "SEGMENT": "#252C36",
+        "TEXT": "#E8ECF1", "MUTED": "#8F99A8", "FAINT": "#5D6675", "FIELD": "#6B7584",
+        "BRAND": "#5CC8FF", "BRAND_ACTIVE": "#8AD8FF", "ON_BRAND": "#0E1116",
+        "SOFT": "#16364A", "ON_SOFT": "#B8E6FF", "TRACK": "#252C36", "THUMB": "#E8ECF1",
+        "OK": "#4ADE80", "OK_BG": "#123322", "OK_TEXT": "#86EFAC",
+        "WARN_BG": "#3A2E12", "WARN_TEXT": "#FFC48A", "ECO": "#7BD88F",
+        "DANGER": "#FF8A7A", "CLOSE_HOVER": "#A21919", "ON_DANGER": "#FFFFFF",
+        "DANGER_BG": "#3A1C1C", "DANGER_TEXT": "#FFB4A8",
+        "DISABLED": "#1E242D", "ON_DISABLED": "#8F99A8",
     },
 }
+
+# The dashboard's accent follows the selected mode; "off" greys it out.
+ACCENTS = {
+    "light": {"cool": "#0A6CA5", "heat": "#A34B0C", "dry": "#277A3E", "fan": "#6B4FD8", "auto": "#127A69", "off": "#8C95A2"},
+    "dark": {"cool": "#5CC8FF", "heat": "#FF9F43", "dry": "#7BD88F", "fan": "#B9A6FF", "auto": "#8FE3D0", "off": "#5D6675"},
+}
+
+
+def accent(mode):
+    """The accent for a mode label such as "Cool" or "Heat Night"; unknown modes use the brand."""
+    key = str(mode or "").lower().replace(" night", "")
+    return ACCENTS[C.mode].get(key, C.BRAND)
 
 
 class Colors:
@@ -273,6 +284,23 @@ def icon(canvas, name, x, y, color=None, scale=1, bg=None, tags=()):
         line(x, y-10, x, y+3)
         line(x-5, y-2, x, y+3, x+5, y-2)
         line(x-10, y+2, x-10, y+9, x+10, y+9, x+10, y+2)
+    elif name == "gear":
+        for angle in range(0, 360, 45):
+            a = math.radians(angle)
+            line(x+7*math.cos(a), y+7*math.sin(a), x+11*math.cos(a), y+11*math.sin(a), width=3)
+        oval(x-7.5, y-7.5, x+7.5, y+7.5, width=1.8, fill=bg)
+        oval(x-3, y-3, x+3, y+3, width=1.6)
+    elif name == "refresh":
+        canvas.create_arc(x-9, y-9, x+9, y+9, start=60, extent=280, style="arc", outline=color, width=1.8, tags=tags)
+        line(x+4.5, y-12.5, x+5, y-7.5, x, y-6.5, width=1.8)
+    elif name == "grid":
+        for dx in (-6, 6):
+            for dy in (-6, 6):
+                rounded(canvas, x+dx-4.5, y+dy-4.5, x+dx+4.5, y+dy+4.5, 2, fill="", outline=color, width=1.6, tags=tags)
+    elif name == "signout":
+        line(x+1, y-10, x+7, y-10, x+7, y+10, x+1, y+10)
+        line(x-11, y, x+2, y)
+        line(x-6, y-5, x-11, y, x-6, y+5)
     elif name == "wrench":
         line(x-8, y+8, x+2, y-2, width=3)
         oval(x, y-11, x+11, y, width=1.8)

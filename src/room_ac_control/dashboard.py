@@ -3,10 +3,12 @@ import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 import queue
 
+import math
+
 from .controller import code, readable, mode_choices, mode_label
 from .choice_widgets import ChoicePanel, SelectField
-from .control_choices import mode_icon, airflow_choices
-from .theme import (C, THEMES, ASSETS, font, measure, paint, rounded, icon, ac_art, unit_photo, control_card,
+from .control_choices import mode_icon, airflow_choices, airflow_icon
+from .theme import (C, THEMES, ASSETS, font, measure, paint, rounded, icon, ac_art, unit_photo, blend, accent,
                     resolve_theme, refresh_on_theme, broadcast_theme)
 from .button_theme import configure_styles
 from .canvas_hover import CanvasHover
@@ -18,32 +20,34 @@ from pathlib import Path
 from . import updates, __version__
 from .device_picker import DevicePicker, PowerButton
 from .diagnostics import diagnostics
-from .inline_timers import InlineTimers, TimerCard
+from .inline_timers import InlineTimers, EndAtCard
 from .temperature_wheel import TemperatureWheel
 from .i18n import Translator, LANGUAGES, tr, localized, TranslatedVariable, localized_title, broadcast_language, refresh_on_language
 
 # The dashboard canvas is laid out in a 520 px space and scaled with the window.
 WIDTH = 520
-TEMP_TOP = 172
-TRACK = (18, 502)
-TRACK_Y = TEMP_TOP + 132
-TIMER_TOP = 368
-TILE_TOP = TIMER_TOP + TimerCard.HEIGHT + 12
-TILE_HEIGHT = 104
-CANVAS_HEIGHT = TILE_TOP + TILE_HEIGHT + 2
-# The unit artwork spans x 110–410 and y 37–127; sensor readings use the free
-# columns beside it.
-ART = (110, 37, 410, 127)
-READINGS_TOP = 48
-READING_STEP = 42
+# The unit picture spans ART; its live airflow and any alert banner sit below it.
+ART = (110, 1, 410, 91)
+UNIT_Y = 46
+BANNER = (0, 90, WIDTH, 124)
+READINGS_TOP, READINGS_HEIGHT = 132, 54
+# The target-temperature dial: a 270° ring that opens at the bottom.
+DIAL_TOP = 196
+DIAL = (260, DIAL_TOP + 144, 118)  # centre x, centre y, radius
+DIAL_START, DIAL_SWEEP = 135, 270
+MODES_TOP, MODES_HEIGHT = 478, 62
+TILE_TOP, TILE_HEIGHT = 550, 72
+TIMER_TOP = 632
+CANVAS_HEIGHT = TIMER_TOP + EndAtCard.HEIGHT + 2
 AIR_COLORS = {"Good": "OK", "Medium": "WARN_TEXT", "Poor": "DANGER"}
-# Alerts cover the airflow strip below the unit; the most severe one is shown.
-BANNER = (0, 132, WIDTH, 166)
 ALERTS = {
     "error": ("alert", "DANGER_BG", "DANGER_TEXT", "AC error {code}", "Check the unit, or see troubleshooting in hOn."),
     "defrost": ("snow", "SOFT", "ON_SOFT", "Defrosting", "Heating pauses while the outdoor unit melts ice."),
     "filter": ("wrench", "WARN_BG", "WARN_TEXT", "Clean the air filter", "The AC reports that its filter needs cleaning."),
 }
+# What the dial says above the number, by mode.
+VERBS = {"Cool": "Cooling to", "Heat": "Heating to", "Dry": "Drying at", "Fan": "Fan only", "Auto": "Holding at"}
+FAN_LEVELS = {"Low": 1, "Medium": 2, "High": 3}
 # The window opens at its minimum size and stays fixed; the layout is designed for it.
 WINDOW_SIZE = (540, 920)
 THEME_CHOICES = [
@@ -95,7 +99,9 @@ class App:
         self.auto_pending = False
         self.auto_failures = 0
         self.refresh_epoch = 0
-        self.unit_image = unit_photo(root, 330)
+        self.unit_image = unit_photo(root, 300)
+        self.settings_panel = None
+        self.dial_drag = False
         root.iconbitmap(str(ASSETS / "app.ico"))
         self.app_icon = tk.PhotoImage(master=root, file=str(ASSETS / "app-icon.png"))
         root.iconphoto(True, self.app_icon)
@@ -104,18 +110,12 @@ class App:
         root.resizable(False, False)
         paint(root, bg="BG")
         configure_styles(root)
-        from .window_header import WindowHeader, HeaderIconButton
+        from .window_header import WindowHeader, HeaderPillButton
         self.header = WindowHeader(root, "Room AC Control · hOn", self.close, self.minimize_window, maximize=False, size=WINDOW_SIZE)
-        self.language_code = tk.StringVar(root, value="PT" if self.i18n.language == "pt-PT" else "EN")
-        self.language_button = tk.Button(self.header.frame,textvariable=self.language_code,command=self.language_menu,
-                                        relief="flat",bd=0,font=font(9,"black"),padx=10,cursor="hand2")
-        paint(self.language_button,bg="BG",fg="BRAND",activebackground="SURFACE",activeforeground="TEXT")
-        self.language_button.pack(side="right",fill="y")
-        self.theme_button = HeaderIconButton(self.header.frame,"half",self.theme_menu)
-        self.theme_button.pack(side="right")
-        # Updates, left of Appearance; a dot marks a signed update waiting to install.
-        self.update_button = HeaderIconButton(self.header.frame,"update",self.open_updates)
-        self.update_button.pack(side="right")
+        # Appearance, language, updates and sign-out live in one Settings panel;
+        # a dot marks a signed update waiting to install.
+        self.settings_button = HeaderPillButton(self.header.frame,"gear","Settings",self.open_settings)
+        self.settings_button.pack(side="right",padx=(0,6))
         location = None if demo else updates.install_location()
         self.updater = updates.Updater(__version__, location, enabled=self.storage.auto_update(), demo=demo)
         self.updater.listen(self.updates_changed)
@@ -124,7 +124,7 @@ class App:
             except OSError as error:diagnostics.record("update_failed", error)
         self.content = ttk.Frame(root)
         self.content.pack(fill="both",expand=True)
-        self.body = ttk.Frame(self.content, padding=(20,6,20,16))
+        self.body = ttk.Frame(self.content, padding=(20,4,20,14))
         self.body.pack(fill="both",expand=True)
         from .login_view import LoginView
         self.login_view = LoginView(self)
@@ -132,7 +132,7 @@ class App:
         self.login_frame.pack(fill="x",pady=(5,0))
         self.panel=ttk.Frame(self.body)
         top=ttk.Frame(self.panel)
-        top.pack(fill="x",pady=(0,12))
+        top.pack(fill="x",pady=(0,8))
         self.power_button=PowerButton(top,self.toggle_power)
         self.power_button.pack(side="right",padx=(12,0))
         self.device_picker=DevicePicker(top,self.select_device)
@@ -147,43 +147,33 @@ class App:
         self.inline_timers = InlineTimers(self)
         self.canvas.bind("<Button-1>",self.click)
         self.canvas.bind("<B1-Motion>",self.drag_temperature)
-        self.canvas.bind("<Left>",lambda e:self.step_temp(-1) if not self.busy and self.selected else None)
-        self.canvas.bind("<Right>",lambda e:self.step_temp(1) if not self.busy and self.selected else None)
+        self.canvas.bind("<ButtonRelease-1>",lambda e:setattr(self,"dial_drag",False))
+        self.canvas.bind("<MouseWheel>",self.wheel_temperature)
+        for key,direction in (("<Left>",-1),("<Right>",1),("<Down>",-1),("<Up>",1)):
+            self.canvas.bind(key,lambda e,direction=direction:self.step_temp(direction) if not self.busy and self.selected else None)
         # Main selectors retain Tk variables for menu and keyboard support.
         self.mode,self.temp,self.fan=tk.StringVar(),tk.StringVar(),tk.StringVar()
         controls=ttk.Frame(self.panel)
-        controls.pack(fill="x",pady=(12,10))
-        controls.columnconfigure(0,weight=12,uniform="actions")
-        controls.columnconfigure(1,weight=9,uniform="actions")
-        controls.columnconfigure(2,weight=10,uniform="actions")
+        controls.pack(fill="x",pady=(10,0))
+        self.all_button=localized(ttk.Button(controls,text="All functions",command=self.open_functions))
+        self.all_button.pack(side="left")
+        # Icon-only, so Portuguese labels still fit beside Discard and Apply.
+        self.refresh_button=ttk.Button(controls,text="↻",style="Ghost.TButton",command=self.refresh,width=2)
+        self.refresh_button.pack(side="left",padx=(4,0))
         self.apply_button=ttk.Button(controls,style="Accent.TButton",command=lambda:self.action("apply"))
+        self.discard_button=localized(ttk.Button(controls,text="Discard",style="Ghost.TButton",command=self.discard))
         refresh_on_language(self.apply_button,self.update_apply_label)
         self.update_apply_label()
-        self.apply_button.grid(row=0,column=0,sticky="ew",padx=(0,6))
-        self.schedules_button=localized(ttk.Button(controls,text="Schedules",command=self.open_schedules))
-        self.schedules_button.grid(row=0,column=1,sticky="ew",padx=6)
-        self.all_button=localized(ttk.Button(controls,text="All functions",command=self.open_functions))
-        self.all_button.grid(row=0,column=2,sticky="ew",padx=(6,0))
-        footer=ttk.Frame(self.panel)
-        footer.pack(fill="x")
+        self.apply_button.pack(side="right")
+        # The connection line is shown under the room name.
         self.connection=tk.StringVar()
-        self.connection_display=TranslatedVariable(root,self.connection)
-        self.connection_dot=tk.Label(footer,text="●",font=("Segoe UI",8),bd=0)
-        self.connection_dot.pack(side="left",padx=(2,6))
-        refresh_on_theme(self.connection_dot,self.paint_connection)
         self.connection.trace_add("write",lambda *args:self.paint_connection())
-        self.paint_connection()
-        ttk.Label(footer,textvariable=self.connection_display,style="Muted.TLabel",font=font(9)).pack(side="left")
-        self.refresh_button=localized(ttk.Button(footer,text="↻ Refresh",style="Ghost.TButton",command=self.refresh))
-        self.refresh_button.pack(side="right")
-        self.logout_button=localized(ttk.Button(footer,text="Sign out",style="Ghost.TButton",command=self.logout))
-        self.logout_button.pack(side="right",padx=(0,2))
         self.status=tk.StringVar(value="Sign in to connect to your air conditioner.")
         self.status_display=TranslatedVariable(root,self.status)
         self.status_label=tk.Label(self.body,textvariable=self.status_display,font=font(9),anchor="w",justify="left",
-                                   padx=12,pady=8,wraplength=480,bd=0)
+                                   padx=12,pady=6,wraplength=480,bd=0)
         paint(self.status_label,bg="SOFT",fg="ON_SOFT")
-        self.status_label.pack(fill="x",pady=(10,0))
+        self.status_label.pack(fill="x",pady=(8,0))
         self.status_label.bind("<Configure>",lambda event:self.status_label.configure(wraplength=max(1,event.width-24)))
         self.root.protocol("WM_DELETE_WINDOW",self.close)
         self.root.report_callback_exception = self.callback_failed
@@ -202,7 +192,6 @@ class App:
 
     def set_language(self, preference):
         self.i18n.set_language(preference)
-        self.language_code.set("PT" if self.i18n.language == "pt-PT" else "EN")
         broadcast_language(self.root)
         if self.tray:
             try:self.tray.refresh_language()
@@ -281,10 +270,29 @@ class App:
     def update_apply_label(self):
         count = len(self.dirty)
         self.apply_button.configure(text=tr(self.apply_button,"Apply changes")+(f" ({count})" if count else ""))
+        if count and not self.discard_button.winfo_manager():
+            self.discard_button.pack(side="right",padx=(0,6))
+        elif not count and self.discard_button.winfo_manager():
+            self.discard_button.pack_forget()
 
     def paint_connection(self):
-        connected = self.connection.get().startswith("Connected")
-        self.connection_dot.configure(bg=C.BG, fg=C.OK if connected else C.FAINT)
+        text = self.connection.get()
+        self.device_picker.set_status(text, text.startswith("Connected"))
+
+    def open_settings(self):
+        if self.settings_panel and self.settings_panel.window.winfo_exists():
+            self.settings_panel.window.lift()
+            return
+        from .settings_panel import SettingsPanel
+        self.settings_button.set_pressed(True)
+        SettingsPanel(self)
+
+    def discard(self):
+        """Drop staged edits and show the reported (or awaiting) values again."""
+        if self.busy or not self.selected or not self.dirty:return
+        self.dirty={}
+        self.show_device(self.selected)
+        self.status.set("Changes discarded.")
 
     def set_busy(self,value):
         self.busy=value
@@ -292,12 +300,13 @@ class App:
         for widget in (self.email,self.password,self.login_button):
             widget.configure(state=state)
         available=self.selected is not None and not value
-        for widget in (self.refresh_button,self.logout_button,self.all_button,self.schedules_button):
+        for widget in (self.refresh_button,self.all_button,self.discard_button):
             widget.configure(state="normal" if available else "disabled")
         self.apply_button.configure(state="normal" if available and self.dirty else "disabled")
         self.update_apply_label()
         self.device_picker.set_enabled(available)
-        self.power_button.set_state(self.selected is not None and self.selected["power"]=="On", available)
+        self.power_button.set_state(self.selected is not None and self.selected["power"]=="On", available,
+                                    self.mode.get() if self.selected else None)
         self.draw()
 
     def connect(self):
@@ -409,6 +418,17 @@ class App:
         if self.busy or not self.selected:return
         self.action("off" if self.selected["power"]=="On" else "on")
 
+    def base_mode(self):
+        """The displayed mode without its Night (Sleep) suffix, such as "Cool"."""
+        return self.mode.get().replace(" Night", "")
+
+    def dial_accent(self):
+        return accent("off") if self.selected["power"] != "On" else accent(self.base_mode())
+
+    def mode_options(self):
+        """Standard modes for the mode bar; Night variants are Sleep on the Sleep tile."""
+        return [option for option in mode_choices(self.selected) if not option["label"].endswith(" Night")]
+
     def draw(self):
         if not self.selected:return
         c=self.canvas
@@ -418,125 +438,191 @@ class App:
         width=max(c.winfo_width(),480)
         s=width/WIDTH
         self.canvas_hover.reset(s,enabled=not self.busy)
-        def hover(box,item,fill=None,outline=None):
+        tone=self.dial_accent()
+        def hover(box,item,fill=None,outline=None,active=None):
             normal={"fill":fill or C.CARD,"outline":C.EDGE if outline is None else outline}
-            self.canvas_hover.add(box,item,normal,{"fill":C.HOVER if fill is None else C.STRONG,"outline":C.BRAND})
+            self.canvas_hover.add(box,item,normal,{"fill":C.HOVER if fill is None else blend(tone,fill,.18),"outline":active or tone})
         text=lambda x,y,t,size=10,color=None,anchor="w",weight="normal",translate=True:c.create_text(
             x,y,text=tr(c,t) if translate else t,fill=color or C.TEXT,anchor=anchor,font=font(size,weight))
         hit=lambda box,fn:self.hits.append((box,fn))
-        # Hero: room temperature, status chip and the unit with its live airflow.
-        icon(c,"thermo",8,14,C.MUTED,scale=.7,bg=C.BG)
-        room=text(20,14,"Room",10,C.MUTED)
-        text(c.bbox(room)[2]+8,14,self.i18n.number(degrees(self.selected["room"])),11,weight="bold")
-        if self.dirty:status,fill,ink="Changes pending",C.WARN_BG,C.WARN_TEXT
-        elif self.pending_changes:status,fill,ink="Awaiting confirmation",C.SOFT,C.ON_SOFT
-        elif self.selected["power"]=="On":status,fill,ink="On",C.OK_BG,C.OK_TEXT
-        else:status,fill,ink=self.selected["power"],C.SURFACE,C.TEXT
-        status=tr(c,status)
-        chip=measure(c,status,9,"bold")
-        rounded(c,WIDTH-chip-34,1,WIDTH,27,13,fill=fill,outline="")
-        c.create_oval(WIDTH-chip-23,10.5,WIDTH-chip-16,17.5,fill=ink,outline="")
-        text(WIDTH-12,14,status,9,ink,"e","bold",translate=False)
-        ac_art(c,260,82,photo=self.unit_image)
-        self.draw_readings(c,text)
+        # The unit with its live airflow; alerts cover the airflow strip.
+        ac_art(c,WIDTH/2,UNIT_Y,photo=self.unit_image)
         self.draw_alert(c,text)
-        # Target temperature card: −/+, Eco toggle and the stepped slider.
-        T=TEMP_TOP
-        rounded(c,0,T,WIDTH,T+182,12,fill=C.CARD,outline=C.EDGE)
-        text(16,T+24,"Target temperature",10,weight="bold")
-        eco=self.selected.get("controls",{}).get("ecoMode")
-        if eco:
-            active=code(self.current("ecoMode"))=="1"
-            rounded(c,464,T+12,504,T+36,12,fill=C.BRAND if active else C.FIELD,outline="")
-            c.create_oval(482 if active else 466,T+14,502 if active else 486,T+34,fill=C.THUMB,outline="")
-            label=text(454,T+24,"Eco Mode",10,anchor="e")
-            left=c.bbox(label)[0]
-            icon(c,"leaf",left-14,T+24,C.ECO,scale=.7)
-            hit((left-26,T+4,WIDTH-8,T+44),lambda:self.staged("ecoMode","0" if active else "1"))
-        else:
-            text(504,T+24,"Eco Mode · Unavailable",9,C.MUTED,"e")
-        values=[float(v) for v in self.selected.get("temperatures",[])]
-        for x,direction in ((40,-1),(480,1)):
-            step=c.create_oval(x-24,T+62,x+24,T+110,fill=C.SURFACE,outline="")
-            if values:hover((x-24,T+62,x+24,T+110),step,fill=C.SURFACE,outline="")
-            mark=C.TEXT if values else C.FAINT
-            c.create_line(x-9,T+86,x+9,T+86,fill=mark,width=2,capstyle="round")
-            if direction>0:c.create_line(x,T+77,x,T+95,fill=mark,width=2,capstyle="round")
-            if values:hit((x-24,T+62,x+24,T+110),lambda direction=direction:self.step_temp(direction))
-        value=self.temp.get()
-        try:value=f"{float(value):g}"
-        except ValueError:value="—"
-        temperature=text(260,T+86,self.i18n.number(value),46,anchor="center",weight="black",translate=False)
-        c.itemconfigure(temperature,tags="target-temperature")
-        unit=text(300,T+70,"°C",16,C.MUTED,"nw",translate=False)
-        c.itemconfigure(unit,tags="temperature-unit")
-        x1,x2=TRACK
-        rounded(c,x1,TRACK_Y-4,x2,TRACK_Y+4,4,fill=C.TRACK,outline="")
-        if values:
-            try:ratio=(float(self.temp.get())-min(values))/(max(values)-min(values)) if max(values)!=min(values) else 0
-            except ValueError:ratio=0
-            tx=x1+max(0,min(1,ratio))*(x2-x1)
-            rounded(c,x1,TRACK_Y-4,max(x1+8,tx),TRACK_Y+4,4,fill=C.BRAND,outline="")
-            thumb=c.create_oval(tx-11,TRACK_Y-11,tx+11,TRACK_Y+11,fill=C.THUMB,outline=C.BRAND,width=2)
-            self.canvas_hover.add((x1-10,TRACK_Y-20,x2+10,TRACK_Y+24),thumb,{"outline":C.BRAND,"width":2},
-                                  {"outline":C.BRAND_ACTIVE,"width":3})
-            for index in range(9):
-                tick=x1+index*(x2-x1)/8
-                c.create_line(tick,TRACK_Y+16,tick,TRACK_Y+22,fill=C.FAINT)
-            low,high=min(values),max(values)
-            text(x1,T+168,self.i18n.number(f"{low:g}°"),9,C.MUTED,translate=False)
-            text(260,T+168,self.i18n.number(f"{(low+high)/2:g}°"),9,C.MUTED,"center",translate=False)
-            text(x2,T+168,self.i18n.number(f"{high:g}°"),9,C.MUTED,"e",translate=False)
-            hit((x1-10,TRACK_Y-20,x2+10,TRACK_Y+24),self.slider_from_event)
+        self.draw_readings(c,text)
+        self.draw_dial(c,text,hover,hit,tone)
+        self.draw_modes(c,text,hover,hit)
+        self.draw_tiles(c,text,hover,hit,tone)
         self.inline_timers.refresh(self.selected, self.busy)
-        timer_row = c.create_window(0, TIMER_TOP, window=self.inline_timers, anchor="nw", width=WIDTH, height=TimerCard.HEIGHT)
+        timer_row = c.create_window(0, TIMER_TOP, window=self.inline_timers, anchor="nw", width=WIDTH, height=EndAtCard.HEIGHT)
         c.itemconfigure(timer_row,tags="inline-timers")
-        airflow=self.airflow_label()
-        cards=[("Mode",self.mode.get(),mode_icon(self.mode.get()),lambda:self.choice_menu("machMode")),
-               ("Fan speed",self.fan.get(),"fan",lambda:self.choice_menu("windSpeed")),
-               ("Sleep",self.toggle_label("silentSleepStatus"),"moon",lambda:self.choice_menu("silentSleepStatus")),
-               ("Airflow",airflow,"swing" if airflow in {"Vertical","Both"} else "wind",self.airflow_menu)]
-        tile=(WIDTH-24)/4
-        for i,(label,value,glyph,fn) in enumerate(cards):
-            x=i*(tile+8)
-            card=control_card(c,x,TILE_TOP,tile,label,value,glyph,s,active=value not in {"Off","Unavailable","Unknown"},height=TILE_HEIGHT)
-            if value!="Unavailable":hover((x,TILE_TOP,x+tile,TILE_TOP+TILE_HEIGHT),card)
-            hit((x,TILE_TOP,x+tile,TILE_TOP+TILE_HEIGHT),fn)
         if s!=1:c.scale("all",0,0,s,s)
         # Canvas scaling also changes embedded window dimensions. Apply its final
         # width once, while preserving the native wheels' full height.
-        c.itemconfigure(timer_row,width=round(WIDTH*s),height=TimerCard.HEIGHT)
-        number,symbol=c.bbox(temperature),c.bbox(unit)
-        left=260*s-((number[2]-number[0])+8+(symbol[2]-symbol[0]))/2
-        c.move(temperature,left-number[0],0)
-        number=c.bbox(temperature)
-        c.coords(unit,number[2]+8,number[1]+12)
+        c.itemconfigure(timer_row,width=round(WIDTH*s),height=EndAtCard.HEIGHT)
+        number,symbol=c.bbox("target-temperature"),c.bbox("temperature-unit")
+        if number and symbol:
+            left=DIAL[0]*s-((number[2]-number[0])+4+(symbol[2]-symbol[0]))/2
+            c.move("target-temperature",left-number[0],0)
+            number=c.bbox("target-temperature")
+            c.coords("temperature-unit",number[2]+4,number[1]+14*s)
         self.canvas.configure(height=int(CANVAS_HEIGHT*s))
-        # An alert banner covers the airflow strip, so the animation pauses beneath it.
-        self.airflow.set_state(None if c.find_withtag("alert") else self.selected,260,129,275,38,s)
+        self.airflow.set_state(None if c.find_withtag("alert") else self.selected,WIDTH/2,ART[3]-3,215,30,s)
         self.canvas_hover.update()
         if self.busy:
             self.hits=[]
 
     def draw_readings(self,c,text):
-        """Outside temperature and humidity on the left, air quality on the right."""
+        """Room, outside, humidity and air quality, as one row of chips."""
         sensors=self.selected.get("sensors",{})
-        rows=[]
-        if "outdoor" in sensors:rows.append(("Outside","thermo",self.i18n.number(degrees(sensors["outdoor"]))))
-        if "humidity" in sensors:rows.append(("Humidity","drop",f"{sensors['humidity']:.0f}%"))
-        for index,(label,glyph,value) in enumerate(rows):
-            y=READINGS_TOP+index*READING_STEP
-            icon(c,glyph,9,y+8,C.MUTED,scale=.6,bg=C.BG,tags=("reading",))
-            for item in (text(22,y,label,8,C.MUTED),text(22,y+16,value,11,weight="bold",translate=False)):
-                c.addtag_withtag("reading",item)
-        quality=sensors.get("air")
-        if quality:
-            label=text(WIDTH-8,READINGS_TOP,"Air quality",8,C.MUTED,"e")
-            value=text(WIDTH-8,READINGS_TOP+16,quality,11,anchor="e",weight="bold")
-            left=c.bbox(value)[0]
-            dot=c.create_oval(left-14,READINGS_TOP+12,left-6,READINGS_TOP+20,
-                              fill=getattr(C,AIR_COLORS[quality]),outline="")
-            for item in (label,value,dot):c.addtag_withtag("reading",item)
+        chips=[("Room",self.i18n.number(degrees(self.selected["room"])),None)]
+        if "outdoor" in sensors:chips.append(("Outside",self.i18n.number(degrees(sensors["outdoor"])),None))
+        if "humidity" in sensors:chips.append(("Humidity",f"{sensors['humidity']:.0f}%",None))
+        if sensors.get("air"):chips.append(("Air quality",tr(c,sensors["air"]),getattr(C,AIR_COLORS[sensors["air"]])))
+        gap=8
+        width=(WIDTH-gap*(len(chips)-1))/len(chips)
+        top=READINGS_TOP
+        for index,(label,value,dot) in enumerate(chips):
+            x=index*(width+gap)
+            items=[rounded(c,x,top,x+width,top+READINGS_HEIGHT,12,fill=C.CARD,outline="")]
+            items.append(text(x+12,top+17,label,8,C.MUTED,weight="bold"))
+            value_x=x+12
+            if dot:
+                items.append(c.create_oval(x+12,top+32,x+20,top+40,fill=dot,outline=""))
+                value_x+=14
+            items.append(text(value_x,top+36,value,12,weight="bold",translate=False))
+            for item in items:c.addtag_withtag("reading",item)
+
+    def draw_dial(self,c,text,hover,hit,tone):
+        """A 270° ring: drag along it, click it, scroll on it or use −/+."""
+        cx,cy,r=DIAL
+        values=[float(v) for v in self.selected.get("temperatures",[])]
+        try:current=float(self.temp.get())
+        except ValueError:current=None
+        low,high=(min(values),max(values)) if values else (16,32)
+        ratio=0 if current is None or high==low else max(0,min(1,(current-low)/(high-low)))
+        # Soft halo in the accent, then ticks, the track and the value arc.
+        if self.selected["power"]=="On":
+            for step,strength in ((r-26,.05),(r-38,.08),(r-50,.11)):
+                c.create_oval(cx-step,cy-step,cx+step,cy+step,fill=blend(tone,C.BG,strength),outline="")
+        for index in range(17):
+            angle=math.radians(DIAL_START+DIAL_SWEEP*index/16)
+            inner=r+18 if index%4 else r+14
+            c.create_line(cx+inner*math.cos(angle),cy+inner*math.sin(angle),cx+(r+23)*math.cos(angle),cy+(r+23)*math.sin(angle),
+                          fill=C.FAINT,width=1.6,capstyle="round")
+        box=(cx-r,cy-r,cx+r,cy+r)
+        c.create_arc(*box,start=-45,extent=270,style="arc",outline=C.TRACK,width=13)
+        for angle in (DIAL_START,DIAL_START+DIAL_SWEEP):
+            a=math.radians(angle)
+            x,y=cx+r*math.cos(a),cy+r*math.sin(a)
+            c.create_oval(x-6.5,y-6.5,x+6.5,y+6.5,fill=tone if angle==DIAL_START and values and current is not None else C.TRACK,outline="")
+        if values and current is not None:
+            if ratio>0:c.create_arc(*box,start=225,extent=-DIAL_SWEEP*ratio,style="arc",outline=tone,width=13)
+            a=math.radians(DIAL_START+DIAL_SWEEP*ratio)
+            tx,ty=cx+r*math.cos(a),cy+r*math.sin(a)
+            thumb=c.create_oval(tx-13,ty-13,tx+13,ty+13,fill=C.BG,outline=tone,width=4)
+            c.create_oval(tx-4,ty-4,tx+4,ty+4,fill=tone,outline="")
+            self.canvas_hover.add((tx-20,ty-20,tx+20,ty+20),thumb,{"width":4},{"width":6})
+            text(cx-r*.72,cy+r*.72+24,self.i18n.number(f"{low:g}°"),9,C.MUTED,"center","bold",translate=False)
+            text(cx+r*.72,cy+r*.72+24,self.i18n.number(f"{high:g}°"),9,C.MUTED,"center","bold",translate=False)
+        # Centre: what the AC is doing, the target and the dashboard status.
+        if self.selected["power"]!="On":verb="Off"
+        else:verb=VERBS.get(self.base_mode(),"Target temperature")
+        text(cx,cy-64,tr(c,verb).upper(),9,tone,"center","bold",translate=False)
+        value="—" if current is None else self.i18n.number(f"{current:g}")
+        number=text(cx,cy-8,value,54,anchor="center",translate=False)
+        c.itemconfigure(number,tags="target-temperature")
+        unit=text(cx+60,cy-30,"°C",16,C.MUTED,"nw",translate=False)
+        c.itemconfigure(unit,tags="temperature-unit")
+        if self.dirty:status,ink="Changes pending",C.WARN_TEXT
+        elif self.pending_changes:status,ink="Awaiting confirmation",C.MUTED
+        elif self.selected["power"]=="On":status,ink="Running",C.MUTED
+        else:status,ink="Standby",C.MUTED
+        text(cx,cy+44,status,9,ink,"center","bold")
+        # −/+ beside the ring's open end.
+        for x,direction in ((52,-1),(WIDTH-52,1)):
+            y=cy+r*.68
+            step=c.create_oval(x-25,y-25,x+25,y+25,fill=C.CARD,outline="")
+            mark=C.TEXT if values else C.FAINT
+            c.create_line(x-8,y,x+8,y,fill=mark,width=2.2,capstyle="round")
+            if direction>0:c.create_line(x,y-8,x,y+8,fill=mark,width=2.2,capstyle="round")
+            if values:
+                hover((x-25,y-25,x+25,y+25),step,fill=C.CARD,outline="")
+                hit((x-25,y-25,x+25,y+25),lambda direction=direction:self.step_temp(direction))
+        # Eco sits in the ring's opening.
+        eco=self.selected.get("controls",{}).get("ecoMode")
+        if eco:
+            active=code(self.current("ecoMode"))=="1"
+            ecotone=C.ECO
+            label=tr(c,"Eco")
+            half=(measure(c,label,9,"bold")+40)/2
+            y1,y2=cy+r*.84,cy+r*.84+28
+            fill=blend(ecotone,C.BG,.16) if active else C.BG
+            chip=rounded(c,cx-half,y1,cx+half,y2,14,fill=fill,outline=ecotone if active else C.EDGE,width=1.4)
+            icon(c,"leaf",cx-half+16,(y1+y2)/2,ecotone if active else C.MUTED,scale=.55,bg=fill)
+            text(cx-half+28,(y1+y2)/2,label,9,ecotone if active else C.MUTED,weight="bold",translate=False)
+            self.canvas_hover.add((cx-half,y1,cx+half,y2),chip,{"outline":ecotone if active else C.EDGE},{"outline":ecotone})
+            hit((cx-half,y1,cx+half,y2),lambda:self.staged("ecoMode","0" if active else "1"))
+
+    def draw_modes(self,c,text,hover,hit):
+        """One button per standard mode; the selected one takes its own accent."""
+        options=self.mode_options()
+        top,bottom=MODES_TOP,MODES_TOP+MODES_HEIGHT
+        rounded(c,0,top,WIDTH,bottom,16,fill=C.CARD,outline="")
+        if not options:
+            text(WIDTH/2,(top+bottom)/2,"Mode · Unavailable",10,C.MUTED,"center")
+            return
+        gap=4
+        width=(WIDTH-8-gap*(len(options)-1))/len(options)
+        selected=self.base_mode()
+        for index,option in enumerate(options):
+            x=4+index*(width+gap)
+            label=option["label"]
+            on=label==selected
+            tone=accent(label)
+            fill=blend(tone,C.CARD,.16) if on else C.CARD
+            segment=rounded(c,x,top+4,x+width,bottom-4,12,fill=fill,outline="")
+            if not on:
+                self.canvas_hover.add((x,top+4,x+width,bottom-4),segment,{"fill":C.CARD},{"fill":C.HOVER})
+            ink=tone if on else C.MUTED
+            icon(c,mode_icon(label),x+width/2,top+23,ink,scale=.66,bg=fill)
+            text(x+width/2,top+46,label,9,ink,"center","bold")
+            hit((x,top,x+width,bottom),lambda option=option:self.pick_mode(option))
+
+    def pick_mode(self,option):
+        for name,value in self.memory.mode_values(self.selected,dict(option["value"])).items():
+            self.staged(name,value)
+
+    def draw_tiles(self,c,text,hover,hit,tone):
+        controls=self.selected.get("controls",{})
+        fan=self.fan.get() if "windSpeed" in controls else "Unavailable"
+        airflow=self.airflow_label()
+        sleep=self.toggle_label("silentSleepStatus")
+        tiles=[("Fan speed",fan,"windSpeed",lambda:self.choice_menu("windSpeed"),("windSpeed",)),
+               ("Airflow",airflow,"airflow",self.airflow_menu,("windDirectionVertical","windDirectionHorizontal")),
+               ("Sleep",sleep,"moon",lambda:self.choice_menu("silentSleepStatus"),("silentSleepStatus",))]
+        gap=8
+        width=(WIDTH-gap*2)/3
+        top,bottom=TILE_TOP,TILE_TOP+TILE_HEIGHT
+        for index,(label,value,glyph,command,keys) in enumerate(tiles):
+            x=index*(width+gap)
+            pending=any(key in self.dirty for key in keys)
+            card=rounded(c,x,top,x+width,bottom,14,fill=C.CARD,outline=tone if pending else "",width=1.5)
+            text(x+14,top+21,label,8,C.MUTED,weight="bold")
+            if glyph=="windSpeed":
+                level=FAN_LEVELS.get(value,0)
+                for bar,height in enumerate((7,11,15)):
+                    lit=value=="Auto" or bar<level
+                    color=blend(tone,C.CARD,.55) if value=="Auto" else (tone if lit else C.TRACK)
+                    bx=x+width-36+bar*8
+                    c.create_rectangle(bx,top+28-height,bx+4,top+28,fill=color,outline="")
+            else:
+                symbol="swing" if glyph=="airflow" and value=="Vertical" else airflow_icon(value) if glyph=="airflow" else glyph
+                icon(c,symbol,x+width-22,top+21,C.MUTED,scale=.55,bg=C.CARD)
+            text(x+14,top+50,value,12,C.TEXT if value!="Unavailable" else C.MUTED,weight="bold")
+            if value!="Unavailable":
+                self.canvas_hover.add((x,top,x+width,bottom),card,{"fill":C.CARD,"outline":tone if pending else ""},
+                                      {"fill":C.HOVER,"outline":tone})
+                hit((x,top,x+width,bottom),command)
 
     def draw_alert(self,c,text):
         """A banner for an error, defrosting or filter cleaning; it clears with the condition."""
@@ -554,28 +640,56 @@ class App:
             items.append(text(x2-12,(y1+y2)/2,f"+{len(alerts)-1}",9,color,"e","bold",translate=False))
         for item in items:c.addtag_withtag("alert",item)
 
+    def scale(self):
+        return max(self.canvas.winfo_width(),480)/WIDTH
+
     def click(self,event):
         if self.busy:return
         self.canvas.focus_set()
-        s=max(self.canvas.winfo_width(),480)/WIDTH
+        s=self.scale()
         x,y=event.x/s,event.y/s
         for (x1,y1,x2,y2),fn in self.hits:
             if x1<=x<=x2 and y1<=y<=y2:
-                if fn==self.slider_from_event:fn(event)
-                else:fn()
-                break
+                fn()
+                return
+        if self.dial_angle(x,y,strict=True) is not None:
+            self.dial_drag=True
+            self.dial_from_event(event)
 
-    def slider_from_event(self,event):
-        values=[float(v) for v in self.selected["temperatures"]]
-        s=max(self.canvas.winfo_width(),480)/WIDTH
-        ratio=max(0,min(1,(event.x/s-TRACK[0])/(TRACK[1]-TRACK[0])))
-        self.staged("tempSel",min(values,key=lambda v:abs(v-(min(values)+ratio*(max(values)-min(values))))))
+    def dial_angle(self,x,y,strict=False):
+        """The ring position (0–1) under a point, or None away from the ring."""
+        cx,cy,r=DIAL
+        distance=math.hypot(x-cx,y-cy)
+        if strict and not r-34<=distance<=r+28:return None
+        if distance<8:return None
+        angle=(math.degrees(math.atan2(y-cy,x-cx))-DIAL_START)%360
+        if angle>DIAL_SWEEP:
+            if strict:return None
+            angle=0 if angle>DIAL_SWEEP+(360-DIAL_SWEEP)/2 else DIAL_SWEEP
+        return angle/DIAL_SWEEP
+
+    def dial_from_event(self,event):
+        values=[float(v) for v in self.selected.get("temperatures",[])]
+        if not values:return
+        s=self.scale()
+        ratio=self.dial_angle(event.x/s,event.y/s)
+        if ratio is None:return
+        target=min(values)+ratio*(max(values)-min(values))
+        value=min(values,key=lambda v:abs(v-target))
+        try:same=float(self.temp.get())==value
+        except ValueError:same=False
+        if not same:self.staged("tempSel",value)
 
     def drag_temperature(self,event):
-        s=max(self.canvas.winfo_width(),480)/WIDTH
-        if (not self.busy and self.selected and self.selected["temperatures"]
-                and TRACK_Y-20<=event.y/s<=TRACK_Y+24 and TRACK[0]-10<=event.x/s<=TRACK[1]+10):
-            self.slider_from_event(event)
+        if self.dial_drag and not self.busy and self.selected:
+            self.dial_from_event(event)
+
+    def wheel_temperature(self,event):
+        if self.busy or not self.selected or not event.delta:return
+        s=self.scale()
+        cx,cy,r=DIAL
+        if math.hypot(event.x/s-cx,event.y/s-cy)<=r+30:
+            self.step_temp(1 if event.delta>0 else -1)
 
     def step_temp(self,direction):
         values=[float(v) for v in self.selected["temperatures"]]
@@ -741,7 +855,8 @@ class App:
             def done(snapshot):
                 if epoch != self.refresh_epoch or not self.selected or self.selected["id"] != device_id:
                     return
-                self.inline_timers.cards[action].draft = False
+                if action in self.inline_timers.cards:
+                    self.inline_timers.cards[action].draft = False
                 self.show_device(snapshot, preserve_edits=True)
                 self.status.set("Timer saved in hOn. It works with your PC off." if due else "Timer stopped in hOn.")
                 self.schedule_auto(750)
@@ -751,20 +866,21 @@ class App:
             self.worker.submit(self.worker.controller.change_timer(device_id, action, due, item.get("expected"), requested), done, "timer", on_error=failed)
             return
         self.preview_timers.setdefault(self.selected["id"], {})[action] = due
-        self.inline_timers.cards[action].draft = False
+        if action in self.inline_timers.cards:
+            self.inline_timers.cards[action].draft = False
         self.status.set("Offline timer preview only. No schedule or AC command was sent.")
         self.draw()
 
     # Repeating schedules. The offline preview keeps fictional records locally.
 
-    def open_schedules(self):
+    def open_schedules(self, parent=None):
         if self.busy or not self.selected:
             return
         if self.schedules_view and self.schedules_view.window.winfo_exists():
             self.schedules_view.window.lift()
             return
         from .schedules_view import SchedulesView
-        SchedulesView(self)
+        SchedulesView(self, parent)
 
     def preview_rows(self):
         from .schedules import schedule_rows
@@ -866,9 +982,10 @@ class App:
             return
         start, end = (clock, None) if action == "on" else (None, clock)
         requested = self.memory.mode_values(self.selected, dict(self.dirty)) if action == "on" else {}
-        card = self.inline_timers.cards[action]
+        card = self.inline_timers.cards.get(action)
         def saved(rows):
-            card.repeat, card.draft = (), False
+            if card is not None:
+                card.repeat, card.draft = (), False
             self.status.set("Offline timer preview only. No schedule or AC command was sent." if self.demo
                             else "Repeating schedule saved in hOn. Manage it in Schedules.")
             self.draw()
@@ -924,7 +1041,7 @@ class App:
         self.set_busy(True)
         def done(value):
             self.selected=None;self.devices=[];self.dirty={}
-            self.airflow.set_state(None,260,129,275,38)
+            self.airflow.set_state(None,WIDTH/2,ART[3]-3,215,30)
             self.panel.pack_forget()
             self.login_frame.pack(fill="x",pady=(5,0),before=self.status_label)
             self.remember_account.set(False)
@@ -950,7 +1067,7 @@ class App:
     def updates_changed(self):
         if self.closing:return
         waiting = self.updater.release is not None and self.updater.state in {"available", "downloading", "verifying", "ready", "failed"}
-        self.update_button.set_badge(waiting)
+        self.settings_button.set_badge(waiting)
         if self.updater.state == "ready":
             # The person clicked Update; the helper waits for this process to exit.
             try:applied = self.updater.apply()

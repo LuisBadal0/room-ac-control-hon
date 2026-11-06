@@ -1,9 +1,9 @@
-"""Start at / End at controls below the temperature slider; a repeat makes a schedule."""
+"""The End at row on the dashboard and the timer cards it is built from; a repeat makes a schedule."""
 from .i18n import tr, refresh_on_language, translator
 from datetime import datetime, timedelta
 import tkinter as tk
 
-from .theme import C, font, rounded, icon, measure, refresh_on_theme
+from .theme import C, font, rounded, icon, measure, refresh_on_theme, blend
 
 
 def next_time(hour, minute, now=None):
@@ -249,18 +249,79 @@ class TimerCard(tk.Canvas):
             self.tag_bind("stop", "<Button-1>", lambda e: self.run(stop=True))
 
 
+class EndAtCard(TimerCard):
+    """The dashboard's End at row: a turn-off time on two drag wheels, a repeat chip and Set."""
+    HEIGHT = 80
+    BUTTON = 74
+
+    def __init__(self, parent, changed, scheduled=None, choose_repeat=None):
+        super().__init__(parent, "off", changed, scheduled, choose_repeat)
+        self.configure(width=520)
+
+    def in_button(self, x, y):
+        width = self.card_width()
+        return width-14-self.BUTTON <= x <= width-14 and 18 <= y <= 62
+
+    def draw(self):
+        self.delete("all")
+        self.configure(bg=C.BG)
+        width = self.card_width()
+        active = self.active
+        surface = C.SOFT if active else C.CARD
+        ink = C.ON_SOFT if active else C.TEXT
+        rounded(self, 1, 1, width-1, self.HEIGHT-1, 16, fill=surface, outline=C.BRAND if active else C.EDGE)
+        circle = C.BRAND if active else C.SURFACE
+        self.create_oval(14, 22, 50, 58, fill=circle, outline="")
+        icon(self, "clock", 32, 40, C.ON_BRAND if active else C.MUTED, scale=.7, bg=circle)
+        # Right to left: Set/Stop, the repeat chip, then the minute and hour wheels.
+        button_left = width-14-self.BUTTON
+        repeat = self.repeat_label() + ("  ▾" if self.choose_repeat else "")
+        chip = measure(self, repeat, 8, "bold")
+        self.chip_box = (button_left-12-chip-24, 27, button_left-12, 53)
+        chip_fill = C.BRAND if self.repeat else (C.CARD if active else C.SURFACE)
+        rounded(self, *self.chip_box, 12, fill=chip_fill, outline="", tags=("repeat",))
+        self.create_text(self.chip_box[2]-12, 40, text=repeat, anchor="e", fill=C.ON_BRAND if self.repeat else C.TEXT,
+                         font=font(8, "bold"), tags=("repeat",))
+        minute_x = self.chip_box[0]-10-48
+        hour_x = minute_x-14-48
+        for x, wheel in ((hour_x, self.hour), (minute_x, self.minute)):
+            wheel.surface, wheel.pill = surface, (C.CARD if active else C.SURFACE)
+            wheel.tone, wheel.enabled = C.TEXT, not self.busy
+            wheel.draw()
+            self.create_window(x, 6, window=wheel, anchor="nw")
+        self.create_text(minute_x-7, 39, text=":", fill=ink, font=font(15, "black"))
+        text_width = max(40, hour_x-66)
+        self.create_text(62, 29, text=tr(self, "End at"), anchor="w", fill=ink, font=font(10, "bold"), width=text_width)
+        if active:
+            hint = ("Preview · " if self.preview else "Saved · ") + translator(self).date(self.due)
+        else:
+            hint = ("Saves a repeating schedule" if self.repeat else "Drag or scroll the time") if self.supported else self.hint or "Timers unavailable · Refresh"
+        self.create_text(62, 50, text=tr(self, hint), anchor="w", fill=C.ON_SOFT if active else C.MUTED,
+                         font=font(8), width=text_width)
+        enabled = self.supported and not self.busy
+        button = "Stop" if active and not self.draft and not self.repeat else "Set" if self.supported else "Unavailable"
+        hover = self.hover and enabled
+        filled = enabled and button == "Set"
+        fill = (blend(C.TEXT, C.BG, .85) if hover else C.TEXT) if filled else ((C.CARD if active else C.SURFACE) if hover else surface)
+        rounded(self, button_left, 20, width-14, 60, 12, fill=fill, outline=ink if enabled else C.EDGE, width=1.5)
+        self.create_text(button_left+self.BUTTON/2, 40, text=tr(self, button),
+                         fill=(C.BG if filled else ink) if enabled else C.MUTED, font=font(9, "bold"))
+        # An edited active timer retains an independent Stop action.
+        if active and self.draft:
+            self.create_text(62, 68, text=tr(self, "Stop"), anchor="w", fill=C.ON_SOFT, font=font(8, "bold"), tags="stop")
+            self.tag_bind("stop", "<Button-1>", lambda e: self.run(stop=True))
+
+
 class InlineTimers(tk.Frame):
+    """The End at row on the dashboard. Start times are set in Schedules."""
     def __init__(self, app):
-        super().__init__(app.canvas, bg=C.BG, width=520, height=TimerCard.HEIGHT)
+        super().__init__(app.canvas, bg=C.BG, width=520, height=EndAtCard.HEIGHT)
         refresh_on_theme(self, lambda: self.configure(bg=C.BG))
         self.app = app
         self.device = None
-        self.cards = {}
-        self.columnconfigure(0, weight=1, uniform="timers")
-        self.columnconfigure(1, weight=1, uniform="timers")
-        for index, action in enumerate(("on", "off")):
-            self.cards[action] = TimerCard(self, action, app.change_timer, app.save_repeating_timer, app.timer_repeat_menu)
-            self.cards[action].grid(row=0, column=index, sticky="ew", padx=(0, 6) if not index else (6, 0))
+        self.columnconfigure(0, weight=1)
+        self.cards = {"off": EndAtCard(self, app.change_timer, app.save_repeating_timer, app.timer_repeat_menu)}
+        self.cards["off"].grid(row=0, column=0, sticky="ew")
 
     def refresh(self, snapshot, busy):
         device = snapshot["id"]

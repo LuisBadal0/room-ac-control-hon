@@ -61,7 +61,28 @@ if __name__ == "__main__":
     view.edit_setting(app.selected["controls"]["windDirectionVertical"],None)
     view.choice_panel.choose(next(option["value"] for option in view.choice_panel.options if option["label"]=="Position 1"))
     assert view.settings_changes["windDirectionVertical"]=="2"
+    # The Schedules tab opens the Schedules window above All functions and returns to it.
+    root.update()
+    view.navigate(type("Event",(),{"x":10**4})())  # The last tab, whatever the width.
+    schedules=app.schedules_view
+    assert schedules and schedules.window.winfo_exists() and view.section=="settings"
+    assert str(schedules.window.wm_transient())==str(view.window)
+    schedules.close()
+    assert view.window.grab_current() is not None
     view.close()
+    # Settings: theme and language choices apply at once; Sign out is off in the preview.
+    app.open_settings()
+    panel=app.settings_panel
+    root.update()
+    panel.pick_look(type("Event",(),{"x":max(panel.looks.winfo_width(),360)-10})())
+    assert app.theme_preference=="dark"
+    panel.pick_language(type("Event",(),{"y":46*2+10})())
+    assert app.i18n.preference=="pt-PT" and app.all_button.cget("text")=="Todas as funções"
+    panel.step_language(-1)
+    panel.step_look(-2)
+    assert app.i18n.preference=="en" and app.theme_preference=="system"
+    assert panel.sign_out.instate(["disabled"])
+    panel.close()
     assert app.password.cget("show")=="•"
     assert matches({"machMode":"1","silentSleepStatus":"0"},{"machMode":1.0,"silentSleepStatus":0.0})
     app.connected([demo_device()])

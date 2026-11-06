@@ -42,6 +42,8 @@ def _install_buttons(root, style):
         style.configure(name,background=C.BG,foreground=foreground,padding=(14,10),font=font(10,"bold"),anchor="center")
         style.map(name,foreground=[("disabled",C.ON_DISABLED if name != "Ghost.TButton" else C.FAINT)],background=[])
     style.configure("Ghost.TButton",padding=(10,8))
+    style.configure("Danger.Ghost.TButton",foreground=C.DANGER)
+    style.map("Danger.Ghost.TButton",foreground=[("disabled",C.FAINT)],background=[])
     style.configure("Login.Accent.TButton",padding=(14,12),font=font(11,"bold"),background=C.CARD)
     style.configure("Card.TButton",background=C.CARD)
     style.configure("Card.Ghost.TButton",background=C.CARD)

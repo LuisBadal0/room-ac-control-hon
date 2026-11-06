@@ -1,12 +1,12 @@
 """An in-app title bar with ordinary Windows taskbar and resizing behavior."""
-from .i18n import localized
+from .i18n import localized, tr, refresh_on_language
 import ctypes
 from ctypes import wintypes
 from pathlib import Path
 import sys
 import tkinter as tk
 
-from .theme import C, font, icon, paint, refresh_on_theme
+from .theme import C, font, icon, paint, refresh_on_theme, rounded, measure
 
 
 class WindowsFrame:
@@ -301,3 +301,50 @@ class HeaderIconButton(tk.Canvas):
         icon(self, self.glyph, 20, 20, getattr(C, self.color), scale=.75, bg=background)
         if self.badge:
             self.create_oval(25, 9, 33, 17, fill=C.BRAND, outline=background, width=2)
+
+
+class HeaderPillButton(tk.Canvas):
+    """A labelled title-bar control, such as ⚙ Settings, with an optional dot."""
+    def __init__(self, parent, glyph, text, command):
+        super().__init__(parent, height=40, highlightthickness=0, takefocus=True, cursor="hand2")
+        self.glyph, self.text, self.command = glyph, text, command
+        self.hover, self.badge, self.pressed = False, False, False
+        self.bind("<Button-1>", lambda event: self.command())
+        self.bind("<Return>", lambda event: self.command())
+        self.bind("<space>", lambda event: self.command())
+        self.bind("<Enter>", lambda event: self.highlight(True))
+        self.bind("<Leave>", lambda event: self.highlight(False))
+        self.bind("<FocusIn>", lambda event: self.draw())
+        self.bind("<FocusOut>", lambda event: self.draw())
+        refresh_on_theme(self, self.draw)
+        refresh_on_language(self, self.draw)
+        self.draw()
+
+    def set_badge(self, value):
+        if self.badge != bool(value):
+            self.badge = bool(value)
+            self.draw()
+
+    def set_pressed(self, value):
+        if self.pressed != bool(value):
+            self.pressed = bool(value)
+            self.draw()
+
+    def highlight(self, value):
+        self.hover = value
+        self.draw()
+
+    def draw(self):
+        self.delete("all")
+        self.configure(bg=C.BG)
+        label = tr(self, self.text)
+        width = measure(self, label, 9, "bold") + 44
+        self.configure(width=width+6)
+        active = self.hover or self.pressed or self.focus_get() is self
+        fill = C.SOFT if self.pressed else (C.SURFACE if self.hover else C.CARD)
+        rounded(self, 2, 5, width+2, 35, 10, fill=fill, outline=C.BRAND if active else C.EDGE, width=1.2)
+        ink = C.ON_SOFT if self.pressed else C.TEXT
+        icon(self, self.glyph, 18, 20, ink, scale=.62, bg=fill)
+        self.create_text(31, 20, text=label, anchor="w", fill=ink, font=font(9, "bold"))
+        if self.badge:
+            self.create_oval(width-6, 3, width+4, 13, fill=C.BRAND, outline=C.BG, width=2)

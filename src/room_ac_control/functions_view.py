@@ -12,7 +12,9 @@ from .canvas_hover import CanvasHover
 from .airflow import AirflowAnimation
 
 SECTIONS = (("settings", "Settings"), ("everyday", "Everyday use"), ("maintenance", "Maintenance"))
-SECTION_GLYPHS = {"settings": "sliders", "everyday": "sparkle", "maintenance": "wrench"}
+# The navigation also offers Schedules, which opens its own window above this one.
+TABS = SECTIONS + (("schedules", "Schedules"),)
+SECTION_GLYPHS = {"settings": "sliders", "everyday": "sparkle", "maintenance": "wrench", "schedules": "clock"}
 NEUTRAL = {"Off", "Unknown", "Unavailable"}
 
 
@@ -193,8 +195,8 @@ class FunctionsView:
         width = max(c.winfo_width(), 550)
         self.navigation_hover.reset()
         rounded(c, 0, 0, width, 48, 12, fill=C.RAISED, outline="")
-        segment = (width-8)/3
-        for index, (key, label) in enumerate(SECTIONS):
+        segment = (width-8)/len(TABS)
+        for index, (key, label) in enumerate(TABS):
             x = 4+index*segment
             selected = key == self.section and not self.search.get().strip()
             fill = C.SEGMENT if selected else C.RAISED
@@ -202,14 +204,17 @@ class FunctionsView:
             self.navigation_hover.add((x, 0, x+segment, 48), surface, {"fill": fill}, {"fill": C.SEGMENT if selected else C.SURFACE})
             caption = tr(c, label)
             weight = "bold" if selected else "normal"
-            left = x+segment/2-(measure(c, caption, 10, weight)+26)/2
-            icon(c, SECTION_GLYPHS[key], left+9, 24, C.TEXT, scale=.7, bg=fill)
-            c.create_text(left+26, 24, text=caption, anchor="w", fill=C.TEXT, font=font(10, weight))
+            left = x+segment/2-(measure(c, caption, 9, weight)+22)/2
+            icon(c, SECTION_GLYPHS[key], left+8, 24, C.BRAND if selected else C.MUTED, scale=.6, bg=fill)
+            c.create_text(left+21, 24, text=caption, anchor="w", fill=C.TEXT if selected else C.MUTED, font=font(9, weight))
         self.navigation_hover.update()
 
     def navigate(self, event):
-        index = max(0, min(2, int(event.x / max(self.navigation.winfo_width(), 550) * 3)))
-        self.section = ("settings", "everyday", "maintenance")[index]
+        index = max(0, min(len(TABS)-1, int(event.x / max(self.navigation.winfo_width(), 550) * len(TABS))))
+        if TABS[index][0] == "schedules":
+            self.app.open_schedules(self.window)
+            return
+        self.section = TABS[index][0]
         if self.search.get(): self.search.set("")
         else: self.render_section()
 

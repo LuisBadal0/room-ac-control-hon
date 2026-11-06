@@ -205,23 +205,27 @@ class ScheduleRow(tk.Canvas):
 
 
 class SchedulesView:
-    def __init__(self, app):
+    def __init__(self, app, parent=None):
         self.app = app
         self.rows = []
         self.busy = False
         self.editing = None
         self.in_editor = False
-        self.window = tk.Toplevel(app.root)
+        # Opened from All functions, it sits above that window and returns to it.
+        parent = parent or app.root
+        self.previous_grab = parent.grab_current()
+        self.window = tk.Toplevel(parent)
         app.schedules_view = self
         localized_title(self.window, "Room AC Control · Schedules")
         self.window.geometry("{}x{}".format(*SIZE))
         self.window.resizable(False, False)
         paint(self.window, bg="BG")
-        self.window.transient(app.root)
+        self.window.transient(parent.winfo_toplevel())
         self.window.grab_set()
         self.window.protocol("WM_DELETE_WINDOW", self.close)
         from .window_header import WindowHeader
-        self.header = WindowHeader(self.window, "Room AC Control · Schedules", self.close, maximize=False, size=SIZE, owner=app.root)
+        self.header = WindowHeader(self.window, "Room AC Control · Schedules", self.close, maximize=False, size=SIZE,
+                                   owner=parent.winfo_toplevel())
         self.body = ttk.Frame(self.window, padding=(24, 4, 24, 20))
         self.body.pack(fill="both", expand=True)
         localized(ttk.Label(self.body, text="Schedules", font=font(21, "black"))).pack(anchor="w")
@@ -446,3 +450,5 @@ class SchedulesView:
         self.app.schedules_view = None
         if self.window.winfo_exists():
             self.window.destroy()
+        if self.previous_grab is not None and self.previous_grab.winfo_exists():
+            self.previous_grab.grab_set()
