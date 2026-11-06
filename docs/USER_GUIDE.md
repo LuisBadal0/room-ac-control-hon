@@ -1,6 +1,6 @@
 # Using Room AC Control
 
-Launch with **Start Room AC Control.cmd** or the local app-icon shortcut. Sign in using the hOn email/password account that already controls the AC on your phone. **Remember me on this computer** enables encrypted automatic sign-in after the first successful login.
+Launch from the **Room AC Control** Start menu or desktop shortcut that the installer adds, or with **Start Room AC Control.cmd** in the portable folder. Sign in using the hOn email/password account that already controls the AC on your phone. **Remember me on this computer** enables encrypted automatic sign-in after the first successful login.
 
 Remember me is off by default. Enabling it saves your actual email and password using Windows encryption; other programs running as your Windows user can decrypt them. Existing remembered accounts retain their previous choice. Your password is passed to pyhOn for authentication.
 
@@ -101,11 +101,15 @@ The main window and All functions open at a fixed size designed for their layout
 
 ## Updates
 
-The portable app checks for a newer version shortly after it starts and then about once a day. **Settings** in the main window header shows the installed version and the update status (for example **Last checked today at 09:12**), with **Check now**, or **Update** when a new version is available; the button shows a dot when a new version is waiting, and a banner above the bottom row says which version is available, with **Update** (or × to hide it until the next version). Click the version line to open the Updates window with **What's new** and **Diagnostics**.
+The installed and portable app checks for a newer version shortly after it starts and then about once a day. **Settings** in the main window header shows the installed version and the update status (for example **Last checked today at 09:12**), with **Check now**, or **Update** when a new version is available; the button shows a dot when a new version is waiting, and a banner above the bottom row says which version is available, with **Update** (or × to hide it until the next version). Click the version line to open the Updates window with **What's new** and **Diagnostics**.
 
 Nothing is installed until you click **Update**. Room AC Control then downloads the new version and checks that it is signed by this project and matches its published fingerprint. It unpacks the new version next to the current one and runs its offline checks. Only when all of that passes does the app close, swap the folders and open the new version, usually within a few seconds. If the swap fails, the previous version is put back and the app tells you on its next start. Your remembered sign-in, settings and schedules are kept because they live in your Windows profile, not in the app folder. Unapplied changes are discarded, and the app asks before discarding them.
 
-Turn off **Check automatically** in Settings (or **Check for updates automatically** in the Updates window) to stop the daily checks; **Check now** still works. Source checkouts and the offline preview never check or install updates. If the app folder is not writable (for example, under Program Files), download the new release from GitHub instead.
+Turn off **Check automatically** in Settings (or **Check for updates automatically** in the Updates window) to stop the daily checks; **Check now** still works. Source checkouts and the offline preview never check or install updates. Installed copies update the same way, because the installer puts the app in your own `%LOCALAPPDATA%\Programs\Room AC Control` folder. **Installed apps** in Windows Settings keeps showing the version you first installed until you run a newer installer; that is expected. If the app folder is not writable (for example, a portable copy under Program Files), download the new release from GitHub instead.
+
+## Install and uninstall
+
+`Setup.exe` and the `.msi` install the same files as the portable ZIP, for your Windows user only and without administrator rights. Running a newer installer replaces the installed version; an older one is refused. Uninstall from **Settings › Apps › Installed apps** (**Room AC Control for hOn**): it removes the app folder, including files written by in-app updates, and its Start menu and desktop shortcuts. Your remembered sign-in and settings in `%LOCALAPPDATA%\RoomACControl` are kept; sign out first if you want them removed too.
 
 ## Sign out and privacy
 
