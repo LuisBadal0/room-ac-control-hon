@@ -3,15 +3,15 @@
 
   Based on WixUI_InstallDir from the WiX Toolset v5.0.2 (Copyright (c) .NET
   Foundation and contributors, Microsoft Reciprocal License), with the folder
-  page replaced by a Shortcuts page. The app always installs in the user's
+  page replaced by a Shortcuts page and Segoe UI, as in Setup.exe. The app always installs in the user's
   %LOCALAPPDATA%\Programs\Room AC Control, so in-app updates can write there.
 -->
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
   <Fragment>
     <UI Id="RoomACControlUI">
-      <TextStyle Id="WixUI_Font_Normal" FaceName="Tahoma" Size="8" />
-      <TextStyle Id="WixUI_Font_Bigger" FaceName="Tahoma" Size="12" />
-      <TextStyle Id="WixUI_Font_Title" FaceName="Tahoma" Size="9" Bold="yes" />
+      <TextStyle Id="WixUI_Font_Normal" FaceName="Segoe UI" Size="8" />
+      <TextStyle Id="WixUI_Font_Bigger" FaceName="Segoe UI" Size="12" />
+      <TextStyle Id="WixUI_Font_Title" FaceName="Segoe UI" Size="9" Bold="yes" />
       <Property Id="DefaultUIFont" Value="WixUI_Font_Normal" />
 
       <DialogRef Id="DiskCostDlg" />
