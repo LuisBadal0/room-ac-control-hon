@@ -142,7 +142,139 @@ class SheetWheel(TemperatureWheel):
                              font=font(-40 if centre else -18, "light"))
 
 
-class FunctionsView:
+class SheetHost:
+    """Bottom sheets over a dimmed window, shared by All functions and the dashboard.
+
+    A host provides `window`, `app` and `sheet` (None while closed)."""
+
+    def text(self, c, x, y, value, size, color=None, anchor="w", weight="normal", width=None, translate=True):
+        options = {"width": width} if width else {}
+        return aa_text(c, x, y, text=tr(c, value) if translate else value, anchor=anchor, fill=color or C.TEXT,
+                             font=font(size, weight), **options)
+
+    def open_sheet(self, draw):
+        self.close_sheet()
+        self.overlay = Overlay(self.window, self.close_sheet)
+        canvas = tk.Canvas(self.window, highlightthickness=0, takefocus=True)
+        canvas.bind("<Button-1>", self.sheet_click)
+        canvas.bind("<Escape>", lambda event: self.close_sheet())
+        self.sheet = {"canvas": canvas, "draw": lambda: self.draw_sheet(draw), "hits": [], "widgets": []}
+        self.draw_sheet(draw)
+        canvas.place(x=0, rely=1, relwidth=1, anchor="sw")
+        raise_widget(canvas)
+        canvas.focus_set()
+
+    def draw_sheet(self, draw):
+        sheet = self.sheet
+        c = sheet["canvas"]
+        c.delete("all")
+        c.configure(bg=C.BG)
+        sheet["hits"] = []
+        width = SIZE[0]
+        height = draw(c, width)
+        c.configure(height=height)
+        sheet["height"] = height
+        background = rounded(c, 0, 0, width, height+40, 26, fill=C.CARD, outline=C.TRACK)
+        c.tag_lower(background)
+        rounded(c, width/2-20, 12, width/2+20, 17, 3, fill=C.STRONG, outline="")
+
+    def sheet_hit(self, box, action):
+        self.sheet["hits"].append((box, action))
+
+    def sheet_click(self, event):
+        for (x1, y1, x2, y2), action in list(self.sheet["hits"]):
+            if x1 <= event.x <= x2 and y1 <= event.y <= y2:
+                action()
+                return
+
+    def close_sheet(self):
+        if not self.sheet:
+            return
+        for widget in self.sheet["widgets"]:
+            widget.destroy()
+        if self.sheet["canvas"].winfo_exists():
+            self.sheet["canvas"].destroy()
+        self.sheet = None
+        self.overlay.destroy()
+        self.sheet_closed()
+
+    def sheet_buttons(self, c, y, width, back, primary, run, primary_flex=2):
+        tone = self.app.dial_accent()
+        gap = 10
+        left_width = (width-48-gap)/(1+primary_flex)
+        x1, x2 = 24, 24+left_width
+        rounded(c, x1, y, x2, y+50, 14, fill=C.CARD, outline=C.STRONG, width=1.2)
+        self.text(c, (x1+x2)/2, y+25, back, -14, C.TEXT, "center", "bold")
+        self.sheet_hit((x1, y, x2, y+50), self.close_sheet)
+        x1, x2 = x2+gap, width-24
+        rounded(c, x1, y, x2, y+50, 14, fill=tone, outline="")
+        self.text(c, (x1+x2)/2, y+25, primary, -14, C.ON_BRAND, "center", "black")
+        self.sheet_hit((x1, y, x2, y+50), run)
+        return y+50+28
+
+    def open_airflow_sheet(self):
+        controls = self.app.selected.get("controls", {})
+        specs = [controls[key] for key in ("windDirectionVertical", "windDirectionHorizontal") if key in controls]
+        if not specs:
+            return
+        self.sheet_choice = {spec["key"]: self.app.current(spec["key"]) for spec in specs}
+
+        def choose(key, value):
+            self.sheet_choice[key] = value
+            self.sheet["draw"]()
+
+        def done():
+            for key, value in self.sheet_choice.items():
+                if value is not None:
+                    self.app.staged(key, value)
+            self.close_sheet()
+            self.sheet_done()
+
+        def draw(c, width):
+            from .dashboard import equal
+            tone = self.app.dial_accent()
+            y = 30
+            self.text(c, 24, y+12, "Airflow", -22, weight="black")
+            self.text(c, 24, y+38, "Vertical louver. Position 1 is the most closed, 5 the most open.", -13, C.MUTED,
+                      width=width-48)
+            y += 62
+            for spec in specs:
+                if len(specs) > 1:
+                    section_label(c, 24, y+6, spec["label"])
+                    y += 22
+                options = list(spec["options"].items())
+                cell = (width-48-20)/3
+                for index, (label, value) in enumerate(options):
+                    x = 24+(index % 3)*(cell+10)
+                    top = y+(index//3)*128
+                    on = equal(value, self.sheet_choice.get(spec["key"]))
+                    fill = self.app.soft(tone) if on else C.SURFACE
+                    rounded(c, x, top, x+cell, top+118, 18, fill=fill, outline=tone if on else fill, width=2)
+                    louver(c, x+cell/2-36, top+14, louver_position(label), C.TEXT, tone if on else C.FAINT)
+                    self.text(c, x+cell/2, top+96, label, -13, tone if on else C.TEXT, "center", "bold")
+                    self.sheet_hit((x, top, x+cell, top+118), lambda key=spec["key"], value=value: choose(key, value))
+                y += ((len(options)+2)//3)*128+6
+            return self.sheet_buttons(c, y+6, width, "Cancel", "Set value", done)
+        self.open_sheet(draw)
+
+    def sheet_closed(self):
+        """Called after a sheet closes."""
+
+    def sheet_done(self):
+        """Called after a sheet's choice is staged."""
+
+
+class DashboardSheets(SheetHost):
+    """The airflow picker opened from the dashboard's Airflow tile."""
+
+    def __init__(self, app):
+        self.app, self.window, self.sheet = app, app.root, None
+
+    def sheet_done(self):
+        self.app.draw()
+
+
+class FunctionsView(SheetHost):
     def __init__(self, app):
         self.app = app
         self.window = tk.Toplevel(app.root)
@@ -163,6 +295,7 @@ class FunctionsView:
         self.hits, self.visible_items = [], []
         # Preset settings start closed; "More" starts closed too.
         self.expanded_presets, self.more_open = set(), False
+        self.started = {}  # Maintenance routines started from this window, by label.
         self.sheet = None
         self.selected_function = None
         self.scrollable = False
@@ -312,11 +445,6 @@ class FunctionsView:
 
     # Kept for callers of the earlier card view.
     render_section = render
-
-    def text(self, c, x, y, value, size, color=None, anchor="w", weight="normal", width=None, translate=True):
-        options = {"width": width} if width else {}
-        return aa_text(c, x, y, text=tr(c, value) if translate else value, anchor=anchor, fill=color or C.TEXT,
-                             font=font(size, weight), **options)
 
     def hit(self, box, action):
         self.hits.append((box, action))
@@ -594,8 +722,20 @@ class FunctionsView:
         items = [dict(item, section="everyday") for item in section_items(self.app.selected, "everyday")]
         self.visible_items = items
         key = lambda item: item["label"].lower().replace(" ", "")
-        primary = [item for name in PRESETS_UP_FRONT for item in items if key(item) == name]
-        others = [item for item in items if key(item) not in PRESETS_UP_FRONT]
+        # The favourites first, once each. Presets that only repeat a mode from the
+        # mode bar (Auto, Dry, Fan, a second Cool…) are left out; the rest go in More.
+        primary = []
+        for name in PRESETS_UP_FRONT:
+            match = next((item for item in items if key(item) == name), None)
+            if match:
+                primary.append(match)
+        modes = {option["label"].lower().replace(" ", "") for option in self.app.mode_options()}
+        repeats = set(PRESETS_UP_FRONT) | modes | {mode+"night" for mode in modes}
+        others, seen = [], set()
+        for item in items:
+            if key(item) not in repeats and key(item) not in seen:
+                seen.add(key(item))
+                others.append(item)
         for item in primary:
             y = self.draw_preset_card(c, y, item)+10
         if others:
@@ -747,12 +887,37 @@ class FunctionsView:
             else:
                 detail = "Cleaning / service routine"
             self.text(c, bx+16, by+108, detail, -12, C.MUTED, "nw", width=width-32)
-            rounded(c, bx+16, by+144, bx+width-16, by+184, 12, fill=C.CARD, outline=C.STRONG, width=1.2)
-            self.text(c, bx+width/2, by+164, "Review", -13, C.TEXT, "center", "bold")
-            action = (lambda item=item: self.edit_setting(item["spec"])) if item["kind"] == "setting" else \
-                (lambda item=item: self.open_preset(item))
-            self.hit((bx, by, bx+width, by+200), action)
+            state = self.started.get(item["label"])
+            if state:
+                fill = blend(C.OK, C.CARD, .14)
+                rounded(c, bx+16, by+144, bx+width-16, by+184, 12, fill=fill, outline="")
+                shown = tr(c, state)
+                left = bx+width/2-(measure(c, shown, -13, "black")+20)/2
+                icon(c, "check", left+7, by+164, C.OK, scale=.5, bg=fill)
+                self.text(c, left+20, by+164, shown, -13, C.OK, "w", "black", translate=False)
+            else:
+                label = "Turn on" if item["kind"] == "setting" else "Start"
+                rounded(c, bx+16, by+144, bx+width-16, by+184, 12, fill=color, outline="")
+                self.text(c, bx+width/2, by+164, label, -13, C.ON_BRAND, "center", "black")
+                self.hit((bx+16, by+144, bx+width-16, by+184), lambda item=item: self.start_routine(item))
         return y+((len(items)+1)//2)*210
+
+    def start_routine(self, item):
+        """Start a maintenance routine straight from its card, after the person confirms it."""
+        name = tr(self.window, item["label"])
+        question = tr(self.window, "Start {name}? It may interrupt what the AC is doing.").replace("{name}", name)
+        if not messagebox.askyesno("Room AC Control", question, parent=self.window):
+            return
+        if item["kind"] == "setting":
+            value = next((option for option in item["spec"]["options"].values() if code(option) == "1"), "1")
+            self.app.action("configure", {item["key"]: value})
+        else:
+            saved = self.app.memory.function_values(self.app.selected["id"], item["command"], item["form"])
+            parameters = {spec["key"]: saved.get(spec["key"], spec.get("value")) for spec in item["form"].get("parameters", [])}
+            self.app.action("execute", {"command": item["command"], "category": item["form"]["category"],
+                                        "parameters": {key: value for key, value in parameters.items() if value is not None}})
+        self.started[item["label"]] = "Preview only" if self.app.demo else "Started"
+        self.render(keep_scroll=True)
 
     # Schedules
 
@@ -1048,112 +1213,6 @@ class FunctionsView:
 
     # Sheets
 
-    def open_sheet(self, draw):
-        self.close_sheet()
-        self.overlay = Overlay(self.window, self.close_sheet)
-        canvas = tk.Canvas(self.window, highlightthickness=0, takefocus=True)
-        canvas.bind("<Button-1>", self.sheet_click)
-        canvas.bind("<Escape>", lambda event: self.close_sheet())
-        self.sheet = {"canvas": canvas, "draw": lambda: self.draw_sheet(draw), "hits": [], "widgets": []}
-        self.draw_sheet(draw)
-        canvas.place(x=0, rely=1, relwidth=1, anchor="sw")
-        raise_widget(canvas)
-        canvas.focus_set()
-
-    def draw_sheet(self, draw):
-        sheet = self.sheet
-        c = sheet["canvas"]
-        c.delete("all")
-        c.configure(bg=C.BG)
-        sheet["hits"] = []
-        width = SIZE[0]
-        height = draw(c, width)
-        c.configure(height=height)
-        sheet["height"] = height
-        background = rounded(c, 0, 0, width, height+40, 26, fill=C.CARD, outline=C.TRACK)
-        c.tag_lower(background)
-        rounded(c, width/2-20, 12, width/2+20, 17, 3, fill=C.STRONG, outline="")
-
-    def sheet_hit(self, box, action):
-        self.sheet["hits"].append((box, action))
-
-    def sheet_click(self, event):
-        for (x1, y1, x2, y2), action in list(self.sheet["hits"]):
-            if x1 <= event.x <= x2 and y1 <= event.y <= y2:
-                action()
-                return
-
-    def close_sheet(self):
-        if not self.sheet:
-            return
-        for widget in self.sheet["widgets"]:
-            widget.destroy()
-        if self.sheet["canvas"].winfo_exists():
-            self.sheet["canvas"].destroy()
-        self.sheet = None
-        self.selected_function = None
-        self.overlay.destroy()
-        self.search_entry.configure(state="normal")
-
-    def sheet_buttons(self, c, y, width, back, primary, run, primary_flex=2):
-        tone = self.app.dial_accent()
-        gap = 10
-        left_width = (width-48-gap)/(1+primary_flex)
-        x1, x2 = 24, 24+left_width
-        rounded(c, x1, y, x2, y+50, 14, fill=C.CARD, outline=C.STRONG, width=1.2)
-        self.text(c, (x1+x2)/2, y+25, back, -14, C.TEXT, "center", "bold")
-        self.sheet_hit((x1, y, x2, y+50), self.close_sheet)
-        x1, x2 = x2+gap, width-24
-        rounded(c, x1, y, x2, y+50, 14, fill=tone, outline="")
-        self.text(c, (x1+x2)/2, y+25, primary, -14, C.ON_BRAND, "center", "black")
-        self.sheet_hit((x1, y, x2, y+50), run)
-        return y+50+28
-
-    def open_airflow_sheet(self):
-        controls = self.app.selected.get("controls", {})
-        specs = [controls[key] for key in ("windDirectionVertical", "windDirectionHorizontal") if key in controls]
-        if not specs:
-            return
-        self.sheet_choice = {spec["key"]: self.app.current(spec["key"]) for spec in specs}
-
-        def choose(key, value):
-            self.sheet_choice[key] = value
-            self.sheet["draw"]()
-
-        def done():
-            for key, value in self.sheet_choice.items():
-                if value is not None:
-                    self.app.staged(key, value)
-            self.close_sheet()
-            self.render(keep_scroll=True)
-
-        def draw(c, width):
-            from .dashboard import equal
-            tone = self.app.dial_accent()
-            y = 30
-            self.text(c, 24, y+12, "Airflow", -22, weight="black")
-            self.text(c, 24, y+38, "Vertical louver. Position 1 is the most closed, 5 the most open.", -13, C.MUTED,
-                      width=width-48)
-            y += 62
-            for spec in specs:
-                if len(specs) > 1:
-                    section_label(c, 24, y+6, spec["label"])
-                    y += 22
-                options = list(spec["options"].items())
-                cell = (width-48-20)/3
-                for index, (label, value) in enumerate(options):
-                    x = 24+(index % 3)*(cell+10)
-                    top = y+(index//3)*128
-                    on = equal(value, self.sheet_choice.get(spec["key"]))
-                    fill = self.app.soft(tone) if on else C.SURFACE
-                    rounded(c, x, top, x+cell, top+118, 18, fill=fill, outline=tone if on else fill, width=2)
-                    louver(c, x+cell/2-36, top+14, louver_position(label), C.TEXT, tone if on else C.FAINT)
-                    self.text(c, x+cell/2, top+96, label, -13, tone if on else C.TEXT, "center", "bold")
-                    self.sheet_hit((x, top, x+cell, top+118), lambda key=spec["key"], value=value: choose(key, value))
-                y += ((len(options)+2)//3)*128+6
-            return self.sheet_buttons(c, y+6, width, "Cancel", "Set value", done)
-        self.open_sheet(draw)
-
     def open_preset(self, item):
         """Review a preset, Night mode or maintenance routine, then start it explicitly."""
         selected = self.app.selected
@@ -1297,6 +1356,13 @@ class FunctionsView:
 
     # Kept for callers of the earlier card view.
     configure_function = open_preset
+
+    def sheet_closed(self):
+        self.selected_function = None
+        self.search_entry.configure(state="normal")
+
+    def sheet_done(self):
+        self.render(keep_scroll=True)
 
     def run_preset(self, item, values):
         values = {key: value for key, value in values.items() if value is not None}

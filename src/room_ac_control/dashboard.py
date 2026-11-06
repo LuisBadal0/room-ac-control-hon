@@ -159,12 +159,13 @@ class App:
         # "In sync with the AC", on the right.
         controls=ttk.Frame(self.panel)
         controls.pack(side="bottom",fill="x")
-        self.all_button=PillButton(controls,"All functions",self.open_functions,glyph="grid")
+        self.all_button=PillButton(controls,"All functions",self.open_functions,glyph="grid",hover_when=self.ac_on)
         self.all_button.pack(side="left")
-        self.refresh_button=PillButton(controls,"",self.refresh,glyph="refresh",width=48)
+        self.refresh_button=PillButton(controls,"",self.refresh,glyph="refresh",width=48,hover_when=self.ac_on)
         self.refresh_button.pack(side="left",padx=(8,0))
-        self.apply_button=PillButton(controls,"Apply",lambda:self.action("apply"),kind="accent",size=-14,tone=self.dial_accent)
-        self.discard_button=PillButton(controls,"Discard",self.discard,kind="ghost")
+        self.apply_button=PillButton(controls,"Apply",lambda:self.action("apply"),kind="accent",size=-14,tone=self.dial_accent,
+                                     hover_when=self.ac_on)
+        self.discard_button=PillButton(controls,"Discard",self.discard,kind="ghost",hover_when=self.ac_on)
         self.sync_label=tk.Canvas(controls,height=48,highlightthickness=0)
         self.sync_label.bind("<Configure>",lambda event:self.draw_sync())
         refresh_on_theme(self.sync_label,self.draw_sync)
@@ -481,7 +482,8 @@ class App:
         self.hits=[]
         width=max(c.winfo_width(),480)
         s=width/WIDTH
-        self.canvas_hover.reset(s,enabled=not self.busy)
+        # Controls light up under the pointer only while the AC is on.
+        self.canvas_hover.reset(s,enabled=not self.busy and self.ac_on())
         tone=self.dial_accent()
         text=lambda x,y,t,size=-13,color=None,anchor="w",weight="normal",translate=True:aa_text(c, 
             x,y,text=tr(c,t) if translate else t,fill=color or C.TEXT,anchor=anchor,font=font(size,weight))
@@ -705,7 +707,7 @@ class App:
         controls=self.selected.get("controls",{})
         fan=self.fan.get() if "windSpeed" in controls else "Unavailable"
         tiles=[("Fan speed",fan,"bars",self.cycle_fan),
-               ("Airflow",self.airflow_value(),"swing",self.cycle_airflow),
+               ("Airflow",self.airflow_value(),"swing",self.open_airflow_sheet),
                ("Sleep",self.toggle_label("silentSleepStatus"),"moon",self.toggle_sleep)]
         gap=8
         width=(WIDTH-gap*2)/3
@@ -731,6 +733,16 @@ class App:
         current=self.current(key)
         index=next((i for i,value in enumerate(values) if equal(value,current)),-1)
         self.staged(key,values[(index+1)%len(values)])
+
+    def ac_on(self):
+        return bool(self.selected) and self.selected.get("power")=="On"
+
+    def open_airflow_sheet(self):
+        """The same airflow picker as All functions › Settings."""
+        if self.busy or not self.airflow_spec():return
+        from .functions_view import DashboardSheets
+        if getattr(self,"sheets",None) is None:self.sheets=DashboardSheets(self)
+        self.sheets.open_airflow_sheet()
 
     def cycle_fan(self):
         spec=self.selected.get("controls",{}).get("windSpeed")

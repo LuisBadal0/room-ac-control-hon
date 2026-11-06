@@ -183,7 +183,8 @@ class TimerCard(tk.Canvas):
         return x >= self.card_width()-86 and 50 <= y <= 94
 
     def motion(self, event):
-        self.highlight(self.in_button(event.x, event.y))
+        allowed = getattr(self, "hover_when", None)
+        self.highlight(self.in_button(event.x, event.y) and (allowed is None or allowed()))
         chip = self.choose_repeat is not None and self.supported and not self.busy and self.in_chip(event.x, event.y)
         self.configure(cursor="hand2" if chip else "")
 
@@ -376,6 +377,7 @@ class InlineTimers(tk.Frame):
         self.columnconfigure(0, weight=1)
         self.cards = {"off": EndAtCard(self, app.change_timer, app.save_repeating_timer, app.timer_repeat_menu,
                                        tone=app.dial_accent)}
+        self.cards["off"].hover_when = app.ac_on
         self.cards["off"].grid(row=0, column=0, sticky="ew")
 
     def refresh(self, snapshot, busy):
