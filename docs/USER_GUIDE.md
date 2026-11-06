@@ -8,13 +8,13 @@ During manual or automatic sign-in, a rotating loading ring appears while your a
 
 ## Choose a language
 
-The interface starts in your Windows display language: English or Portuguese (Portugal). Other system languages use English as the fallback. Click **EN** or **PT** in the window header to select **System language**, **English**, or **Português (Portugal)**. The choice takes effect immediately and is saved for later launches, including after signing out.
+The interface starts in your Windows display language: English or Portuguese (Portugal). Other system languages use English as the fallback. Click **Settings** in the window header and choose **System language**, **English**, or **Português (Portugal)** under **Language**. The choice takes effect immediately and is saved for later launches, including after signing out.
 
 Changing language keeps your signed-in account, pending settings and open preset drafts. Account room names and model identifiers stay as supplied by hOn. Search accepts English and Portuguese labels, with or without accents. Portuguese shows decimal temperatures with a comma; command values sent to the service retain their original format. Unrecognized cloud labels remain in their original language.
 
 ## Choose light or dark
 
-Click the half-filled circle in the main window header to open **Appearance** and choose **Follow Windows**, **Light mode** or **Dark mode**. Follow Windows uses the app mode set in Windows Settings › Personalization › Colors and switches within a couple of seconds when you change it there. The choice applies immediately to every open window, keeps pending settings and drafts, and is saved for later launches.
+Click **Settings** in the main window header and choose **Follow Windows**, **Light mode** or **Dark mode** under **Appearance**. Follow Windows uses the app mode set in Windows Settings › Personalization › Colors and switches within a couple of seconds when you change it there. The choice applies immediately to every open window, keeps pending settings and drafts, and is saved for later launches.
 
 ## Select an AC
 
@@ -22,7 +22,7 @@ The room card shows the active AC's name and model. Accounts with several units 
 
 ## Readings
 
-Beside the unit picture the dashboard shows what the AC itself measures: **Outside** temperature (from the outdoor unit's sensor) and indoor **Humidity** on the left, and **Air quality** (Good, Medium or Poor) on the right. Each reading appears only when your model reports it. Units without a sensor report 0, so a reading of exactly 0 is hidden rather than shown as a real value. The outdoor sensor sits on the outdoor unit and can read warmer than the weather while the compressor runs in the sun.
+Below the unit picture, one row shows the **Room** temperature and what the AC itself measures: **Outside** temperature (from the outdoor unit's sensor), indoor **Humidity** and **Air quality** (Good, Medium or Poor). Each of the last three appears only when your model reports it. Units without a sensor report 0, so a reading of exactly 0 is hidden rather than shown as a real value. The outdoor sensor sits on the outdoor unit and can read warmer than the weather while the compressor runs in the sun.
 
 A coloured banner below the unit picture appears when the AC reports a condition, and disappears by itself when it clears:
 
@@ -34,21 +34,23 @@ If several apply, the most serious is shown with a count such as **+1**.
 
 ## Set comfort controls
 
-Move the temperature slider, use plus/minus, or select Mode, Fan speed, Sleep and Airflow. Changes are staged until you click **Apply changes**. Applying changes preserves the AC's power state.
+Set the temperature on the dial: drag along the ring, click a point on it, scroll over it, use the arrow keys, or use − and +. Choose a mode in the bar below the dial, and open Fan speed, Airflow or Sleep from their tiles. Changes are staged until you click **Apply changes**, which shows how many are waiting; **Discard** drops them. Applying changes preserves the AC's power state.
+
+The dashboard's accent follows the selected mode: blue for Cool, amber for Heat, green for Dry, violet for Fan and teal for Auto. The dial turns grey while the AC is off. Below the number, the dial says whether the AC is running, on standby, has changes pending or is awaiting confirmation.
 
 Airflow position icons show the louver opening progressively: Position 1 is the most closed and Position 5 is the most open. Swing uses an up/down double arrow. Only positions exposed by your unit are offered. All functions uses the same control cards and mode selector as the dashboard.
 
-The circular power control turns the unit on or off. Turning on applies the selected mode and its remembered configuration; explicit pending values override remembered ones. Each AC and mode has its own saved settings. Cool Night and Heat Night use cooling/heating with the unit's Sleep feature; selecting a standard mode disables Sleep when supported.
+The circular power control turns the unit on or off. Turning on applies the selected mode and its remembered configuration; explicit pending values override remembered ones. Each AC and mode has its own saved settings. Cool Night and Heat Night use cooling/heating with the unit's Sleep feature: choose Cool or Heat, then turn on Sleep. Selecting a mode in the mode bar turns Sleep off when supported.
 
 Target-temperature editors in All functions and preset forms use number wheels. Drag upward for a higher temperature or downward for a lower one; you can also scroll, click neighbouring values, or use the Up/Down keys. Home and End select the range limits. The wheel follows the AC's allowed step, including decimal steps, and stops at either end of its range. An unknown or unsupported current value stays unset until you choose one.
 
-In the settings popup, **Set value** stages the selected temperature; **Apply changes** sends it to the AC. A preset's temperature remains a draft until you explicitly start the preset. The main dashboard keeps its temperature slider.
+In the settings popup, **Set value** stages the selected temperature; **Apply changes** sends it to the AC. A preset's temperature remains a draft until you explicitly start the preset. The main dashboard keeps its temperature dial.
 
 Animated airflow follows reported operation, with blue for cooling, amber for heating, and neutral for other modes. It stops when the unit is reported off. Pending edits do not change the animation before the AC reports its status.
 
 ## All functions
 
-**Settings** contains ordinary adjustable controls. **Everyday use** contains comfort functions and presets. **Maintenance** contains cleaning and service functions. Options are discovered from the selected AC's hOn capabilities; unavailable or unreported values are identified in the interface.
+**Settings** contains ordinary adjustable controls. **Everyday use** contains comfort functions and presets. **Maintenance** contains cleaning and service functions. **Schedules** opens the Schedules window (see below). Options are discovered from the selected AC's hOn capabilities; unavailable or unreported values are identified in the interface.
 
 **Silent mode** enables quieter AC operation. It was previously labelled **Quiet mode**. **Buzzer (Echo)** is the separate audible command-feedback setting, previously labelled **Voice / echo**; it is not voice-assistant control or Silent mode. Sleep remains a separate setting. These controls appear only when the selected AC exposes them as editable settings. Their selection cards explain the difference, and Search also finds these descriptions.
 
@@ -60,17 +62,17 @@ Select a preset to inspect its options, then explicitly start it. A preset may t
 
 ## On / off timers
 
-**Start at** and **End at** are embedded directly below the temperature slider. Drag the hour or minute numbers up for later values, or down for earlier values; the wheel follows the pointer and snaps to the nearest number when released. You can also scroll, use the Up/Down keys, or click the neighbouring numbers. Click **Set** to save the next occurrence of that time, today or tomorrow, using your Windows local time zone. The chip at the top right of each card says **Once**; select it to repeat instead (see below). A confirmed active schedule appears as a blue-tinted card with a **Stop** button inside its card; editing its time retains a separate Stop action.
+**End at** sits at the bottom of the dashboard. Drag the hour or minute numbers up for later values, or down for earlier values; the wheel follows the pointer and snaps to the nearest number when released. You can also scroll, use the Up/Down keys, or click the neighbouring numbers. Click **Set** to save the next occurrence of that time, today or tomorrow, using your Windows local time zone. The chip beside the wheels says **Once**; select it to repeat instead (see below). A confirmed active timer turns the row blue with a **Stop** button; editing its time retains a separate Stop action. To turn the AC on at a time, add a schedule in **Schedules**.
 
-Schedules are saved to **hOn's cloud service** and read back before success is displayed. You can switch the computer off after saving; the AC and router still need power and internet. This does not claim that a timer is stored physically inside the AC. Start at captures the selected mode, remembered configuration and pending edits, without applying them immediately. End at schedules a future power-off. Refresh also reads one-time timers created in hOn. You can change or stop a single supported timer from either app; if it changed since the last refresh, refresh again before editing it.
+Schedules are saved to **hOn's cloud service** and read back before success is displayed. You can switch the computer off after saving; the AC and router still need power and internet. This does not claim that a timer is stored physically inside the AC. A scheduled start uses the selected mode and its remembered configuration, without applying them immediately. End at schedules a future power-off. Refresh also reads one-time timers created in hOn. You can change or stop a single supported timer from either app; if it changed since the last refresh, refresh again before editing it.
 
 Stopping one half of a paired timer preserves the other half. Maintenance routines are not exposed here. If several one-time schedules overlap or the cloud returns an unfamiliar format, the affected card becomes unavailable; delete the extra ones in **Schedules** or in hOn. A failed or timed-out request may have reached the service: refresh and check hOn before retrying. There is no automatic retry of a timer mutation.
 
 ## Repeating schedules
 
-Select the **Once** chip on Start at or End at and choose **Every day**, **Weekdays**, **Weekend** or **Choose days…**. The chip turns blue and **Set** then saves a repeating schedule instead of a one-time timer; the card returns to Once afterwards. A Start at schedule uses the selected mode with its remembered settings, as a one-time start does.
+Select the **Once** chip on End at and choose **Every day**, **Weekdays**, **Weekend** or **Choose days…**. The chip turns blue and **Set** then saves a repeating schedule instead of a one-time timer; the row returns to Once afterwards. A schedule that turns the AC on uses the selected mode with its remembered settings.
 
-**Schedules**, next to All functions, lists every timer saved in hOn for the selected AC, including ones made in the phone app:
+**Schedules**, the last tab in All functions, lists every timer saved in hOn for the selected AC, including ones made in the phone app:
 
 - Repeating schedules show their times, days and the mode and temperature they apply. Use the switch to pause or resume one without deleting it, **Edit** to change its times, days, mode or temperature, or **Delete** to remove it.
 - Upcoming one-time timers are listed with their date and can be deleted.
@@ -84,7 +86,7 @@ The previous PC scheduler is removed entirely, and old saved PC timers do not ex
 
 ## Status and tray
 
-Status updates through Cloud notifications with a check every 15 seconds as a backup. You can also use **Refresh**. Automatic updates preserve staged edits and open preset forms. Changes from the phone or physical remote appear once the AC reports them to the cloud. Temporary connection failures retry automatically.
+Status updates through Cloud notifications with a check every 15 seconds as a backup. You can also use **↻** (Refresh) beside All functions. Automatic updates preserve staged edits and open preset forms. Changes from the phone or physical remote appear once the AC reports them to the cloud. Temporary connection failures retry automatically.
 
 After an accepted settings command, **Awaiting confirmation** keeps the values you sent visible while the cloud still reports older values. These are separate from unsent changes and are not automatically resent. Matching reports confirm them; after 60 seconds without confirmation, the next successful refresh shows the reported values with a warning. The power indicator and airflow animation continue to follow reported operation.
 
@@ -94,16 +96,16 @@ The main window and All functions open at a fixed size designed for their layout
 
 ## Updates
 
-The portable app checks for a newer version shortly after it starts and then about once a day. The download icon in the main window header, left of **Appearance**, opens **Updates**; it shows a dot when a new version is available. The Updates window shows the new version and **What's new**.
+The portable app checks for a newer version shortly after it starts and then about once a day. **Settings** in the main window header shows the installed version and the update status, with **Check now** (or **Update** when a new version is available); the button shows a dot when a new version is waiting. **Update details and diagnostics** opens the Updates window with **What's new** and **Diagnostics**.
 
 Nothing is installed until you click **Update**. Room AC Control then downloads the new version and checks that it is signed by this project and matches its published fingerprint. It unpacks the new version next to the current one and runs its offline checks. Only when all of that passes does the app close, swap the folders and open the new version, usually within a few seconds. If the swap fails, the previous version is put back and the app tells you on its next start. Your remembered sign-in, settings and schedules are kept because they live in your Windows profile, not in the app folder. Unapplied changes are discarded, and the app asks before discarding them.
 
-Turn off **Check for updates automatically** in the Updates window to stop the daily checks; **Check now** still works. Source checkouts and the offline preview never check or install updates. If the app folder is not writable (for example, under Program Files), download the new release from GitHub instead.
+Turn off **Check for updates automatically** in Settings or the Updates window to stop the daily checks; **Check now** still works. Source checkouts and the offline preview never check or install updates. If the app folder is not writable (for example, under Program Files), download the new release from GitHub instead.
 
 ## Sign out and privacy
 
-**Sign out** removes remembered credentials but retains your program preferences. Credentials and preferences are protected by Windows DPAPI in `%LOCALAPPDATA%\RoomACControl\state.dpapi`. They are separate from the application folder and are not part of a source upload or portable release.
+**Sign out**, at the bottom of **Settings**, removes remembered credentials but retains your program preferences. Credentials and preferences are protected by Windows DPAPI in `%LOCALAPPDATA%\RoomACControl\state.dpapi`. They are separate from the application folder and are not part of a source upload or portable release.
 
-For troubleshooting, use **Export diagnostics** on the login screen or **Diagnostics** in the Updates window (the download icon in the header). You choose the local JSON file; no report is automatically saved or uploaded. It contains the app version and up to 100 event times, event codes and error categories from this session. It excludes credentials, account/device names, identifiers and raw cloud responses. Review it before sharing. Report vulnerabilities through the [private security form](https://github.com/LuisBadal0/room-ac-control-hon/security/advisories/new).
+For troubleshooting, use **Export diagnostics** on the login screen or **Diagnostics** in the Updates window (Settings › Update details and diagnostics). You choose the local JSON file; no report is automatically saved or uploaded. It contains the app version and up to 100 event times, event codes and error categories from this session. It excludes credentials, account/device names, identifiers and raw cloud responses. Review it before sharing. Report vulnerabilities through the [private security form](https://github.com/LuisBadal0/room-ac-control-hon/security/advisories/new).
 
 Login, menus, inline timer previews and status refresh do not send AC control commands. An offline preview uses fictional rooms and never loads a saved account. If a command times out, refresh and check the physical unit before retrying: cloud acceptance does not guarantee that the unit has acted.
