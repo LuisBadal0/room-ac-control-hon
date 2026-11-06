@@ -70,13 +70,15 @@ class PillButton(tk.Canvas):
     (filled with the text colour)."""
 
     def __init__(self, parent, text="", command=None, glyph=None, kind="surface", height=48, width=None,
-                 radius=14, size=-13, tone=None, translate=True, bg=None):
+                 radius=14, size=-13, tone=None, translate=True, bg=None, hover_when=None):
         super().__init__(parent, height=height, highlightthickness=0, takefocus=True, cursor="hand2")
         self.text, self.command, self.glyph, self.kind = text, command, glyph, kind
         self.fixed_width, self.radius, self.size = width, radius, size
         self.tone = tone or (lambda: C.BRAND)
         self.translate, self.surface = translate, bg
         self.enabled, self.hover, self.badge = True, False, None
+        # Optional gate: the dashboard highlights buttons only while the AC is on.
+        self.hover_when = hover_when
         self.bind("<Button-1>", lambda event: self.invoke())
         self.bind("<Return>", lambda event: self.invoke())
         self.bind("<space>", lambda event: self.invoke())
@@ -106,7 +108,7 @@ class PillButton(tk.Canvas):
         self.draw()
 
     def highlight(self, value):
-        self.hover = value
+        self.hover = bool(value) and (self.hover_when is None or bool(self.hover_when()))
         self.draw()
 
     def invoke(self):

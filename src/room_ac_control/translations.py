@@ -278,4 +278,6 @@ PORTUGUESE = {
     "Not used yet": "Ainda não usado", "Try again": "Tentar novamente", "Turn on": "Ligar", "Turn off": "Desligar",
     "Made in the hOn app": "Criado na app hOn", "{value}° steps": "passos de {value}°",
     "Show settings": "Mostrar definições", "Hide settings": "Ocultar definições", "More": "Mais",
+    "Start {name}? It may interrupt what the AC is doing.": "Iniciar {name}? Pode interromper o que o AC está a fazer.",
+    "Start": "Iniciar", "Started": "Iniciado", "Preview only": "Só pré-visualização",
 }
