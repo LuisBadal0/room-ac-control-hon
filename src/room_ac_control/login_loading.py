@@ -58,10 +58,13 @@ class LoginLoadingAnimation:
             self.started = started
 
     def resize(self):
-        if self.active:
-            center = self.canvas.winfo_width()/2
-            self.canvas.move(self.TAG, center-self.center, 0)
-            self.center = center
+        # Smooth arcs are redrawn from their own coordinates each frame, so moving the
+        # items would let the spinning segments jump back: redraw at the new centre.
+        if self.active and self.canvas.winfo_width()/2 != self.center:
+            automatic, started = self.automatic, self.started
+            self.stop()
+            self.start(automatic)
+            self.started = started
 
     def paint(self):
         phase = -(time.monotonic()-self.started)*240

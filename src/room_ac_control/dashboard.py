@@ -22,7 +22,7 @@ from .device_picker import DevicePicker, PowerButton
 from .diagnostics import diagnostics
 from .inline_timers import InlineTimers, EndAtCard
 from .temperature_wheel import TemperatureWheel
-from .widgets import PillButton, Toast, fan_bars
+from .widgets import PillButton, Toast, UpdateNotice, fan_bars
 from .i18n import Translator, LANGUAGES, tr, localized, TranslatedVariable, localized_title, broadcast_language, refresh_on_language
 from .smooth import aa_arc, aa_line, aa_oval, pil_font, aa_text
 
@@ -183,6 +183,7 @@ class App:
         self.status_label.bind("<Configure>",lambda event:self.status_label.configure(wraplength=max(1,event.width-24)))
         # Signed in, messages appear briefly above the action row instead.
         self.toast=Toast(root)
+        self.update_notice_bar=UpdateNotice(self)
         self.status.trace_add("write",lambda *args:self.status_changed())
         self.root.protocol("WM_DELETE_WINDOW",self.close)
         self.root.report_callback_exception = self.callback_failed
@@ -460,6 +461,10 @@ class App:
     def base_mode(self):
         """The displayed mode without its Night (Sleep) suffix, such as "Cool"."""
         return self.mode.get().replace(" Night", "")
+
+    def settings_accent(self):
+        """The selected mode's colour, kept while the AC is off; the brand blue before sign-in."""
+        return accent(self.base_mode()) if self.selected else C.BRAND
 
     def dial_accent(self):
         if not self.selected:
@@ -1214,6 +1219,7 @@ class App:
         if self.closing:return
         waiting = self.updater.release is not None and self.updater.state in {"available", "downloading", "verifying", "ready", "failed"}
         self.settings_button.set_badge(waiting)
+        self.update_notice_bar.refresh()
         if self.updater.state == "ready":
             # The person clicked Update; the helper waits for this process to exit.
             try:applied = self.updater.apply()
