@@ -22,7 +22,7 @@ The room card shows the active AC's name and model. Accounts with several units 
 
 ## Readings
 
-Below the unit picture, one row shows the **Room** temperature and what the AC itself measures: **Outside** temperature (from the outdoor unit's sensor), indoor **Humidity** and **Air quality** (Good, Medium or Poor). Each of the last three appears only when your model reports it. Units without a sensor report 0, so a reading of exactly 0 is hidden rather than shown as a real value. The outdoor sensor sits on the outdoor unit and can read warmer than the weather while the compressor runs in the sun.
+Below the unit picture, one row shows the **Room** temperature and what the AC itself measures: **Outside** temperature (from the outdoor unit's sensor), indoor **Humidity** and **Air quality** (Good, Medium or Poor). A reading your model doesn't report shows —. Units without a sensor report 0, so a reading of exactly 0 also shows — rather than a real value. The outdoor sensor sits on the outdoor unit and can read warmer than the weather while the compressor runs in the sun.
 
 A coloured banner below the unit picture appears when the AC reports a condition, and disappears by itself when it clears:
 
@@ -53,7 +53,7 @@ Animated airflow follows reported operation, with blue for cooling, amber for he
 All functions has four tabs. Options are discovered from the selected AC's hOn capabilities; unavailable or unreported values are identified in the interface. Choices you make here are staged on the dashboard: **Apply** and **Discard** appear at the bottom while changes wait, and the dashboard shows the same count.
 
 - **Settings**: a Comfort card with every mode, the fan speeds, airflow (which opens a picker that draws each louver position) and the target temperature; **Features** tiles that switch on/off settings such as Eco, Silent mode, Sleep and Buzzer (Echo); and **More settings** for anything else your AC exposes.
-- **Everyday use**: preset cards that list what each preset applies (mode, temperature, fan, airflow and features), and **Remembered per mode**, showing what each mode brings back when the AC is turned on in it.
+- **Everyday use**: Cool, Cool Night, Heat and Heat Night first, each with its settings (mode, temperature, fan, airflow and features) behind **Show settings**; any other presets under **More**, closed until you open it; and **Remembered per mode**, showing what each mode brings back when the AC is turned on in it.
 - **Maintenance**: the air-filter reminder status and the cleaning routines your AC offers.
 - **Schedules**: a week view of every timer saved in hOn, the repeating schedules with their days, mode and an on/off switch, one-time timers, and **New schedule** (see Repeating schedules).
 
