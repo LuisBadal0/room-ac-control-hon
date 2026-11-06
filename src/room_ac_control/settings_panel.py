@@ -10,6 +10,8 @@ from .i18n import LANGUAGES, tr, refresh_on_language
 from .theme import C, font, icon, measure, rounded, blend, refresh_on_theme
 from .updates_view import update_message, primary_label, primary_enabled, run_primary
 from .widgets import Overlay, raise_widget, section_label, switch
+from .smooth import texts as canvas_texts
+from .smooth import aa_arc, aa_line, aa_oval, aa_rect, aa_text
 
 WIDTH = 330
 LOOKS = (("system", "Follow Windows"), ("light", "Light mode"), ("dark", "Dark mode"))
@@ -59,13 +61,13 @@ class SettingsPanel:
         inner = WIDTH-36
         tone = self.app.dial_accent()
         y = 18
-        text = lambda x, y, value, size, color=None, anchor="w", weight="normal": c.create_text(
+        text = lambda x, y, value, size, color=None, anchor="w", weight="normal": aa_text(c, 
             x, y, text=value, anchor=anchor, fill=color or C.TEXT, font=font(size, weight))
         # Header.
         text(18, y+15, tr(c, "Settings"), -18, weight="black")
         rounded(c, WIDTH-48, y, WIDTH-18, y+30, 8, fill=C.SURFACE, outline="")
-        c.create_line(WIDTH-38, y+10, WIDTH-28, y+20, fill=C.MUTED, width=2.2, capstyle="round")
-        c.create_line(WIDTH-28, y+10, WIDTH-38, y+20, fill=C.MUTED, width=2.2, capstyle="round")
+        aa_line(c, WIDTH-38, y+10, WIDTH-28, y+20, fill=C.MUTED, width=2.2, capstyle="round")
+        aa_line(c, WIDTH-28, y+10, WIDTH-38, y+20, fill=C.MUTED, width=2.2, capstyle="round")
         self.regions.append(((WIDTH-48, y, WIDTH-18, y+30), self.close))
         y += 44
         # Appearance.
@@ -81,15 +83,15 @@ class SettingsPanel:
             rounded(c, x1, y, x2, y+64, 12, fill=left, outline="")
             if right != left:
                 rounded(c, middle, y, x2, y+64, 12, fill=right, outline="")
-                c.create_rectangle(middle, y, middle+14, y+64, fill=right, outline="")
+                aa_rect(c, middle, y, middle+14, y+64, fill=right, outline="")
             rounded(c, x1, y, x2, y+64, 12, fill="", outline=tone if active else C.TRACK, width=2)
-            c.create_arc(middle-14, y+9, middle+14, y+37, start=-45, extent=270, style="arc", outline=ring, width=5)
-            c.create_arc(middle-14, y+9, middle+14, y+37, start=225, extent=-120, style="arc", outline=tone, width=5)
+            aa_arc(c, middle-14, y+9, middle+14, y+37, start=-45, extent=270, style="arc", outline=ring, width=5)
+            aa_arc(c, middle-14, y+9, middle+14, y+37, start=225, extent=-120, style="arc", outline=tone, width=5)
             rounded(c, x1+12, y+50, x2-12, y+56, 3, fill=ring, outline="")
             text(middle, y+77, tr(c, label), -11, tone if active else C.MUTED, "center", "bold")
             self.regions.append(((x1, y, x2, y+86), lambda value=value: self.pick_look(value)))
         y += 86+14
-        c.create_line(18, y, WIDTH-18, y, fill=C.TRACK)
+        aa_line(c, 18, y, WIDTH-18, y, fill=C.TRACK)
         y += 14
         # Language.
         section_label(c, 18, y+6, "Language")
@@ -103,26 +105,27 @@ class SettingsPanel:
             rounded(c, 30, y+10, 60, y+32, 6, fill=C.SURFACE, outline="")
             text(45, y+21, code, -10, C.MUTED, "center", "black")
             text(72, y+21, label, -13, weight="bold")
-            c.create_oval(WIDTH-48, y+12, WIDTH-30, y+30, outline=tone if active else C.FAINT, width=2)
+            aa_oval(c, WIDTH-48, y+12, WIDTH-30, y+30, outline=tone if active else C.FAINT, width=2)
             if active:
-                c.create_oval(WIDTH-43, y+17, WIDTH-35, y+25, fill=tone, outline="")
+                aa_oval(c, WIDTH-43, y+17, WIDTH-35, y+25, fill=tone, outline="")
             self.regions.append(((18, y, WIDTH-18, y+42), lambda value=value: self.pick_language(value)))
             y += 46
         y += 10
-        c.create_line(18, y, WIDTH-18, y, fill=C.TRACK)
+        aa_line(c, 18, y, WIDTH-18, y, fill=C.TRACK)
         y += 14
         # Updates.
         section_label(c, 18, y+6, "Updates")
         y += 22
-        self.draw_update(c, y, text, tone)
-        y += 50
+        # The status can wrap to several lines (Portuguese often does): the rows below move down.
+        bottom = self.draw_update(c, y, text, tone)
+        y = max(y+50, bottom+14)
         supported = self.app.updater.supported
         text(18, y+18, tr(c, "Check automatically"), -13, C.TEXT if supported else C.FAINT, weight="semibold")
         switch(c, WIDTH-58, y+6, self.app.updater.enabled and supported, tone)
         if supported:
             self.regions.append(((18, y, WIDTH-18, y+36), self.toggle_automatic))
         y += 36+14
-        c.create_line(18, y, WIDTH-18, y, fill=C.TRACK)
+        aa_line(c, 18, y, WIDTH-18, y, fill=C.TRACK)
         y += 10
         # Sign out.
         available = bool(self.app.selected) and not self.app.busy and not self.app.demo
@@ -159,11 +162,10 @@ class SettingsPanel:
         fill = blend(C.OK, C.CARD, .14) if done else blend(tone, C.CARD, .14)
         rounded(c, 18, y, 56, y+38, 11, fill=fill, outline="")
         ink = C.OK if done else (C.DANGER if glyph == "alert" else tone)
-        tag = icon(c, glyph, 37, y+19, ink, scale=.68, bg=fill)
-        if spinning:
-            self.rotate(c, tag, 37, y+19, (time.monotonic()*360) % 360)
-            if self.spin_job is None:
-                self.spin_job = self.canvas.after(60, self.spin)
+        turn = (time.monotonic()*360) % 360 if spinning else 0
+        icon(c, glyph, 37, y+19, ink, scale=.68, bg=fill, rotate=turn)
+        if spinning and self.spin_job is None:
+            self.spin_job = self.canvas.after(60, self.spin)
         label = tr(c, primary_label(self.app.updater))
         enabled = primary_enabled(self.app.updater)
         accent_button = primary_label(self.app.updater) == "Update"
@@ -179,23 +181,8 @@ class SettingsPanel:
         version = text(66, y+9, tr(c, "Version {version}").format(version=__version__), -13, weight="black")
         right = c.bbox(version)[2]
         self.regions.append(((66, y, right, y+18), lambda: self.app.open_updates()))
-        c.create_text(66, y+18, text=line, anchor="nw", fill=color, font=font(-11, "semibold"), width=x1-76)
-
-    @staticmethod
-    def rotate(canvas, tag, x, y, degrees):
-        a = math.radians(degrees)
-        for item in canvas.find_withtag(tag):
-            if canvas.type(item) not in {"line", "polygon"}:
-                continue
-            points = canvas.coords(item)
-            turned = []
-            for px, py in zip(points[::2], points[1::2]):
-                dx, dy = px-x, py-y
-                turned += [x+dx*math.cos(a)-dy*math.sin(a), y+dx*math.sin(a)+dy*math.cos(a)]
-            canvas.coords(item, *turned)
-        for item in canvas.find_withtag(tag):
-            if canvas.type(item) == "arc":
-                canvas.itemconfigure(item, start=float(canvas.itemcget(item, "start"))-degrees)
+        status = aa_text(c, 66, y+18, text=line, anchor="nw", fill=color, font=font(-11, "semibold"), width=x1-76)
+        return max(y+38, c.bbox(status)[3])
 
     def spin(self):
         self.spin_job = None
@@ -238,7 +225,7 @@ class SettingsPanel:
         run_primary(self.app, self.root)
 
     def texts(self):
-        return [self.canvas.itemcget(item, "text") for item in self.canvas.find_all() if self.canvas.type(item) == "text"]
+        return [text for item, text in canvas_texts(self.canvas)]
 
     def toggle_automatic(self):
         self.app.set_auto_update(not self.app.updater.enabled)

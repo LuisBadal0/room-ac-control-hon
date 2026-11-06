@@ -6,6 +6,7 @@ import webbrowser
 from . import __version__
 from .i18n import tr, localized, localized_title, refresh_on_language
 from .theme import C, font, icon, paint, rounded, refresh_on_theme
+from .smooth import aa_oval, aa_text
 
 SIZE = (480, 410)
 
@@ -125,11 +126,11 @@ class UpdatesView:
         failed = self.updater.state == "failed"
         rounded(c, 1, 1, width-1, 127, 14, fill=C.CARD, outline=C.EDGE)
         circle = C.DANGER_BG if failed else C.SOFT
-        c.create_oval(18, 18, 58, 58, fill=circle, outline="")
+        aa_oval(c, 18, 18, 58, 58, fill=circle, outline="")
         icon(c, "alert" if failed else "update", 38, 38, C.DANGER_TEXT if failed else C.ON_SOFT, scale=.8, bg=circle)
         headline, detail = self.message()
-        c.create_text(74, 28, text=tr(c, headline), anchor="w", fill=C.TEXT, font=font(12, "bold"), width=width-92)
-        c.create_text(74, 52, text=tr(c, detail), anchor="nw", fill=C.MUTED, font=font(9), width=width-92)
+        aa_text(c, 74, 28, text=tr(c, headline), anchor="w", fill=C.TEXT, font=font(12, "bold"), width=width-92)
+        aa_text(c, 74, 52, text=tr(c, detail), anchor="nw", fill=C.MUTED, font=font(9), width=width-92)
         if self.updater.state in {"downloading", "verifying"}:
             rounded(c, 74, 108, width-18, 114, 3, fill=C.SURFACE, outline="")
             done = 1.0 if self.updater.state == "verifying" else max(.02, self.updater.progress)

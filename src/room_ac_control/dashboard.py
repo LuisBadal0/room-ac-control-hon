@@ -24,6 +24,7 @@ from .inline_timers import InlineTimers, EndAtCard
 from .temperature_wheel import TemperatureWheel
 from .widgets import PillButton, Toast, fan_bars
 from .i18n import Translator, LANGUAGES, tr, localized, TranslatedVariable, localized_title, broadcast_language, refresh_on_language
+from .smooth import aa_arc, aa_line, aa_oval, pil_font, aa_text
 
 # The dashboard canvas uses the mockup's 500 px grid and is scaled with the window.
 WIDTH = 500
@@ -296,7 +297,7 @@ class App:
         width=max(c.winfo_width(),1)
         label=tr(c,"In sync with the AC")
         right=width-4
-        c.create_text(right,24,text=label,anchor="e",fill=C.MUTED,font=font(-12,"semibold"))
+        aa_text(c, right,24,text=label,anchor="e",fill=C.MUTED,font=font(-12,"semibold"))
         icon(c,"check",right-measure(c,label,-12,"semibold")-12,24,C.MUTED,scale=.6,bg=C.BG)
 
     QUIET = {"Changes ready. Apply them, or use the power button to turn on.", "No pending changes.",
@@ -482,7 +483,7 @@ class App:
         s=width/WIDTH
         self.canvas_hover.reset(s,enabled=not self.busy)
         tone=self.dial_accent()
-        text=lambda x,y,t,size=-13,color=None,anchor="w",weight="normal",translate=True:c.create_text(
+        text=lambda x,y,t,size=-13,color=None,anchor="w",weight="normal",translate=True:aa_text(c, 
             x,y,text=tr(c,t) if translate else t,fill=color or C.TEXT,anchor=anchor,font=font(size,weight))
         hit=lambda box,fn:self.hits.append((box,fn))
         self.draw_glow(c,tone)
@@ -501,12 +502,6 @@ class App:
         # Canvas scaling also changes embedded window dimensions. Apply its final
         # width once, while preserving the native wheels' full height.
         c.itemconfigure(timer_row,width=round(WIDTH*s),height=EndAtCard.HEIGHT)
-        number,symbol=c.bbox("target-temperature"),c.bbox("temperature-unit")
-        if number and symbol:
-            left=DIAL[0]*s-((number[2]-number[0])+(symbol[2]-symbol[0]))/2
-            c.move("target-temperature",left-number[0],0)
-            number=c.bbox("target-temperature")
-            c.coords("temperature-unit",number[2],c.coords("temperature-unit")[1])
         self.canvas.configure(height=int(CANVAS_HEIGHT*s))
         flowing=self.selected if not c.find_withtag("alert") else None
         self.airflow.set_state(flowing,WIDTH/2,FLOW[0],FLOW[1],FLOW[2],s)
@@ -544,11 +539,11 @@ class App:
         fill,ink=(self.soft(tone,C.BG),tone) if on else (C.CARD,C.MUTED)
         # The chip sits beside the unit, so a long label drops the mode name.
         if measure(c,label,-11,"bold")+36>112 and self.selected["power"]=="On" and not self.pending_changes:
-            label=tr(c,"Running")
+            label=tr(c,"running").capitalize()
         width=measure(c,label,-11,"bold")+36
         rounded(c,0,CHIP[0],width,CHIP[1],13,fill=fill,outline="")
         middle=(CHIP[0]+CHIP[1])/2
-        c.create_oval(10,middle-3,16,middle+3,fill=ink,outline="")
+        aa_oval(c, 10,middle-3,16,middle+3,fill=ink,outline="")
         text(22,middle,label,-11,ink,weight="bold",translate=False)
 
     def draw_readings(self,c,text):
@@ -572,7 +567,7 @@ class App:
             items.append(text(x+12,top+19,caption,-11,C.MUTED,weight="semibold",translate=False))
             value_x=x+12
             if dot:
-                items.append(c.create_oval(x+12,top+36,x+20,top+44,fill=dot,outline=""))
+                items.append(aa_oval(c, x+12,top+36,x+20,top+44,fill=dot,outline=""))
                 value_x+=14
             items.append(text(value_x,top+40,value,-17,weight="bold",translate=False))
             for item in items:c.addtag_withtag("reading",item)
@@ -589,47 +584,61 @@ class App:
         point=lambda angle,radius:(cx+radius*math.cos(math.radians(angle)),cy+radius*math.sin(math.radians(angle)))
         for index in range(17):
             angle=DIAL_START+DIAL_SWEEP*index/16
-            c.create_line(*point(angle,135 if index%4==0 else 139),*point(angle,145),fill=C.FAINT,width=2,capstyle="round")
+            aa_line(c, *point(angle,135 if index%4==0 else 139),*point(angle,145),fill=C.FAINT,width=2,capstyle="round")
         box=(cx-r,cy-r,cx+r,cy+r)
-        c.create_arc(*box,start=-45,extent=270,style="arc",outline=C.TRACK,width=14)
-        cap=lambda angle,color:c.create_oval(point(angle,r)[0]-7,point(angle,r)[1]-7,point(angle,r)[0]+7,point(angle,r)[1]+7,fill=color,outline="")
+        aa_arc(c, *box,start=-45,extent=270,style="arc",outline=C.TRACK,width=14)
+        cap=lambda angle,color:aa_oval(c, point(angle,r)[0]-7,point(angle,r)[1]-7,point(angle,r)[0]+7,point(angle,r)[1]+7,fill=color,outline="")
         cap(DIAL_START+DIAL_SWEEP,C.TRACK)
         cap(DIAL_START,tone if values and current is not None else C.TRACK)
         if values and current is not None:
-            if ratio>0:c.create_arc(*box,start=225,extent=-DIAL_SWEEP*ratio,style="arc",outline=tone,width=14)
+            if ratio>0:aa_arc(c, *box,start=225,extent=-DIAL_SWEEP*ratio,style="arc",outline=tone,width=14)
             tx,ty=point(DIAL_START+DIAL_SWEEP*ratio,r)
             halo=blend(tone,C.BG,.28 if self.dial_drag else .14)
-            c.create_oval(tx-22,ty-22,tx+22,ty+22,fill=halo,outline="",tags="dial-halo")
-            c.create_oval(tx-14,ty-14,tx+14,ty+14,fill=C.BG,outline=tone,width=4,tags="dial-thumb")
-            c.create_oval(tx-4,ty-4,tx+4,ty+4,fill=tone,outline="")
+            aa_oval(c, tx-22,ty-22,tx+22,ty+22,fill=halo,outline="",tags="dial-halo")
+            aa_oval(c, tx-14,ty-14,tx+14,ty+14,fill=C.BG,outline=tone,width=4,tags="dial-thumb")
+            aa_oval(c, tx-4,ty-4,tx+4,ty+4,fill=tone,outline="")
             self.canvas_hover.add((tx-24,ty-24,tx+24,ty+24),c.find_withtag("dial-halo")[0],{"fill":halo},
                                   {"fill":blend(tone,C.BG,.28)})
         text(cx-80,top+262,self.i18n.number(f"{low:g}°"),-12,C.MUTED,"center","semibold",translate=False)
         text(cx+80,top+262,self.i18n.number(f"{high:g}°"),-12,C.MUTED,"center","semibold",translate=False)
-        # Centre: what the AC is doing, the target, and the room beside the outside reading.
+        # Centre: what the AC is doing above the target. The digits are centred on the
+        # ring by their drawn outline, with °C hanging off their top right.
         verb="Off" if self.selected["power"]!="On" else VERBS.get(self.base_mode(),"Target temperature")
-        text(cx,top+86,tr(c,verb).upper(),-12,tone,"center","black",translate=False)
         value="—" if current is None else self.i18n.number(f"{current:g}")
-        number=text(cx,top+144,value,-96,anchor="center",weight="light",translate=False)
-        c.itemconfigure(number,tags="target-temperature")
-        unit=text(cx+60,top+110,"°C",-26,C.MUTED,"nw",translate=False)
-        c.itemconfigure(unit,tags="temperature-unit")
-        sensors=self.selected.get("sensors",{})
-        if self.selected["power"]!="On":
-            subline=tr(c,"Press power to resume {mode}").format(mode=tr(c,self.base_mode()))
+        size=96
+        face,unit_face=pil_font(c,font(-size,"light")),pil_font(c,font(-26,"normal"))
+        middle=cy+6
+        if face is not None and unit_face is not None:
+            # Whole degrees keep the mockup's 96 px; wider values such as 25,5 shrink to stay in the ring.
+            unit_width=unit_face.getlength("°C")
+            room=2*(r-24)
+            left,top_edge,right,bottom=face.getbbox(value)
+            while size>56 and (right-left)+6+unit_width>room:
+                size-=4
+                face=pil_font(c,font(-size,"light"))
+                left,top_edge,right,bottom=face.getbbox(value)
+            x,y=cx-(left+right)/2,middle-(top_edge+bottom)/2
+            # Keep °C inside the ring: shift the pair left only as far as needed.
+            x-=max(0,x+right+6+unit_width-(cx+room/2))
+            number=text(x,y,value,-size,anchor="nw",weight="light",translate=False)
+            unit_top=unit_face.getbbox("°C")[1]
+            unit=text(x+right+6,y+top_edge-unit_top,"°C",-26,C.MUTED,"nw",translate=False)
+            digits_top=y+top_edge
         else:
-            try:subline=tr(c,"Room is {value}").format(value=self.i18n.number(f"{float(self.selected['room']):.1f}")+"°")
-            except (TypeError,ValueError):subline=""
-            if "outdoor" in sensors:
-                subline+=" · "+tr(c,"{value} outside").format(value=self.i18n.number(f"{float(sensors['outdoor']):.0f}")+"°")
-        text(cx,top+202,subline,-13,C.MUTED,"center","semibold",translate=False)
+            number=text(cx,middle,value,-96,anchor="center",weight="light",translate=False)
+            box=c.bbox(number)
+            unit=text(box[2]+4,box[1]+14,"°C",-26,C.MUTED,"nw",translate=False)
+            digits_top=box[1]+14
+        c.itemconfigure(number,tags="target-temperature")
+        c.itemconfigure(unit,tags="temperature-unit")
+        text(cx,digits_top-26,tr(c,verb).upper(),-12,tone,"center","black",translate=False)
         # −/+ beside the ring's open end.
         for x,direction in ((48,-1),(WIDTH-48,1)):
             y=top+222
-            step=c.create_oval(x-26,y-26,x+26,y+26,fill=C.CARD,outline="")
+            step=aa_oval(c, x-26,y-26,x+26,y+26,fill=C.CARD,outline="")
             mark=C.TEXT if values else C.FAINT
-            c.create_line(x-8,y,x+8,y,fill=mark,width=2.4,capstyle="round")
-            if direction>0:c.create_line(x,y-8,x,y+8,fill=mark,width=2.4,capstyle="round")
+            aa_line(c, x-8,y,x+8,y,fill=mark,width=2.4,capstyle="round")
+            if direction>0:aa_line(c, x,y-8,x,y+8,fill=mark,width=2.4,capstyle="round")
             if values:
                 self.canvas_hover.add((x-26,y-26,x+26,y+26),step,{"fill":C.CARD},{"fill":C.HOVER})
                 hit((x-26,y-26,x+26,y+26),lambda direction=direction:self.step_temp(direction))

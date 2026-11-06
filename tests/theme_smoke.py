@@ -46,6 +46,17 @@ def stale_colours(root, previous):
                         continue
                     if value in stale:
                         found.append((str(widget), widget.type(item), option, value))
+            # Smooth shapes and text are images; check the colours they were drawn with.
+            alive = set(widget.find_all())
+            for item, ops in widget.__dict__.get("smooth_items", {}).items():
+                if item in alive:
+                    for kind, coords, options in ops:
+                        for option in ("fill", "outline"):
+                            if str(options.get(option, "")).lower() in stale:
+                                found.append((str(widget), "smooth " + kind, option, options[option]))
+            for item, label in widget.__dict__.get("smooth_texts", {}).items():
+                if item in alive and str(label["fill"]).lower() in stale:
+                    found.append((str(widget), "smooth text", label["text"], label["fill"]))
     return found
 
 

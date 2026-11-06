@@ -3,6 +3,7 @@ import time
 
 from .theme import C, font, blend, refresh_on_theme
 from .i18n import tr, refresh_on_language
+from .smooth import aa_arc, aa_line, aa_oval, aa_rect, restyle, aa_text
 
 
 class LoginLoadingAnimation:
@@ -28,16 +29,16 @@ class LoginLoadingAnimation:
         self.started = time.monotonic()
         self.center = self.canvas.winfo_width()/2
         x = self.center
-        self.canvas.create_oval(x-34, 96, x+34, 164, outline=C.SURFACE, width=4, tags=self.TAG)
+        aa_oval(self.canvas, x-34, 96, x+34, 164, outline=C.SURFACE, width=4, tags=self.TAG)
         for index in range(12):
-            self.segments.append(self.canvas.create_arc(x-34, 96, x+34, 164,
+            self.segments.append(aa_arc(self.canvas, x-34, 96, x+34, 164,
                 start=index*18, extent=16, style="arc", width=4,
                 outline=blend(C.BRAND, C.CARD, 1-index/13), tags=self.TAG))
-        self.canvas.create_rectangle(x-13, 122, x+13, 137, outline=C.BRAND, width=1.5, tags=self.TAG)
-        self.canvas.create_line(x-10, 133, x+10, 133, fill=C.BRAND, width=1.5, tags=self.TAG)
-        self.heading = self.canvas.create_text(x, 205, text=tr(self.canvas,"Welcome back" if automatic else "Signing in"),
+        aa_rect(self.canvas, x-13, 122, x+13, 137, outline=C.BRAND, width=1.5, tags=self.TAG)
+        aa_line(self.canvas, x-10, 133, x+10, 133, fill=C.BRAND, width=1.5, tags=self.TAG)
+        self.heading = aa_text(self.canvas, x, 205, text=tr(self.canvas,"Welcome back" if automatic else "Signing in"),
             fill=C.TEXT, font=font(18, "black"), tags=self.TAG)
-        self.caption = self.canvas.create_text(x, 244,
+        self.caption = aa_text(self.canvas, x, 244,
             text=tr(self.canvas,"Signing in with your saved account." if automatic else "Connecting to hOn and loading your AC."),
             fill=C.MUTED, font=font(10), width=380, tags=self.TAG)
         self.paint()
@@ -45,8 +46,8 @@ class LoginLoadingAnimation:
 
     def refresh_language(self):
         if self.active and not self.closed:
-            self.canvas.itemconfigure(self.heading,text=tr(self.canvas,"Welcome back" if self.automatic else "Signing in"))
-            self.canvas.itemconfigure(self.caption,text=tr(self.canvas,"Signing in with your saved account." if self.automatic else "Connecting to hOn and loading your AC."))
+            restyle(self.canvas,self.heading,text=tr(self.canvas,"Welcome back" if self.automatic else "Signing in"))
+            restyle(self.canvas,self.caption,text=tr(self.canvas,"Signing in with your saved account." if self.automatic else "Connecting to hOn and loading your AC."))
 
     def refresh_theme(self):
         # Redraw in the new palette without restarting the visible rotation.
@@ -65,7 +66,7 @@ class LoginLoadingAnimation:
     def paint(self):
         phase = -(time.monotonic()-self.started)*240
         for index, segment in enumerate(self.segments):
-            self.canvas.itemconfigure(segment, start=(phase+index*18) % 360)
+            restyle(self.canvas, segment, start=(phase+index*18) % 360)
 
     def tick(self):
         self.job = None

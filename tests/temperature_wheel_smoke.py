@@ -6,6 +6,7 @@ from types import SimpleNamespace
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+from room_ac_control.smooth import texts as canvas_texts
 from room_ac_control.dashboard import App
 from room_ac_control.temperature_wheel import TemperatureWheel
 from tests.ui_smoke import demo_device
@@ -46,8 +47,7 @@ try:
     view.configure_function(preset)
     root.update()
     wheel = next(widget for widget in view.sheet["widgets"] if isinstance(widget, TemperatureWheel))
-    texts = [view.sheet["canvas"].itemcget(item, "text") for item in view.sheet["canvas"].find_all()
-             if view.sheet["canvas"].type(item) == "text"]
+    texts = [text for item, text in canvas_texts(view.sheet["canvas"])]
     assert "Temperature" in texts and "Start preset" in texts, texts
     before = view.content.yview()
     wheel.event_generate("<MouseWheel>", delta=120)

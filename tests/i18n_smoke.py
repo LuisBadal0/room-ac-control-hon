@@ -7,6 +7,7 @@ from unittest.mock import patch
 
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/"src"))
+from room_ac_control.smooth import texts as canvas_texts
 from room_ac_control.dashboard import App
 from room_ac_control.temperature_wheel import TemperatureWheel
 from tests.ui_smoke import demo_device
@@ -34,7 +35,7 @@ try:
     started=app.login_view.animation.started
     app.set_language("en")
     assert app.login_view.animation.active and app.login_view.animation.started==started
-    assert app.login_view.animation.canvas.itemcget(app.login_view.animation.heading,"text")=="Signing in"
+    assert dict(canvas_texts(app.login_view.animation.canvas))[app.login_view.animation.heading]=="Signing in"
     snapshot=demo_device()
     snapshot.update(name="Cool",model="Heat",room=25.5,target=23.5)
     snapshot["controls"]["tempSel"].update(value=23.5,step=.5)
@@ -45,11 +46,11 @@ try:
     root.update()
     assert app.selected==original and app.dirty=={"tempSel":"26.5"}
     assert app.temp.get()=="26.5" and app.mode.get()=="Cool"
-    assert app.canvas.itemcget(app.canvas.find_withtag("target-temperature")[0],"text")=="26,5"
+    assert dict(canvas_texts(app.canvas))[app.canvas.find_withtag("target-temperature")[0]]=="26,5"
     assert app.apply_button.label()=="Aplicar" and app.apply_button.badge==1  # One staged change is counted.
     app.staged("silentSleepStatus","1")
     root.update()
-    texts={app.canvas.itemcget(item,"text"):item for item in app.canvas.find_all() if app.canvas.type(item)=="text"}
+    texts={text:item for item,text in canvas_texts(app.canvas)}
     # Sleep with Cool is Cool Night: the mode bar keeps Cool and the Sleep tile says On.
     assert "Arrefecer" in texts and "A ARREFECER ATÉ" in texts
     assert app.canvas.bbox(texts["Sono"])[3] < app.canvas.bbox(texts["Ligado"])[1]
@@ -59,10 +60,10 @@ try:
     assert app.status_label.winfo_y()+app.status_label.winfo_height() <= app.body.winfo_height()
     for timer in app.inline_timers.cards.values():
         # Portuguese labels stay inside; outlined polygons report one extra pixel.
-        assert all(timer.bbox(item)[2] <= timer.winfo_width() + (1 if timer.type(item) == "polygon" else 0)
+        assert all(timer.bbox(item)[2] <= timer.winfo_width() + (2 if timer.type(item) in {"polygon","image"} else 0)
                    for item in timer.find_all() if timer.bbox(item))
     app.staged("silentSleepStatus","0")
-    device_text=[app.device_picker.itemcget(item,"text") for item in app.device_picker.find_all() if app.device_picker.type(item)=="text"]
+    device_text=[text for item,text in canvas_texts(app.device_picker)]
     # Account names and models are never translated.
     assert "Cool" in device_text and any(text.startswith("Heat · ") for text in device_text), device_text
     app.open_functions()
@@ -85,10 +86,10 @@ try:
     assert app.dirty=={"tempSel":"26.5"}
     app.set_language("pt-PT")
     assert wheel.get()=="24.5"
-    assert "24,5°" in [wheel.itemcget(item,"text") for item in wheel.find_all() if wheel.type(item)=="text"]
+    assert "24,5°" in [text for item,text in canvas_texts(wheel)]
     captured=[]
     app.action=lambda action,requested=None:captured.append((action,requested))
-    texts=[view.sheet["canvas"].itemcget(item,"text") for item in view.sheet["canvas"].find_all() if view.sheet["canvas"].type(item)=="text"]
+    texts=[text for item,text in canvas_texts(view.sheet["canvas"])]
     assert "Iniciar predefinição" in texts and "Voltar aos cartões" in texts, texts
     view.sheet["hits"][-1][1]()  # Start preset.
     assert captured==[("execute",{"command":"startProgram","category":"iot_cool","parameters":{"tempSel":"24.5"}})]

@@ -11,6 +11,7 @@ from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1])); sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from room_ac_control import updates
+from room_ac_control.smooth import texts as canvas_texts
 from room_ac_control.dashboard import App
 from room_ac_control.demo import devices
 
@@ -49,7 +50,7 @@ try:
     app.open_updates()
     view = app.updates_view
     settle(root, lambda: float(view.window.attributes("-alpha")) == 1.0)
-    texts = [view.card.itemcget(item, "text") for item in view.card.find_all() if view.card.type(item) == "text"]
+    texts = [text for item, text in canvas_texts(view.card)]
     assert "Updates are off in the preview" in texts, texts
     assert view.primary.instate(["disabled"]) and view.toggle.instate(["disabled"])
     buttons = [child.cget("text") for child in view.primary.master.winfo_children() if child.winfo_class() == "TButton"]

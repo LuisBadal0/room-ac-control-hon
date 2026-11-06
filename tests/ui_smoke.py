@@ -5,6 +5,7 @@ import tkinter as tk
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1])); sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+from room_ac_control.smooth import texts as canvas_texts
 from room_ac_control.dashboard import App
 from room_ac_control.controller import describe
 from tests.test_controller import make_device
@@ -158,7 +159,7 @@ if __name__ == "__main__":
     assert view.visible_items[0]["section"] == "maintenance"
     view.configure_function(view.visible_items[0])
     root.update_idletasks()
-    texts=[view.sheet["canvas"].itemcget(item,"text") for item in view.sheet["canvas"].find_all() if view.sheet["canvas"].type(item)=="text"]
+    texts=[text for item,text in canvas_texts(view.sheet["canvas"])]
     assert "Start maintenance routine" in texts, texts
     view.close_sheet()
     view.search.set("zzzz-no-such-function")

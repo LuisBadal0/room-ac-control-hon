@@ -52,7 +52,7 @@ try:
         assert card.minute.winfo_x() + card.minute.winfo_width() < card.chip_box[0]
         assert card.chip_box[2] < width - 10 - EndAtCard.BUTTON
         for item in card.find_all():
-            margin = 2 if card.type(item) == "polygon" else 0
+            margin = 2 if card.type(item) in {"polygon", "image"} else 0
             left, top, right, bottom = card.bbox(item)
             assert left >= -1 and top >= -1 and right <= width + margin and bottom <= card.winfo_height() + margin
         button = SimpleNamespace(x=width - 10 - EndAtCard.BUTTON/2, y=42)
@@ -116,7 +116,7 @@ try:
             assert len(readings) >= 12, readings
             for item in readings:
                 left, top, right, bottom = app.canvas.bbox(item)
-                margin = 2 if app.canvas.type(item) == "polygon" else 0
+                margin = 2 if app.canvas.type(item) in {"polygon", "image"} else 0
                 assert top >= READINGS_TOP * scale - margin and bottom <= (READINGS_TOP + READINGS_HEIGHT) * scale + margin
                 assert left >= -margin and right <= app.canvas.winfo_width() + margin
             for alerts in ([{"kind": "error", "code": "E7"}, {"kind": "filter"}], [{"kind": "defrost"}], [{"kind": "filter"}]):
@@ -127,7 +127,7 @@ try:
                 assert len(items) >= 4, items
                 for item in items:
                     left, top, right, bottom = app.canvas.bbox(item)
-                    margin = 2 if app.canvas.type(item) == "polygon" else 0
+                    margin = 2 if app.canvas.type(item) in {"polygon", "image"} else 0
                     assert top >= (BANNER[1] * scale) - margin and bottom <= BANNER[3] * scale + margin, (language, alerts)
                     assert left >= -margin and right <= app.canvas.winfo_width() + margin, (language, alerts)
                     assert bottom < READINGS_TOP * scale

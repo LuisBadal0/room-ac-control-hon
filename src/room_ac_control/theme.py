@@ -1,5 +1,6 @@
 """Light and dark "Ambient" palettes, mode accents and native vector artwork."""
 from .i18n import tr
+from .smooth import Recorder, sprite, aa_rounded, aa_line, aa_oval, aa_polygon, aa_arc, aa_text, text_width
 import ctypes
 import itertools
 import math
@@ -146,7 +147,9 @@ def font(size, weight="normal"):
 
 
 def measure(widget, text, size, weight="normal"):
-    return tkfont.Font(widget, font=font(size, weight)).measure(text)
+    """Text width in pixels, measured the way smooth canvas text is drawn."""
+    width = text_width(widget, text, font(size, weight))
+    return math.ceil(width) if width is not None else tkfont.Font(widget, font=font(size, weight)).measure(text)
 
 
 def unit_photo(master, width=390):
@@ -158,21 +161,22 @@ def unit_photo(master, width=390):
 
 
 def rounded(canvas, x1, y1, x2, y2, radius=12, **options):
-    points = [x1+radius,y1,x2-radius,y1,x2,y1,x2,y1+radius,x2,y2-radius,x2,y2,x2-radius,y2,x1+radius,y2,x1,y2,x1,y2-radius,x1,y1+radius,x1,y1]
-    return canvas.create_polygon(points, smooth=True, splinesteps=24, **options)
+    """A rounded rectangle with anti-aliased edges (see smooth.py)."""
+    return aa_rounded(canvas, x1, y1, x2, y2, radius, **options)
 
 
 _icon_ids = itertools.count()
 
 
-def icon(canvas, name, x, y, color=None, scale=1, bg=None, tags=()):
-    """Stroke glyphs drawn around (x, y) at about 24 px, then scaled in place."""
+def icon(canvas, name, x, y, color=None, scale=1, bg=None, tags=(), rotate=0):
+    """Stroke glyphs drawn around (x, y) at about 24 px, scaled in place and placed as one smooth image."""
     color = color or C.BRAND
     bg = bg or C.CARD
     tag = f"icon-{next(_icon_ids)}"
     tags = (tag, *tags)
-    line = lambda *p, width=1.6: canvas.create_line(*p, fill=color, width=width, capstyle="round", joinstyle="round", tags=tags)
-    oval = lambda x1, y1, x2, y2, **o: canvas.create_oval(x1, y1, x2, y2, tags=tags, **({"outline": color, "width": 1.5} | o))
+    target, canvas = canvas, Recorder()
+    line = lambda *p, width=1.6: aa_line(canvas, *p, fill=color, width=width, capstyle="round", joinstyle="round", tags=tags)
+    oval = lambda x1, y1, x2, y2, **o: aa_oval(canvas, x1, y1, x2, y2, tags=tags, **({"outline": color, "width": 1.5} | o))
     if name.startswith("vane_"):
         # The louver progressively opens away from the fixed top edge.
         angle = math.radians((4, 21, 38, 55, 72)[int(name[-1])-1])
@@ -221,14 +225,14 @@ def icon(canvas, name, x, y, color=None, scale=1, bg=None, tags=()):
         inner = run(circle(ix, iy, ri), inside_outer)
         if math.dist(inner[0], arc[-1]) > math.dist(inner[-1], arc[-1]):
             inner.reverse()
-        canvas.create_polygon(*arc, *inner, fill="", outline=color, width=1.5, joinstyle="round", tags=tags)
+        aa_polygon(canvas, *arc, *inner, fill="", outline=color, width=1.5, joinstyle="round", tags=tags)
     elif name == "wind":
         for offset, length in ((-6, 16), (0, 22), (6, 14)):
             line(x-12, y+offset, x+length-12, y+offset)
-            canvas.create_arc(x+length-17, y+offset-7, x+length-6, y+offset+1, start=0, extent=170,
+            aa_arc(canvas, x+length-17, y+offset-7, x+length-6, y+offset+1, start=0, extent=170,
                               style="arc", outline=color, width=1.5, tags=tags)
     elif name == "leaf":
-        canvas.create_polygon(x-10, y+9, x-8, y-3, x+2, y-9, x+11, y-11, x+9, y-1, x+2, y+7, x-6, y+10,
+        aa_polygon(canvas, x-10, y+9, x-8, y-3, x+2, y-9, x+11, y-11, x+9, y-1, x+2, y+7, x-6, y+10,
                               fill="", outline=color, width=1.6, smooth=True, tags=tags)
         line(x-10, y+11, x+3, y-2)
     elif name == "sun":
@@ -237,14 +241,14 @@ def icon(canvas, name, x, y, color=None, scale=1, bg=None, tags=()):
             a = math.radians(angle)
             line(x+8.5*math.cos(a), y+8.5*math.sin(a), x+12*math.cos(a), y+12*math.sin(a))
     elif name == "drop":
-        canvas.create_polygon(x, y-12, x-8, y+1, x-7, y+9, x, y+12, x+7, y+9, x+8, y+1,
+        aa_polygon(canvas, x, y-12, x-8, y+1, x-7, y+9, x, y+12, x+7, y+9, x+8, y+1,
                               fill="", outline=color, width=1.5, smooth=True, tags=tags)
     elif name == "thermo":
         rounded(canvas, x-3, y-11, x+3, y+4, 3, fill="", outline=color, width=1.5, tags=tags)
         oval(x-5.5, y+2, x+5.5, y+13, fill=bg)
         line(x, y-4, x, y+7)
     elif name == "power":
-        canvas.create_arc(x-10, y-10, x+10, y+10, start=125, extent=290, style="arc",
+        aa_arc(canvas, x-10, y-10, x+10, y+10, start=125, extent=290, style="arc",
                           outline=color, width=2.2, tags=tags)
         line(x, y-12, x, y-1, width=2.2)
     elif name == "check":
@@ -256,7 +260,7 @@ def icon(canvas, name, x, y, color=None, scale=1, bg=None, tags=()):
         line(x+4, y+4, x+9, y+9, width=1.8)
     elif name == "half":
         oval(x-9, y-9, x+9, y+9, width=1.6)
-        canvas.create_arc(x-9, y-9, x+9, y+9, start=-90, extent=180, style="chord",
+        aa_arc(canvas, x-9, y-9, x+9, y+9, start=-90, extent=180, style="chord",
                           fill=color, outline=color, tags=tags)
     elif name == "monitor":
         rounded(canvas, x-11, y-9, x+11, y+5, 2, fill="", outline=color, width=1.5, tags=tags)
@@ -274,10 +278,10 @@ def icon(canvas, name, x, y, color=None, scale=1, bg=None, tags=()):
         line(x, y+5, x+10, y+5)
         oval(x-5, y+2.5, x, y+7.5)
     elif name == "sparkle":
-        canvas.create_polygon(x, y-11, x+2.5, y-2.5, x+11, y, x+2.5, y+2.5, x, y+11, x-2.5, y+2.5, x-11, y, x-2.5, y-2.5,
+        aa_polygon(canvas, x, y-11, x+2.5, y-2.5, x+11, y, x+2.5, y+2.5, x, y+11, x-2.5, y+2.5, x-11, y, x-2.5, y-2.5,
                               fill="", outline=color, width=1.5, tags=tags)
     elif name == "alert":
-        canvas.create_polygon(x, y-11, x+11, y+9, x-11, y+9, fill="", outline=color, width=1.6,
+        aa_polygon(canvas, x, y-11, x+11, y+9, x-11, y+9, fill="", outline=color, width=1.6,
                               joinstyle="round", tags=tags)
         line(x, y-3, x, y+2, width=1.8)
         oval(x-1.2, y+4.8, x+1.2, y+7.2, fill=color, outline="")
@@ -293,7 +297,7 @@ def icon(canvas, name, x, y, color=None, scale=1, bg=None, tags=()):
         oval(x-7.5, y-7.5, x+7.5, y+7.5, width=1.8, fill=bg)
         oval(x-3, y-3, x+3, y+3, width=1.6)
     elif name == "refresh":
-        canvas.create_arc(x-9, y-9, x+9, y+9, start=60, extent=280, style="arc", outline=color, width=1.8, tags=tags)
+        aa_arc(canvas, x-9, y-9, x+9, y+9, start=60, extent=280, style="arc", outline=color, width=1.8, tags=tags)
         line(x+4.5, y-12.5, x+5, y-7.5, x, y-6.5, width=1.8)
     elif name == "grid":
         for dx in (-6, 6):
@@ -304,15 +308,15 @@ def icon(canvas, name, x, y, color=None, scale=1, bg=None, tags=()):
         line(x-11, y, x+2, y)
         line(x-6, y-5, x-11, y, x-6, y+5)
     elif name == "speaker":
-        canvas.create_polygon(x-10, y-3, x-5, y-3, x+1, y-9, x+1, y+9, x-5, y+3, x-10, y+3, fill="", outline=color,
+        aa_polygon(canvas, x-10, y-3, x-5, y-3, x+1, y-9, x+1, y+9, x-5, y+3, x-10, y+3, fill="", outline=color,
                               width=1.6, joinstyle="round", tags=tags)
-        canvas.create_arc(x-2, y-6, x+10, y+6, start=-50, extent=100, style="arc", outline=color, width=1.6, tags=tags)
+        aa_arc(canvas, x-2, y-6, x+10, y+6, start=-50, extent=100, style="arc", outline=color, width=1.6, tags=tags)
     elif name == "bell":
-        canvas.create_polygon(x-8, y+5, x-8, y-2, x-6, y-7, x-2, y-10, x+2, y-10, x+6, y-7, x+8, y-2, x+8, y+5, x+10, y+7,
+        aa_polygon(canvas, x-8, y+5, x-8, y-2, x-6, y-7, x-2, y-10, x+2, y-10, x+6, y-7, x+8, y-2, x+8, y+5, x+10, y+7,
                               x-10, y+7, fill="", outline=color, width=1.6, smooth=True, tags=tags)
         line(x-3, y+10, x+3, y+10)
     elif name == "cloud":
-        canvas.create_polygon(x-9, y+6, x-12, y+2, x-10, y-3, x-5, y-4, x-2, y-9, x+5, y-8, x+8, y-3, x+12, y+1, x+9, y+6,
+        aa_polygon(canvas, x-9, y+6, x-12, y+2, x-10, y-3, x-5, y-4, x-2, y-9, x+5, y-8, x+8, y-3, x+12, y+1, x+9, y+6,
                               fill="", outline=color, width=1.6, smooth=True, tags=tags)
     elif name == "calendar":
         rounded(canvas, x-10, y-7, x+10, y+10, 3, fill="", outline=color, width=1.6, tags=tags)
@@ -334,9 +338,9 @@ def icon(canvas, name, x, y, color=None, scale=1, bg=None, tags=()):
     elif name == "wrench":
         line(x-8, y+8, x+2, y-2, width=3)
         oval(x, y-11, x+11, y, width=1.8)
-        canvas.create_oval(x+4, y-12, x+12, y-4, fill=bg, outline=bg, tags=tags)
-    if scale != 1:
-        canvas.scale(tag, x, y, scale, scale)
+        aa_oval(canvas, x+4, y-12, x+12, y-4, fill=bg, outline=bg, tags=tags)
+    canvas.transform(x, y, scale, rotate)
+    sprite(target, canvas.ops, tags)
     return tag
 
 
@@ -345,17 +349,17 @@ def control_card(canvas, x, y, width, label, value, glyph, scale=1, active=True,
     surface = rounded(canvas, x, y, x+width, y+height, 12, fill=C.CARD,
                       outline=C.BRAND if pending else C.EDGE, width=1.5 if pending else 1)
     circle = C.SOFT if active else C.SURFACE
-    canvas.create_oval(x+14, y+14, x+50, y+50, fill=circle, outline="")
+    aa_oval(canvas, x+14, y+14, x+50, y+50, fill=circle, outline="")
     icon(canvas, glyph, x+32, y+32, C.ON_SOFT if active else C.MUTED, scale=.74, bg=circle)
     if pending:
-        canvas.create_text(x+width-14, y+24, text=tr(canvas, "Changed"), anchor="e", fill=C.BRAND, font=font(8, "bold"))
+        aa_text(canvas, x+width-14, y+24, text=tr(canvas, "Changed"), anchor="e", fill=C.BRAND, font=font(8, "bold"))
         left = canvas.bbox(canvas.find_all()[-1])[0]
-        canvas.create_oval(left-12, y+20, left-5, y+27, fill=C.BRAND, outline="")
+        aa_oval(canvas, left-12, y+20, left-5, y+27, fill=C.BRAND, outline="")
     value = tr(canvas, value)
     multiline = tkfont.Font(canvas, font=font(11, "bold")).measure(value) > (width-28)*scale
-    canvas.create_text(x+14, y+(60 if multiline else height-36), text=tr(canvas, label), anchor="w", width=width-28,
+    aa_text(canvas, x+14, y+(60 if multiline else height-36), text=tr(canvas, label), anchor="w", width=width-28,
                        fill=C.MUTED, font=font(9))
-    canvas.create_text(x+14, y+(70 if multiline else height-17), text=value, anchor="nw" if multiline else "w", width=width-24,
+    aa_text(canvas, x+14, y+(70 if multiline else height-17), text=value, anchor="nw" if multiline else "w", width=width-24,
                        fill=C.TEXT, font=font(10 if multiline else 11, "bold"))
     return surface
 
@@ -365,11 +369,11 @@ def ac_art(canvas, x, y, running=False, target="23", photo=None):
     if photo is not None:
         canvas.create_image(x,y,image=photo)
         return
-    canvas.create_polygon(x+108,y-22,x+121,y-15,x+121,y+31,x+107,y+37,fill="#c7cbc5",outline="#929a90")
+    aa_polygon(canvas, x+108,y-22,x+121,y-15,x+121,y+31,x+107,y+37,fill="#c7cbc5",outline="#929a90")
     rounded(canvas,x-108,y-30,x+111,y+37,7,fill="#f1f3ee",outline="#c6cdc2",width=1)
-    canvas.create_polygon(x-100,y+14,x+105,y+22,x+102,y+35,x-100,y+27,fill="#171b17")
+    aa_polygon(canvas, x-100,y+14,x+105,y+22,x+102,y+35,x-100,y+27,fill="#171b17")
     for n in range(28):
         lx=x-94+n*7
-        canvas.create_line(lx,y+18,lx,y+30,fill="#7e877b",width=.7)
-    canvas.create_line(x-103,y-18,x+103,y-10,fill="#ffffff",width=2)
-    canvas.create_text(x+79,y-15,text=tr(canvas, target),fill="#a1a89b",font=font(8))
+        aa_line(canvas, lx,y+18,lx,y+30,fill="#7e877b",width=.7)
+    aa_line(canvas, x-103,y-18,x+103,y-10,fill="#ffffff",width=2)
+    aa_text(canvas, x+79,y-15,text=tr(canvas, target),fill="#a1a89b",font=font(8))

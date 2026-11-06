@@ -11,6 +11,7 @@ from .schedules import DAY_NAMES, EVERY_DAY, WEEKDAYS, WEEKEND, clock_text, day_
 from .temperature_wheel import TemperatureWheel
 from .theme import C, font, icon, measure, paint, rounded, refresh_on_theme
 from .worker import degrees
+from .smooth import aa_oval, aa_text
 
 SIZE = (600, 720)
 
@@ -72,7 +73,7 @@ class DayChips(tk.Canvas):
             outline = C.BRAND if focused and day == self.focus_day else (C.BRAND if selected else C.EDGE)
             rounded(self, x + 1, 2, x + self.CHIP - 1, 38, 12, fill=C.BRAND if selected else C.CARD, outline=outline,
                     width=2 if focused and day == self.focus_day else 1, tags=(f"day-{day}",))
-            self.create_text(x + self.CHIP / 2, 20, text=tr(self, name), fill=C.ON_BRAND if selected else C.TEXT,
+            aa_text(self, x + self.CHIP / 2, 20, text=tr(self, name), fill=C.ON_BRAND if selected else C.TEXT,
                              font=font(9, "bold"), tags=(f"day-{day}",))
 
 
@@ -185,22 +186,22 @@ class ScheduleRow(tk.Canvas):
         ink = C.TEXT if active else C.MUTED
         rounded(self, 1, 1, width - 1, self.HEIGHT - 1, 12, fill=surface, outline=C.EDGE)
         circle = C.SOFT if active else C.RAISED
-        self.create_oval(16, 16, 52, 52, fill=circle, outline="")
+        aa_oval(self, 16, 16, 52, 52, fill=circle, outline="")
         icon(self, "clock", 34, 34, C.ON_SOFT if active else C.MUTED, scale=.7, bg=circle)
-        self.create_text(66, 24, text=self.title(), anchor="w", fill=ink, font=font(14, "black"))
-        self.create_text(66, 49, text=self.when(), anchor="w", fill=C.MUTED, font=font(9), tags=("when",))
-        self.create_text(66, 72, text=self.settings(), anchor="w", fill=ink, font=font(9, "bold"))
+        aa_text(self, 66, 24, text=self.title(), anchor="w", fill=ink, font=font(14, "black"))
+        aa_text(self, 66, 49, text=self.when(), anchor="w", fill=C.MUTED, font=font(9), tags=("when",))
+        aa_text(self, 66, 72, text=self.settings(), anchor="w", fill=ink, font=font(9, "bold"))
         right = width - 16
         if row["kind"] == "other":
-            self.create_text(right, 48, text=tr(self, "Manage in hOn"), anchor="e", fill=C.MUTED, font=font(9))
+            aa_text(self, right, 48, text=tr(self, "Manage in hOn"), anchor="e", fill=C.MUTED, font=font(9))
             return
-        delete = self.create_text(right, 72, text=tr(self, "Delete"), anchor="e", fill=C.DANGER, font=font(9, "bold"), tags=("delete",))
+        delete = aa_text(self, right, 72, text=tr(self, "Delete"), anchor="e", fill=C.DANGER, font=font(9, "bold"), tags=("delete",))
         if row["kind"] == "repeat":
             left = self.bbox(delete)[0]
-            self.create_text(left - 18, 72, text=tr(self, "Edit"), anchor="e", fill=C.BRAND, font=font(9, "bold"), tags=("edit",))
+            aa_text(self, left - 18, 72, text=tr(self, "Edit"), anchor="e", fill=C.BRAND, font=font(9, "bold"), tags=("edit",))
             on = row["active"]
             rounded(self, right - 44, 14, right, 38, 12, fill=C.BRAND if on else C.FIELD, outline="", tags=("toggle",))
-            self.create_oval(right - 22 if on else right - 42, 16, right - 2 if on else right - 22, 36, fill=C.THUMB,
+            aa_oval(self, right - 22 if on else right - 42, 16, right - 2 if on else right - 22, 36, fill=C.THUMB,
                              outline="", tags=("toggle",))
 
 

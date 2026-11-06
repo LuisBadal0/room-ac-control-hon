@@ -5,6 +5,7 @@ import tkinter as tk
 from tkinter import messagebox
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+from room_ac_control.smooth import texts as canvas_texts
 from room_ac_control.dashboard import App
 from room_ac_control.demo import devices
 from room_ac_control.schedules import EVERY_DAY, WEEKDAYS, WEEKEND, preview_record
@@ -77,12 +78,13 @@ try:
                 assert isinstance(row, ScheduleRow)
                 for item in row.find_all():
                     left, top, right, bottom = row.bbox(item)
-                    assert left >= -2 and right <= row.winfo_width() + 2, (theme, language, row.itemcget(item, "text") if row.type(item) == "text" else item)
+                    assert left >= -2 and right <= row.winfo_width() + 2, (theme, language, dict(canvas_texts(row)).get(item, item))
                 # Texts on the left never run into the actions on the right.
                 actions = [row.bbox(item)[0] for tag in ("edit", "delete", "toggle") for item in row.find_withtag(tag)]
                 for item in row.find_all():
-                    if row.type(item) == "text" and not set(row.gettags(item)) & {"edit", "delete", "toggle"}:
-                        assert row.bbox(item)[2] < min(actions), (theme, language, row.itemcget(item, "text"))
+                    labels = dict(canvas_texts(row))
+                    if item in labels and not set(row.gettags(item)) & {"edit", "delete", "toggle"}:
+                        assert row.bbox(item)[2] < min(actions), (theme, language, labels[item])
     app.set_language("en")
     app.set_theme("light")
     first = view.rows[0]

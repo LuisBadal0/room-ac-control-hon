@@ -4,6 +4,7 @@ import tkinter as tk
 
 from .i18n import tr, refresh_on_language
 from .theme import C, font, icon, measure, rounded, blend, refresh_on_theme
+from .smooth import aa_arc, aa_line, aa_oval, aa_rect, aa_text
 
 
 def raise_widget(widget):
@@ -13,7 +14,7 @@ def raise_widget(widget):
 
 def section_label(canvas, x, y, text, anchor="w"):
     """An upper-case section heading such as COMFORT."""
-    return canvas.create_text(x, y, text=tr(canvas, text).upper(), anchor=anchor, fill=C.MUTED, font=font(-11, "black"))
+    return aa_text(canvas, x, y, text=tr(canvas, text).upper(), anchor=anchor, fill=C.MUTED, font=font(-11, "black"))
 
 
 def switch(canvas, x, y, on, tone=None, width=40, height=24, tags=()):
@@ -22,7 +23,7 @@ def switch(canvas, x, y, on, tone=None, width=40, height=24, tags=()):
     rounded(canvas, x, y, x+width, y+height, height/2, fill=tone if on else C.STRONG, outline="", tags=tags)
     knob = height-6
     left = x+width-3-knob if on else x+3
-    canvas.create_oval(left, y+3, left+knob, y+3+knob, fill=C.BG if on else C.MUTED, outline="", tags=tags)
+    aa_oval(canvas, left, y+3, left+knob, y+3+knob, fill=C.BG if on else C.MUTED, outline="", tags=tags)
 
 
 def fan_bars(canvas, x, bottom, level, tone, base, heights=(8, 11, 14), width=4, gap=3, tags=()):
@@ -31,7 +32,7 @@ def fan_bars(canvas, x, bottom, level, tone, base, heights=(8, 11, 14), width=4,
         left = x+index*(width+gap)
         lit = level == 0 or index < level
         color = blend(tone, base, .6) if level == 0 else (tone if lit else C.STRONG)
-        canvas.create_rectangle(left, bottom-height, left+width, bottom, fill=color, outline="", tags=tags)
+        aa_rect(canvas, left, bottom-height, left+width, bottom, fill=color, outline="", tags=tags)
 
 
 def louver(canvas, x, y, position, color, air, scale=1.0, tags=()):
@@ -48,18 +49,18 @@ def louver(canvas, x, y, position, color, air, scale=1.0, tags=()):
 
     if position:
         ex, ey, c, sn = end(6+(position-1)*13)
-        canvas.create_line(*pivot, ex, ey, fill=color, width=3*s, capstyle="round", tags=tags)
+        aa_line(canvas, *pivot, ex, ey, fill=color, width=3*s, capstyle="round", tags=tags)
         ox, oy = -sn*5*s, c*5*s
-        canvas.create_line(ex+4*c*s, ey+4*sn*s, ex+16*c*s, ey+16*sn*s, fill=air, width=2.2*s, capstyle="round", tags=tags)
-        canvas.create_line(ex+2*c*s+ox, ey+2*sn*s+oy, ex+11*c*s+ox, ey+11*sn*s+oy, fill=air, width=2.2*s, capstyle="round", tags=tags)
+        aa_line(canvas, ex+4*c*s, ey+4*sn*s, ex+16*c*s, ey+16*sn*s, fill=air, width=2.2*s, capstyle="round", tags=tags)
+        aa_line(canvas, ex+2*c*s+ox, ey+2*sn*s+oy, ex+11*c*s+ox, ey+11*sn*s+oy, fill=air, width=2.2*s, capstyle="round", tags=tags)
     else:
         for angle in (8, 58):
             ex, ey, c, sn = end(angle)
-            canvas.create_line(*pivot, ex, ey, fill=color, width=3*s, capstyle="round", tags=tags)
-        canvas.create_arc(x+28*s, y+20*s, x+64*s, y+60*s, start=-90, extent=110, style="arc", outline=air,
+            aa_line(canvas, *pivot, ex, ey, fill=color, width=3*s, capstyle="round", tags=tags)
+        aa_arc(canvas, x+28*s, y+20*s, x+64*s, y+60*s, start=-90, extent=110, style="arc", outline=air,
                           width=2.2*s, tags=tags)
         for px, py, dx, dy in ((x+60*s, y+33*s, -3.5, 3), (x+60*s, y+33*s, 2.5, 3.8), (x+46*s, y+60*s, 4.5, .2), (x+46*s, y+60*s, 1.8, -4)):
-            canvas.create_line(px, py, px+dx*s, py+dy*s, fill=air, width=2.2*s, capstyle="round", tags=tags)
+            aa_line(canvas, px, py, px+dx*s, py+dy*s, fill=air, width=2.2*s, capstyle="round", tags=tags)
 
 
 class PillButton(tk.Canvas):
@@ -155,12 +156,12 @@ class PillButton(tk.Canvas):
             icon(self, self.glyph, x+8 if label else x, height/2, ink, scale=.62, bg=fill)
             x += 24
         if label:
-            self.create_text(x, height/2, text=label, anchor="w", fill=ink, font=font(self.size, "bold"))
+            aa_text(self, x, height/2, text=label, anchor="w", fill=ink, font=font(self.size, "bold"))
             x += measure(self, label, self.size, "bold")
         if self.badge is not None:
             badge = blend(C.BG, fill, .2) if self.kind == "accent" else C.SURFACE
             rounded(self, x+8, height/2-11, x+30, height/2+11, 11, fill=badge, outline="")
-            self.create_text(x+19, height/2, text=str(self.badge), fill=ink, font=font(-12, "black"))
+            aa_text(self, x+19, height/2, text=str(self.badge), fill=ink, font=font(-12, "black"))
 
 
 class Overlay:

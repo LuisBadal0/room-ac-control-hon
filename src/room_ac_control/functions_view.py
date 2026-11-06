@@ -13,6 +13,7 @@ from .schedules import clock_text, day_labels, DAY_NAMES
 from .temperature_wheel import TemperatureWheel
 from .theme import C, font, measure, paint, icon, rounded, blend, accent, unit_photo, refresh_on_theme
 from .widgets import PillButton, Overlay, raise_widget, section_label, switch, fan_bars, louver
+from .smooth import aa_line, aa_oval, restyle, aa_text
 
 SECTIONS = (("settings", "Settings"), ("everyday", "Everyday use"), ("maintenance", "Maintenance"))
 TABS = SECTIONS + (("schedules", "Schedules"),)
@@ -135,7 +136,7 @@ class SheetWheel(TemperatureWheel):
             y = 60+offset*self.ROW_HEIGHT+self.drag_offset
             centre = abs(y-60) < self.ROW_HEIGHT/2
             text = "—" if offset == 0 and not self.chosen else translator(self).number(self.number(index))+("°" if centre else "")
-            self.create_text(54, y, text=text, fill=tone if centre else C.FAINT,
+            aa_text(self, 54, y, text=text, fill=tone if centre else C.FAINT,
                              font=font(-40 if centre else -18, "light"))
 
 
@@ -215,9 +216,9 @@ class FunctionsView:
         width = max(c.winfo_width(), WIDTH)
         rounded(c, 0, 2, 44, 46, 14, fill=C.CARD, outline="")
         icon(c, "back", 22, 24, C.TEXT, scale=.8, bg=C.CARD)
-        c.create_text(56, 13, text=tr(c, "All functions"), anchor="w", fill=C.TEXT, font=font(-24, "black"))
+        aa_text(c, 56, 13, text=tr(c, "All functions"), anchor="w", fill=C.TEXT, font=font(-24, "black"))
         selected = self.app.selected
-        c.create_text(56, 37, text=f"{selected['name']} · {selected['model']}", anchor="w", fill=C.MUTED, font=font(-12, "semibold"))
+        aa_text(c, 56, 37, text=f"{selected['name']} · {selected['model']}", anchor="w", fill=C.MUTED, font=font(-12, "semibold"))
         c.create_image(width, 24, image=self.photo, anchor="e")
 
     def draw_search(self):
@@ -233,12 +234,12 @@ class FunctionsView:
         hint = "Ctrl F"
         chip = measure(c, hint, -11, "black")+14
         rounded(c, width-14-chip, 14, width-14, 34, 6, fill=C.SURFACE, outline="")
-        c.create_text(width-14-chip/2, 24, text=hint, fill=C.MUTED, font=font(-11, "black"))
+        aa_text(c, width-14-chip/2, 24, text=hint, fill=C.MUTED, font=font(-11, "black"))
         self.search_entry.configure(bg=C.CARD, fg=C.TEXT, insertbackground=C.TEXT, disabledbackground=C.CARD,
                                     selectbackground=C.SOFT, selectforeground=C.ON_SOFT)
         c.create_window(44, 24, window=self.search_entry, anchor="w", width=width-44-chip-30, height=28)
         if not self.search.get() and not focused:
-            c.create_text(46, 24, text=tr(c, "Search settings, presets and schedules"), anchor="w", fill=C.MUTED,
+            aa_text(c, 46, 24, text=tr(c, "Search settings, presets and schedules"), anchor="w", fill=C.MUTED,
                           font=font(-14, "semibold"), tags="placeholder")
             c.tag_bind("placeholder", "<Button-1>", lambda event: self.search_entry.focus_set())
 
@@ -261,7 +262,7 @@ class FunctionsView:
             left = x+segment/2-(measure(c, caption, size, "bold")+20)/2
             ink = tone if on else C.MUTED
             icon(c, SECTION_GLYPHS[key], left+7, 24, ink, scale=.55, bg=fill)
-            c.create_text(left+20, 24, text=caption, anchor="w", fill=ink, font=font(size, "bold"))
+            aa_text(c, left+20, 24, text=caption, anchor="w", fill=ink, font=font(size, "bold"))
 
     def navigate(self, index):
         index = max(0, min(len(TABS)-1, index))
@@ -310,7 +311,7 @@ class FunctionsView:
 
     def text(self, c, x, y, value, size, color=None, anchor="w", weight="normal", width=None, translate=True):
         options = {"width": width} if width else {}
-        return c.create_text(x, y, text=tr(c, value) if translate else value, anchor=anchor, fill=color or C.TEXT,
+        return aa_text(c, x, y, text=tr(c, value) if translate else value, anchor=anchor, fill=color or C.TEXT,
                              font=font(size, weight), **options)
 
     def hit(self, box, action):
@@ -322,7 +323,7 @@ class FunctionsView:
         return item
 
     def divider(self, c, y):
-        c.create_line(16, y, WIDTH-16, y, fill=C.TRACK)
+        aa_line(c, 16, y, WIDTH-16, y, fill=C.TRACK)
 
     # Settings
 
@@ -410,10 +411,10 @@ class FunctionsView:
                     value = "—"
                 plus, minus = x1-20, x1-20-40-56
                 for x, direction in ((minus, -1), (plus, 1)):
-                    c.create_oval(x-20, y+1, x+20, y+41, fill=C.SURFACE, outline="")
-                    c.create_line(x-7, y+21, x+7, y+21, fill=C.TEXT, width=2.4, capstyle="round")
+                    aa_oval(c, x-20, y+1, x+20, y+41, fill=C.SURFACE, outline="")
+                    aa_line(c, x-7, y+21, x+7, y+21, fill=C.TEXT, width=2.4, capstyle="round")
                     if direction > 0:
-                        c.create_line(x, y+14, x, y+28, fill=C.TEXT, width=2.4, capstyle="round")
+                        aa_line(c, x, y+14, x, y+28, fill=C.TEXT, width=2.4, capstyle="round")
                     self.hit((x-20, y+1, x+20, y+41), lambda direction=direction: self.step_temp(direction))
                 self.text(c, (minus+plus)/2, y+21, value, -24, tone, "center", "light", translate=False)
                 y += 42+16
@@ -445,7 +446,7 @@ class FunctionsView:
             top = y
             for index, item in enumerate(others):
                 if index:
-                    c.create_line(16, y, WIDTH, y, fill=C.TRACK)
+                    aa_line(c, 16, y, WIDTH, y, fill=C.TRACK)
                 spec = item["spec"]
                 self.text(c, 16, y+26, spec["label"], -14, weight="bold")
                 value = tr(c, option_label(spec, self.app.current(spec["key"])))
@@ -797,7 +798,7 @@ class FunctionsView:
                     rounded(c, x1, y, x2, y+16, 8, fill=self.schedule_color(row), outline="")
             if is_today:
                 now = left+(right-left)*(today.hour+today.minute/60)/24
-                c.create_line(now, y-4, now, y+20, fill=C.TEXT, width=2)
+                aa_line(c, now, y-4, now, y+20, fill=C.TEXT, width=2)
             y += 26
         for index, hour in enumerate(("00", "06", "12", "18", "24")):
             self.text(c, left+(right-left)*index/4, y+2, hour, -10, C.FAINT, "center", "semibold", translate=False)
@@ -814,7 +815,7 @@ class FunctionsView:
             x += 15
             item = self.text(c, x, y+7, label, -11, C.MUTED, weight="semibold")
             x = c.bbox(item)[2]+14
-        c.create_line(x, y+1, x, y+13, fill=C.TEXT, width=2)
+        aa_line(c, x, y+1, x, y+13, fill=C.TEXT, width=2)
         self.text(c, x+6, y+7, "Now", -11, C.MUTED, weight="semibold")
         y += 30
         self.card(c, 0, top, WIDTH, y)
@@ -833,7 +834,7 @@ class FunctionsView:
             top = y
             for index, row in enumerate(others):
                 if index:
-                    c.create_line(64, y, WIDTH, y, fill=C.TRACK)
+                    aa_line(c, 64, y, WIDTH, y, fill=C.TRACK)
                 once = row["kind"] == "once"
                 square = self.app.soft(C.BRAND) if once else C.SURFACE
                 rounded(c, 16, y+14, 52, y+50, 12, fill=square, outline="")
@@ -895,7 +896,7 @@ class FunctionsView:
             x = 16+day*29
             included = day in row["days"]
             fill = blend(color, C.CARD, .16) if included else C.CARD
-            c.create_oval(x, y, x+24, y+24, fill=fill, outline="")
+            aa_oval(c, x, y, x+24, y+24, fill=fill, outline="")
             initial = tr(c, DAY_NAMES[day])[:1]
             self.text(c, x+12, y+12, initial, -11, color if included else C.FAINT, "center", "black", translate=False)
         if start:
@@ -911,7 +912,7 @@ class FunctionsView:
         icon(c, glyph, WIDTH-16-width+15, y+12, color, scale=.45, bg=tint)
         self.text(c, WIDTH-16-width+27, y+12, chip, -12, color, weight="bold", translate=False)
         y += 38
-        c.create_line(16, y, WIDTH-16, y, fill=C.TRACK)
+        aa_line(c, 16, y, WIDTH-16, y, fill=C.TRACK)
         y += 10
         rounded(c, 16, y, 76, y+34, 10, fill=C.SURFACE, outline="")
         self.text(c, 46, y+17, "Edit", -12, C.TEXT, "center", "black")
@@ -923,7 +924,7 @@ class FunctionsView:
         y += 34+16
         card = self.card(c, 0, top, WIDTH, y)
         if not active:
-            c.itemconfigure(card, fill=blend(C.CARD, C.BG, .6))
+            restyle(c, card, fill=blend(C.CARD, C.BG, .6))
         return y
 
     def set_active(self, row, active):
@@ -979,7 +980,7 @@ class FunctionsView:
             top = y
             for index, item in enumerate(items):
                 if index:
-                    c.create_line(64, y, WIDTH, y, fill=C.TRACK)
+                    aa_line(c, 64, y, WIDTH, y, fill=C.TRACK)
                 rounded(c, 16, y+12, 52, y+48, 12, fill=C.SURFACE, outline="")
                 icon(c, glyph_for(item["label"]), 34, y+30, C.MUTED, scale=.6, bg=C.SURFACE)
                 self.text(c, 66, y+21, item["label"], -14, weight="bold")

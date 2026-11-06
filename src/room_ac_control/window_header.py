@@ -7,6 +7,7 @@ import sys
 import tkinter as tk
 
 from .theme import C, font, icon, paint, refresh_on_theme, rounded, measure
+from .smooth import aa_oval, aa_text
 
 
 class WindowsFrame:
@@ -300,7 +301,7 @@ class HeaderIconButton(tk.Canvas):
         self.configure(bg=background)
         icon(self, self.glyph, 20, 20, getattr(C, self.color), scale=.75, bg=background)
         if self.badge:
-            self.create_oval(25, 9, 33, 17, fill=C.BRAND, outline=background, width=2)
+            aa_oval(self, 25, 9, 33, 17, fill=C.BRAND, outline=background, width=2)
 
 
 class HeaderPillButton(tk.Canvas):
@@ -345,6 +346,6 @@ class HeaderPillButton(tk.Canvas):
         rounded(self, 2, 5, width+2, 35, 10, fill=fill, outline=C.BRAND if active else C.EDGE, width=1.2)
         ink = C.ON_SOFT if self.pressed else C.TEXT
         icon(self, self.glyph, 18, 20, ink, scale=.62, bg=fill)
-        self.create_text(31, 20, text=label, anchor="w", fill=ink, font=font(9, "bold"))
+        aa_text(self, 31, 20, text=label, anchor="w", fill=ink, font=font(9, "bold"))
         if self.badge:
-            self.create_oval(width-6, 3, width+4, 13, fill=C.BRAND, outline=C.BG, width=2)
+            aa_oval(self, width-6, 3, width+4, 13, fill=C.BRAND, outline=C.BG, width=2)
