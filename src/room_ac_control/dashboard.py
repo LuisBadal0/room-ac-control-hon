@@ -22,23 +22,24 @@ from .device_picker import DevicePicker, PowerButton
 from .diagnostics import diagnostics
 from .inline_timers import InlineTimers, EndAtCard
 from .temperature_wheel import TemperatureWheel
+from .widgets import PillButton, Toast, fan_bars
 from .i18n import Translator, LANGUAGES, tr, localized, TranslatedVariable, localized_title, broadcast_language, refresh_on_language
 
-# The dashboard canvas is laid out in a 520 px space and scaled with the window.
-WIDTH = 520
-# The unit picture spans ART; its live airflow and any alert banner sit below it.
-ART = (110, 1, 410, 91)
-UNIT_Y = 46
-BANNER = (0, 90, WIDTH, 124)
-READINGS_TOP, READINGS_HEIGHT = 132, 54
+# The dashboard canvas uses the mockup's 500 px grid and is scaled with the window.
+WIDTH = 500
+UNIT = (270, 0)          # picture width, top
+FLOW = (76, 230, 30)     # airflow outlet y, spread, length
+CHIP = (78, 104)         # status chip top and bottom, at the left
+BANNER = (0, 74, WIDTH, 108)
+READINGS_TOP, READINGS_HEIGHT = 115, 58
 # The target-temperature dial: a 270° ring that opens at the bottom.
-DIAL_TOP = 196
-DIAL = (260, DIAL_TOP + 144, 118)  # centre x, centre y, radius
+DIAL_TOP = 182
+DIAL = (250, DIAL_TOP + 150, 120)  # centre x, centre y, radius
 DIAL_START, DIAL_SWEEP = 135, 270
-MODES_TOP, MODES_HEIGHT = 478, 62
-TILE_TOP, TILE_HEIGHT = 550, 72
-TIMER_TOP = 632
-CANVAS_HEIGHT = TIMER_TOP + EndAtCard.HEIGHT + 2
+MODES_TOP, MODES_HEIGHT = 473, 60
+TILE_TOP, TILE_HEIGHT = 542, 70
+TIMER_TOP = 621
+CANVAS_HEIGHT = TIMER_TOP + EndAtCard.HEIGHT + 1
 AIR_COLORS = {"Good": "OK", "Medium": "WARN_TEXT", "Poor": "DANGER"}
 ALERTS = {
     "error": ("alert", "DANGER_BG", "DANGER_TEXT", "AC error {code}", "Check the unit, or see troubleshooting in hOn."),
@@ -99,7 +100,7 @@ class App:
         self.auto_pending = False
         self.auto_failures = 0
         self.refresh_epoch = 0
-        self.unit_image = unit_photo(root, 300)
+        self.unit_image = unit_photo(root, UNIT[0])
         self.settings_panel = None
         self.dial_drag = False
         root.iconbitmap(str(ASSETS / "app.ico"))
@@ -111,7 +112,7 @@ class App:
         paint(root, bg="BG")
         configure_styles(root)
         from .window_header import WindowHeader, HeaderPillButton
-        self.header = WindowHeader(root, "Room AC Control · hOn", self.close, self.minimize_window, maximize=False, size=WINDOW_SIZE)
+        self.header = WindowHeader(root, "Room AC Control", self.close, self.minimize_window, maximize=False, size=WINDOW_SIZE)
         # Appearance, language, updates and sign-out live in one Settings panel;
         # a dot marks a signed update waiting to install.
         self.settings_button = HeaderPillButton(self.header.frame,"gear","Settings",self.open_settings)
@@ -124,7 +125,7 @@ class App:
             except OSError as error:diagnostics.record("update_failed", error)
         self.content = ttk.Frame(root)
         self.content.pack(fill="both",expand=True)
-        self.body = ttk.Frame(self.content, padding=(20,4,20,14))
+        self.body = ttk.Frame(self.content, padding=(20,0,20,20))
         self.body.pack(fill="both",expand=True)
         from .login_view import LoginView
         self.login_view = LoginView(self)
@@ -132,9 +133,9 @@ class App:
         self.login_frame.pack(fill="x",pady=(5,0))
         self.panel=ttk.Frame(self.body)
         top=ttk.Frame(self.panel)
-        top.pack(fill="x",pady=(0,8))
+        top.pack(fill="x",pady=(0,4))
         self.power_button=PowerButton(top,self.toggle_power)
-        self.power_button.pack(side="right",padx=(12,0))
+        self.power_button.pack(side="right",padx=(8,0))
         self.device_picker=DevicePicker(top,self.select_device)
         self.device_picker.pack(side="left",fill="x",expand=True)
         self.canvas=paint(tk.Canvas(self.panel,highlightthickness=0,height=CANVAS_HEIGHT),bg="BG")
@@ -147,24 +148,27 @@ class App:
         self.inline_timers = InlineTimers(self)
         self.canvas.bind("<Button-1>",self.click)
         self.canvas.bind("<B1-Motion>",self.drag_temperature)
-        self.canvas.bind("<ButtonRelease-1>",lambda e:setattr(self,"dial_drag",False))
+        self.canvas.bind("<ButtonRelease-1>",self.release_dial)
         self.canvas.bind("<MouseWheel>",self.wheel_temperature)
         for key,direction in (("<Left>",-1),("<Right>",1),("<Down>",-1),("<Up>",1)):
             self.canvas.bind(key,lambda e,direction=direction:self.step_temp(direction) if not self.busy and self.selected else None)
         # Main selectors retain Tk variables for menu and keyboard support.
         self.mode,self.temp,self.fan=tk.StringVar(),tk.StringVar(),tk.StringVar()
+        # The action row: All functions and Refresh on the left; Discard and Apply, or
+        # "In sync with the AC", on the right.
         controls=ttk.Frame(self.panel)
-        controls.pack(fill="x",pady=(10,0))
-        self.all_button=localized(ttk.Button(controls,text="All functions",command=self.open_functions))
+        controls.pack(side="bottom",fill="x")
+        self.all_button=PillButton(controls,"All functions",self.open_functions,glyph="grid")
         self.all_button.pack(side="left")
-        # Icon-only, so Portuguese labels still fit beside Discard and Apply.
-        self.refresh_button=ttk.Button(controls,text="↻",style="Ghost.TButton",command=self.refresh,width=2)
-        self.refresh_button.pack(side="left",padx=(4,0))
-        self.apply_button=ttk.Button(controls,style="Accent.TButton",command=lambda:self.action("apply"))
-        self.discard_button=localized(ttk.Button(controls,text="Discard",style="Ghost.TButton",command=self.discard))
-        refresh_on_language(self.apply_button,self.update_apply_label)
+        self.refresh_button=PillButton(controls,"",self.refresh,glyph="refresh",width=48)
+        self.refresh_button.pack(side="left",padx=(8,0))
+        self.apply_button=PillButton(controls,"Apply",lambda:self.action("apply"),kind="accent",size=-14,tone=self.dial_accent)
+        self.discard_button=PillButton(controls,"Discard",self.discard,kind="ghost")
+        self.sync_label=tk.Canvas(controls,height=48,highlightthickness=0)
+        self.sync_label.bind("<Configure>",lambda event:self.draw_sync())
+        refresh_on_theme(self.sync_label,self.draw_sync)
+        refresh_on_language(self.sync_label,self.draw_sync)
         self.update_apply_label()
-        self.apply_button.pack(side="right")
         # The connection line is shown under the room name.
         self.connection=tk.StringVar()
         self.connection.trace_add("write",lambda *args:self.paint_connection())
@@ -175,6 +179,9 @@ class App:
         paint(self.status_label,bg="SOFT",fg="ON_SOFT")
         self.status_label.pack(fill="x",pady=(8,0))
         self.status_label.bind("<Configure>",lambda event:self.status_label.configure(wraplength=max(1,event.width-24)))
+        # Signed in, messages appear briefly above the action row instead.
+        self.toast=Toast(root)
+        self.status.trace_add("write",lambda *args:self.status_changed())
         self.root.protocol("WM_DELETE_WINDOW",self.close)
         self.root.report_callback_exception = self.callback_failed
         self.root.bind("<Unmap>",self.on_minimize,add="+")
@@ -268,20 +275,49 @@ class App:
         self.poll_job = self.root.after(100,self.poll)
 
     def update_apply_label(self):
+        """Discard and Apply (with a count) while edits wait; otherwise "In sync with the AC"."""
         count = len(self.dirty)
-        self.apply_button.configure(text=tr(self.apply_button,"Apply changes")+(f" ({count})" if count else ""))
-        if count and not self.discard_button.winfo_manager():
-            self.discard_button.pack(side="right",padx=(0,6))
-        elif not count and self.discard_button.winfo_manager():
+        self.apply_button.set_badge(count if count else None)
+        if count:
+            self.sync_label.pack_forget()
+            if not self.apply_button.winfo_manager():
+                self.apply_button.pack(side="right")
+                self.discard_button.pack(side="right",padx=(0,4))
+        else:
+            self.apply_button.pack_forget()
             self.discard_button.pack_forget()
+            if not self.sync_label.winfo_manager():
+                self.sync_label.pack(side="right",fill="x",expand=True)
+
+    def draw_sync(self):
+        c=self.sync_label
+        c.delete("all")
+        c.configure(bg=C.BG)
+        width=max(c.winfo_width(),1)
+        label=tr(c,"In sync with the AC")
+        right=width-4
+        c.create_text(right,24,text=label,anchor="e",fill=C.MUTED,font=font(-12,"semibold"))
+        icon(c,"check",right-measure(c,label,-12,"semibold")-12,24,C.MUTED,scale=.6,bg=C.BG)
+
+    QUIET = {"Changes ready. Apply them, or use the power button to turn on.", "No pending changes.",
+             "Connected. Select changes, then apply.", "Design preview · No AC commands are sent.",
+             "Status retrieved from the cloud service.", "Refreshing reported AC status…"}
+
+    def status_changed(self):
+        """Show a dashboard message as a toast; routine confirmations stay quiet."""
+        message=self.status.get()
+        if not self.panel.winfo_ismapped() or not message or message in self.QUIET:
+            return
+        bottom=self.content.winfo_y()+self.body.winfo_y()+self.panel.winfo_y()+self.panel.winfo_height()-58
+        self.toast.show(tr(self.root,message),bottom)
 
     def paint_connection(self):
         text = self.connection.get()
         self.device_picker.set_status(text, text.startswith("Connected"))
 
     def open_settings(self):
-        if self.settings_panel and self.settings_panel.window.winfo_exists():
-            self.settings_panel.window.lift()
+        if self.settings_panel:
+            self.settings_panel.close()  # The button toggles the dropdown.
             return
         from .settings_panel import SettingsPanel
         self.settings_button.set_pressed(True)
@@ -301,8 +337,8 @@ class App:
             widget.configure(state=state)
         available=self.selected is not None and not value
         for widget in (self.refresh_button,self.all_button,self.discard_button):
-            widget.configure(state="normal" if available else "disabled")
-        self.apply_button.configure(state="normal" if available and self.dirty else "disabled")
+            widget.set_enabled(available)
+        self.apply_button.set_enabled(available and bool(self.dirty))
         self.update_apply_label()
         self.device_picker.set_enabled(available)
         self.power_button.set_state(self.selected is not None and self.selected["power"]=="On", available,
@@ -357,7 +393,8 @@ class App:
         self.reset_auto()
         self.devices=devices
         self.login_frame.pack_forget()
-        self.panel.pack(fill="x",before=self.status_label)
+        self.panel.pack(fill="both",expand=True)
+        self.status_label.pack_forget()
         self.device_picker.set_devices(devices)
         index=0
         self.device_picker.current(index)
@@ -423,7 +460,13 @@ class App:
         return self.mode.get().replace(" Night", "")
 
     def dial_accent(self):
+        if not self.selected:
+            return C.BRAND
         return accent("off") if self.selected["power"] != "On" else accent(self.base_mode())
+
+    def soft(self, color, base=None):
+        """The mockup's accent tint: the colour at about 14% over a surface."""
+        return blend(color, base or C.CARD, .14 if C.mode == "dark" else .10)
 
     def mode_options(self):
         """Standard modes for the mode bar; Night variants are Sleep on the Sleep tile."""
@@ -439,19 +482,18 @@ class App:
         s=width/WIDTH
         self.canvas_hover.reset(s,enabled=not self.busy)
         tone=self.dial_accent()
-        def hover(box,item,fill=None,outline=None,active=None):
-            normal={"fill":fill or C.CARD,"outline":C.EDGE if outline is None else outline}
-            self.canvas_hover.add(box,item,normal,{"fill":C.HOVER if fill is None else blend(tone,fill,.18),"outline":active or tone})
-        text=lambda x,y,t,size=10,color=None,anchor="w",weight="normal",translate=True:c.create_text(
+        text=lambda x,y,t,size=-13,color=None,anchor="w",weight="normal",translate=True:c.create_text(
             x,y,text=tr(c,t) if translate else t,fill=color or C.TEXT,anchor=anchor,font=font(size,weight))
         hit=lambda box,fn:self.hits.append((box,fn))
-        # The unit with its live airflow; alerts cover the airflow strip.
-        ac_art(c,WIDTH/2,UNIT_Y,photo=self.unit_image)
-        self.draw_alert(c,text)
+        self.draw_glow(c,tone)
+        # The unit, its live airflow and the status chip; an alert banner covers the airflow.
+        c.create_image(WIDTH/2,UNIT[1],image=self.unit_image,anchor="n")
+        if not self.draw_alert(c,text):
+            self.draw_chip(c,text,tone)
         self.draw_readings(c,text)
-        self.draw_dial(c,text,hover,hit,tone)
-        self.draw_modes(c,text,hover,hit)
-        self.draw_tiles(c,text,hover,hit,tone)
+        self.draw_dial(c,text,hit,tone)
+        self.draw_modes(c,text,hit)
+        self.draw_tiles(c,text,hit)
         self.inline_timers.refresh(self.selected, self.busy)
         timer_row = c.create_window(0, TIMER_TOP, window=self.inline_timers, anchor="nw", width=WIDTH, height=EndAtCard.HEIGHT)
         c.itemconfigure(timer_row,tags="inline-timers")
@@ -461,21 +503,62 @@ class App:
         c.itemconfigure(timer_row,width=round(WIDTH*s),height=EndAtCard.HEIGHT)
         number,symbol=c.bbox("target-temperature"),c.bbox("temperature-unit")
         if number and symbol:
-            left=DIAL[0]*s-((number[2]-number[0])+4+(symbol[2]-symbol[0]))/2
+            left=DIAL[0]*s-((number[2]-number[0])+(symbol[2]-symbol[0]))/2
             c.move("target-temperature",left-number[0],0)
             number=c.bbox("target-temperature")
-            c.coords("temperature-unit",number[2]+4,number[1]+14*s)
+            c.coords("temperature-unit",number[2],c.coords("temperature-unit")[1])
         self.canvas.configure(height=int(CANVAS_HEIGHT*s))
-        self.airflow.set_state(None if c.find_withtag("alert") else self.selected,WIDTH/2,ART[3]-3,215,30,s)
+        flowing=self.selected if not c.find_withtag("alert") else None
+        self.airflow.set_state(flowing,WIDTH/2,FLOW[0],FLOW[1],FLOW[2],s)
         self.canvas_hover.update()
+        self.apply_button.draw()
         if self.busy:
             self.hits=[]
+
+    def draw_glow(self,c,tone):
+        """A soft accent glow around the dial, like the mockup's blurred shadow."""
+        if self.selected["power"]!="On":return
+        key=(tone,C.BG)
+        if getattr(self,"glow_key",None)!=key:
+            from PIL import Image, ImageDraw, ImageTk
+            size,inner=420,95
+            strength=.22 if C.mode=="dark" else .19
+            mask=Image.new("L",(size,size),0)
+            draw=ImageDraw.Draw(mask)
+            centre=size/2
+            for d in range(int(centre),inner-1,-1):
+                a=strength*(1 if d<inner+18 else math.exp(-((d-inner-18)/45)**2))
+                draw.ellipse((centre-d,centre-d,centre+d,centre+d),fill=round(255*a))
+            draw.ellipse((centre-inner,centre-inner,centre+inner,centre+inner),fill=0)
+            image=Image.composite(Image.new("RGB",(size,size),tone),Image.new("RGB",(size,size),C.BG),mask)
+            self.glow_image=ImageTk.PhotoImage(image,master=c)
+            self.glow_key=key
+        c.create_image(DIAL[0],DIAL[1],image=self.glow_image)
+
+    def draw_chip(self,c,text,tone):
+        if self.pending_changes and not self.dirty:label="Awaiting confirmation"
+        elif self.selected["power"]=="On":label=tr(c,self.base_mode())+" · "+tr(c,"running")
+        else:label="Standby"
+        label=tr(c,label)
+        on=self.selected["power"]=="On"
+        fill,ink=(self.soft(tone,C.BG),tone) if on else (C.CARD,C.MUTED)
+        # The chip sits beside the unit, so a long label drops the mode name.
+        if measure(c,label,-11,"bold")+36>112 and self.selected["power"]=="On" and not self.pending_changes:
+            label=tr(c,"Running")
+        width=measure(c,label,-11,"bold")+36
+        rounded(c,0,CHIP[0],width,CHIP[1],13,fill=fill,outline="")
+        middle=(CHIP[0]+CHIP[1])/2
+        c.create_oval(10,middle-3,16,middle+3,fill=ink,outline="")
+        text(22,middle,label,-11,ink,weight="bold",translate=False)
 
     def draw_readings(self,c,text):
         """Room, outside, humidity and air quality, as one row of chips."""
         sensors=self.selected.get("sensors",{})
-        chips=[("Room",self.i18n.number(degrees(self.selected["room"])),None)]
-        if "outdoor" in sensors:chips.append(("Outside",self.i18n.number(degrees(sensors["outdoor"])),None))
+        number=lambda value,places:self.i18n.number(f"{float(value):.{places}f}")+"°"
+        try:room=number(self.selected["room"],1)
+        except (TypeError,ValueError):room="—"
+        chips=[("Room",room,None)]
+        if "outdoor" in sensors:chips.append(("Outside",number(sensors["outdoor"],0),None))
         if "humidity" in sensors:chips.append(("Humidity",f"{sensors['humidity']:.0f}%",None))
         if sensors.get("air"):chips.append(("Air quality",tr(c,sensors["air"]),getattr(C,AIR_COLORS[sensors["air"]])))
         gap=8
@@ -483,93 +566,95 @@ class App:
         top=READINGS_TOP
         for index,(label,value,dot) in enumerate(chips):
             x=index*(width+gap)
-            items=[rounded(c,x,top,x+width,top+READINGS_HEIGHT,12,fill=C.CARD,outline="")]
-            items.append(text(x+12,top+17,label,8,C.MUTED,weight="bold"))
+            items=[rounded(c,x,top,x+width,top+READINGS_HEIGHT,14,fill=C.CARD,outline="")]
+            caption=tr(c,label)
+            while measure(c,caption,-11,"semibold")>width-24 and len(caption)>3:caption=caption[:-2]+"…"
+            items.append(text(x+12,top+19,caption,-11,C.MUTED,weight="semibold",translate=False))
             value_x=x+12
             if dot:
-                items.append(c.create_oval(x+12,top+32,x+20,top+40,fill=dot,outline=""))
+                items.append(c.create_oval(x+12,top+36,x+20,top+44,fill=dot,outline=""))
                 value_x+=14
-            items.append(text(value_x,top+36,value,12,weight="bold",translate=False))
+            items.append(text(value_x,top+40,value,-17,weight="bold",translate=False))
             for item in items:c.addtag_withtag("reading",item)
 
-    def draw_dial(self,c,text,hover,hit,tone):
+    def draw_dial(self,c,text,hit,tone):
         """A 270° ring: drag along it, click it, scroll on it or use −/+."""
         cx,cy,r=DIAL
+        top=DIAL_TOP
         values=[float(v) for v in self.selected.get("temperatures",[])]
         try:current=float(self.temp.get())
         except ValueError:current=None
         low,high=(min(values),max(values)) if values else (16,32)
         ratio=0 if current is None or high==low else max(0,min(1,(current-low)/(high-low)))
-        # Soft halo in the accent, then ticks, the track and the value arc.
-        if self.selected["power"]=="On":
-            for step,strength in ((r-26,.05),(r-38,.08),(r-50,.11)):
-                c.create_oval(cx-step,cy-step,cx+step,cy+step,fill=blend(tone,C.BG,strength),outline="")
+        point=lambda angle,radius:(cx+radius*math.cos(math.radians(angle)),cy+radius*math.sin(math.radians(angle)))
         for index in range(17):
-            angle=math.radians(DIAL_START+DIAL_SWEEP*index/16)
-            inner=r+18 if index%4 else r+14
-            c.create_line(cx+inner*math.cos(angle),cy+inner*math.sin(angle),cx+(r+23)*math.cos(angle),cy+(r+23)*math.sin(angle),
-                          fill=C.FAINT,width=1.6,capstyle="round")
+            angle=DIAL_START+DIAL_SWEEP*index/16
+            c.create_line(*point(angle,135 if index%4==0 else 139),*point(angle,145),fill=C.FAINT,width=2,capstyle="round")
         box=(cx-r,cy-r,cx+r,cy+r)
-        c.create_arc(*box,start=-45,extent=270,style="arc",outline=C.TRACK,width=13)
-        for angle in (DIAL_START,DIAL_START+DIAL_SWEEP):
-            a=math.radians(angle)
-            x,y=cx+r*math.cos(a),cy+r*math.sin(a)
-            c.create_oval(x-6.5,y-6.5,x+6.5,y+6.5,fill=tone if angle==DIAL_START and values and current is not None else C.TRACK,outline="")
+        c.create_arc(*box,start=-45,extent=270,style="arc",outline=C.TRACK,width=14)
+        cap=lambda angle,color:c.create_oval(point(angle,r)[0]-7,point(angle,r)[1]-7,point(angle,r)[0]+7,point(angle,r)[1]+7,fill=color,outline="")
+        cap(DIAL_START+DIAL_SWEEP,C.TRACK)
+        cap(DIAL_START,tone if values and current is not None else C.TRACK)
         if values and current is not None:
-            if ratio>0:c.create_arc(*box,start=225,extent=-DIAL_SWEEP*ratio,style="arc",outline=tone,width=13)
-            a=math.radians(DIAL_START+DIAL_SWEEP*ratio)
-            tx,ty=cx+r*math.cos(a),cy+r*math.sin(a)
-            thumb=c.create_oval(tx-13,ty-13,tx+13,ty+13,fill=C.BG,outline=tone,width=4)
+            if ratio>0:c.create_arc(*box,start=225,extent=-DIAL_SWEEP*ratio,style="arc",outline=tone,width=14)
+            tx,ty=point(DIAL_START+DIAL_SWEEP*ratio,r)
+            halo=blend(tone,C.BG,.28 if self.dial_drag else .14)
+            c.create_oval(tx-22,ty-22,tx+22,ty+22,fill=halo,outline="",tags="dial-halo")
+            c.create_oval(tx-14,ty-14,tx+14,ty+14,fill=C.BG,outline=tone,width=4,tags="dial-thumb")
             c.create_oval(tx-4,ty-4,tx+4,ty+4,fill=tone,outline="")
-            self.canvas_hover.add((tx-20,ty-20,tx+20,ty+20),thumb,{"width":4},{"width":6})
-            text(cx-r*.72,cy+r*.72+24,self.i18n.number(f"{low:g}°"),9,C.MUTED,"center","bold",translate=False)
-            text(cx+r*.72,cy+r*.72+24,self.i18n.number(f"{high:g}°"),9,C.MUTED,"center","bold",translate=False)
-        # Centre: what the AC is doing, the target and the dashboard status.
-        if self.selected["power"]!="On":verb="Off"
-        else:verb=VERBS.get(self.base_mode(),"Target temperature")
-        text(cx,cy-64,tr(c,verb).upper(),9,tone,"center","bold",translate=False)
+            self.canvas_hover.add((tx-24,ty-24,tx+24,ty+24),c.find_withtag("dial-halo")[0],{"fill":halo},
+                                  {"fill":blend(tone,C.BG,.28)})
+        text(cx-80,top+262,self.i18n.number(f"{low:g}°"),-12,C.MUTED,"center","semibold",translate=False)
+        text(cx+80,top+262,self.i18n.number(f"{high:g}°"),-12,C.MUTED,"center","semibold",translate=False)
+        # Centre: what the AC is doing, the target, and the room beside the outside reading.
+        verb="Off" if self.selected["power"]!="On" else VERBS.get(self.base_mode(),"Target temperature")
+        text(cx,top+86,tr(c,verb).upper(),-12,tone,"center","black",translate=False)
         value="—" if current is None else self.i18n.number(f"{current:g}")
-        number=text(cx,cy-8,value,54,anchor="center",translate=False)
+        number=text(cx,top+144,value,-96,anchor="center",weight="light",translate=False)
         c.itemconfigure(number,tags="target-temperature")
-        unit=text(cx+60,cy-30,"°C",16,C.MUTED,"nw",translate=False)
+        unit=text(cx+60,top+110,"°C",-26,C.MUTED,"nw",translate=False)
         c.itemconfigure(unit,tags="temperature-unit")
-        if self.dirty:status,ink="Changes pending",C.WARN_TEXT
-        elif self.pending_changes:status,ink="Awaiting confirmation",C.MUTED
-        elif self.selected["power"]=="On":status,ink="Running",C.MUTED
-        else:status,ink="Standby",C.MUTED
-        text(cx,cy+44,status,9,ink,"center","bold")
+        sensors=self.selected.get("sensors",{})
+        if self.selected["power"]!="On":
+            subline=tr(c,"Press power to resume {mode}").format(mode=tr(c,self.base_mode()))
+        else:
+            try:subline=tr(c,"Room is {value}").format(value=self.i18n.number(f"{float(self.selected['room']):.1f}")+"°")
+            except (TypeError,ValueError):subline=""
+            if "outdoor" in sensors:
+                subline+=" · "+tr(c,"{value} outside").format(value=self.i18n.number(f"{float(sensors['outdoor']):.0f}")+"°")
+        text(cx,top+202,subline,-13,C.MUTED,"center","semibold",translate=False)
         # −/+ beside the ring's open end.
-        for x,direction in ((52,-1),(WIDTH-52,1)):
-            y=cy+r*.68
-            step=c.create_oval(x-25,y-25,x+25,y+25,fill=C.CARD,outline="")
+        for x,direction in ((48,-1),(WIDTH-48,1)):
+            y=top+222
+            step=c.create_oval(x-26,y-26,x+26,y+26,fill=C.CARD,outline="")
             mark=C.TEXT if values else C.FAINT
-            c.create_line(x-8,y,x+8,y,fill=mark,width=2.2,capstyle="round")
-            if direction>0:c.create_line(x,y-8,x,y+8,fill=mark,width=2.2,capstyle="round")
+            c.create_line(x-8,y,x+8,y,fill=mark,width=2.4,capstyle="round")
+            if direction>0:c.create_line(x,y-8,x,y+8,fill=mark,width=2.4,capstyle="round")
             if values:
-                hover((x-25,y-25,x+25,y+25),step,fill=C.CARD,outline="")
-                hit((x-25,y-25,x+25,y+25),lambda direction=direction:self.step_temp(direction))
+                self.canvas_hover.add((x-26,y-26,x+26,y+26),step,{"fill":C.CARD},{"fill":C.HOVER})
+                hit((x-26,y-26,x+26,y+26),lambda direction=direction:self.step_temp(direction))
         # Eco sits in the ring's opening.
         eco=self.selected.get("controls",{}).get("ecoMode")
         if eco:
             active=code(self.current("ecoMode"))=="1"
-            ecotone=C.ECO
             label=tr(c,"Eco")
-            half=(measure(c,label,9,"bold")+40)/2
-            y1,y2=cy+r*.84,cy+r*.84+28
-            fill=blend(ecotone,C.BG,.16) if active else C.BG
-            chip=rounded(c,cx-half,y1,cx+half,y2,14,fill=fill,outline=ecotone if active else C.EDGE,width=1.4)
-            icon(c,"leaf",cx-half+16,(y1+y2)/2,ecotone if active else C.MUTED,scale=.55,bg=fill)
-            text(cx-half+28,(y1+y2)/2,label,9,ecotone if active else C.MUTED,weight="bold",translate=False)
-            self.canvas_hover.add((cx-half,y1,cx+half,y2),chip,{"outline":ecotone if active else C.EDGE},{"outline":ecotone})
-            hit((cx-half,y1,cx+half,y2),lambda:self.staged("ecoMode","0" if active else "1"))
+            width=measure(c,label,-12,"bold")+44
+            x1,x2,y1,y2=cx-width/2,cx+width/2,top+248,top+280
+            fill=self.soft(tone,C.BG) if active else C.BG
+            ink=tone if active else C.MUTED
+            chip=rounded(c,x1,y1,x2,y2,16,fill=fill,outline=tone if active else C.TRACK,width=1.2)
+            icon(c,"leaf",x1+18,(y1+y2)/2,ink,scale=.55,bg=fill)
+            text(x1+30,(y1+y2)/2,label,-12,ink,weight="bold",translate=False)
+            self.canvas_hover.add((x1,y1,x2,y2),chip,{"outline":tone if active else C.TRACK},{"outline":tone})
+            hit((x1,y1,x2,y2),lambda:self.staged("ecoMode","0" if active else "1"))
 
-    def draw_modes(self,c,text,hover,hit):
+    def draw_modes(self,c,text,hit):
         """One button per standard mode; the selected one takes its own accent."""
         options=self.mode_options()
         top,bottom=MODES_TOP,MODES_TOP+MODES_HEIGHT
-        rounded(c,0,top,WIDTH,bottom,16,fill=C.CARD,outline="")
+        rounded(c,0,top,WIDTH,bottom,18,fill=C.CARD,outline="")
         if not options:
-            text(WIDTH/2,(top+bottom)/2,"Mode · Unavailable",10,C.MUTED,"center")
+            text(WIDTH/2,(top+bottom)/2,"Mode · Unavailable",-13,C.MUTED,"center")
             return
         gap=4
         width=(WIDTH-8-gap*(len(options)-1))/len(options)
@@ -578,67 +663,98 @@ class App:
             x=4+index*(width+gap)
             label=option["label"]
             on=label==selected
-            tone=accent(label)
-            fill=blend(tone,C.CARD,.16) if on else C.CARD
-            segment=rounded(c,x,top+4,x+width,bottom-4,12,fill=fill,outline="")
+            color=accent(label)
+            fill=self.soft(color) if on else C.CARD
+            segment=rounded(c,x,top+4,x+width,bottom-4,14,fill=fill,outline="")
             if not on:
                 self.canvas_hover.add((x,top+4,x+width,bottom-4),segment,{"fill":C.CARD},{"fill":C.HOVER})
-            ink=tone if on else C.MUTED
-            icon(c,mode_icon(label),x+width/2,top+23,ink,scale=.66,bg=fill)
-            text(x+width/2,top+46,label,9,ink,"center","bold")
+            ink=color if on else C.MUTED
+            icon(c,mode_icon(label),x+width/2,top+21,ink,scale=.72,bg=fill)
+            caption=tr(c,label)
+            size=-12 if measure(c,caption,-12,"bold")<=width-6 else -10
+            text(x+width/2,top+42,caption,size,ink,"center","bold",translate=False)
             hit((x,top,x+width,bottom),lambda option=option:self.pick_mode(option))
 
     def pick_mode(self,option):
         for name,value in self.memory.mode_values(self.selected,dict(option["value"])).items():
             self.staged(name,value)
 
-    def draw_tiles(self,c,text,hover,hit,tone):
+    def airflow_spec(self):
+        controls=self.selected.get("controls",{})
+        return controls.get("windDirectionVertical") or controls.get("windDirectionHorizontal")
+
+    def airflow_value(self):
+        """The current airflow option's label, such as Swing or Position 2."""
+        spec=self.airflow_spec()
+        if not spec:return "Unavailable"
+        value=self.current(spec["key"])
+        if value is None:return "Unknown"
+        return next((label for label,option in spec["options"].items() if equal(option,value)),"Unknown")
+
+    def draw_tiles(self,c,text,hit):
         controls=self.selected.get("controls",{})
         fan=self.fan.get() if "windSpeed" in controls else "Unavailable"
-        airflow=self.airflow_label()
-        sleep=self.toggle_label("silentSleepStatus")
-        tiles=[("Fan speed",fan,"windSpeed",lambda:self.choice_menu("windSpeed"),("windSpeed",)),
-               ("Airflow",airflow,"airflow",self.airflow_menu,("windDirectionVertical","windDirectionHorizontal")),
-               ("Sleep",sleep,"moon",lambda:self.choice_menu("silentSleepStatus"),("silentSleepStatus",))]
+        tiles=[("Fan speed",fan,"bars",self.cycle_fan),
+               ("Airflow",self.airflow_value(),"swing",self.cycle_airflow),
+               ("Sleep",self.toggle_label("silentSleepStatus"),"moon",self.toggle_sleep)]
         gap=8
         width=(WIDTH-gap*2)/3
         top,bottom=TILE_TOP,TILE_TOP+TILE_HEIGHT
-        for index,(label,value,glyph,command,keys) in enumerate(tiles):
+        tone=self.dial_accent()
+        for index,(label,value,glyph,command) in enumerate(tiles):
             x=index*(width+gap)
-            pending=any(key in self.dirty for key in keys)
-            card=rounded(c,x,top,x+width,bottom,14,fill=C.CARD,outline=tone if pending else "",width=1.5)
-            text(x+14,top+21,label,8,C.MUTED,weight="bold")
-            if glyph=="windSpeed":
-                level=FAN_LEVELS.get(value,0)
-                for bar,height in enumerate((7,11,15)):
-                    lit=value=="Auto" or bar<level
-                    color=blend(tone,C.CARD,.55) if value=="Auto" else (tone if lit else C.TRACK)
-                    bx=x+width-36+bar*8
-                    c.create_rectangle(bx,top+28-height,bx+4,top+28,fill=color,outline="")
+            card=rounded(c,x,top,x+width,bottom,16,fill=C.CARD,outline="")
+            text(x+14,top+19,label,-11,C.MUTED,weight="semibold")
+            if glyph=="bars":
+                fan_bars(c,x+width-14-18,top+26,FAN_LEVELS.get(value,0) if value!="Auto" else 0,tone,C.CARD)
             else:
-                symbol="swing" if glyph=="airflow" and value=="Vertical" else airflow_icon(value) if glyph=="airflow" else glyph
-                icon(c,symbol,x+width-22,top+21,C.MUTED,scale=.55,bg=C.CARD)
-            text(x+14,top+50,value,12,C.TEXT if value!="Unavailable" else C.MUTED,weight="bold")
+                icon(c,glyph,x+width-21,top+19,C.MUTED,scale=.5,bg=C.CARD)
+            text(x+14,top+49,value,-16,C.TEXT if value not in {"Unavailable","Unknown"} else C.MUTED,weight="bold")
             if value!="Unavailable":
-                self.canvas_hover.add((x,top,x+width,bottom),card,{"fill":C.CARD,"outline":tone if pending else ""},
-                                      {"fill":C.HOVER,"outline":tone})
+                self.canvas_hover.add((x,top,x+width,bottom),card,{"fill":C.CARD},{"fill":C.HOVER})
                 hit((x,top,x+width,bottom),command)
+
+    def cycle(self,key,options):
+        """Step to the next option, wrapping around, as the mockup's tiles do."""
+        values=list(options.values())
+        if not values:return
+        current=self.current(key)
+        index=next((i for i,value in enumerate(values) if equal(value,current)),-1)
+        self.staged(key,values[(index+1)%len(values)])
+
+    def cycle_fan(self):
+        spec=self.selected.get("controls",{}).get("windSpeed")
+        if spec:self.cycle("windSpeed",self.selected.get("fans") or spec["options"])
+
+    def cycle_airflow(self):
+        spec=self.airflow_spec()
+        if spec:self.cycle(spec["key"],spec["options"])
+
+    def toggle_sleep(self):
+        if "silentSleepStatus" not in self.selected.get("controls",{}):return
+        value="0" if code(self.current("silentSleepStatus"))=="1" else "1"
+        patch={"silentSleepStatus":value}
+        if code(self.current("machMode")) in {"1","4"}:
+            patch["machMode"]=code(self.current("machMode"))
+            patch=self.memory.mode_values(self.selected,patch)
+        for name,new_value in patch.items():self.staged(name,new_value)
 
     def draw_alert(self,c,text):
         """A banner for an error, defrosting or filter cleaning; it clears with the condition."""
         alerts=[alert for alert in self.selected.get("alerts",[]) if alert.get("kind") in ALERTS]
-        if not alerts:return
+        if not alerts:return False
         alert=alerts[0]
         glyph,surface,ink,title,detail=ALERTS[alert["kind"]]
         fill,color=getattr(C,surface),getattr(C,ink)
         x1,y1,x2,y2=BANNER
-        items=[rounded(c,x1,y1,x2,y2,10,fill=fill,outline="")]
+        items=[rounded(c,x1,y1,x2,y2,12,fill=fill,outline="")]
         icon(c,glyph,20,(y1+y2)/2,color,scale=.62,bg=fill,tags=("alert",))
-        items.append(text(38,y1+10,title.format(code=alert.get("code","")),9,color,weight="bold"))
-        items.append(text(38,y1+24,detail,8,color))
+        items.append(text(38,y1+10,title.format(code=alert.get("code","")),-12,color,weight="bold"))
+        items.append(text(38,y1+24,detail,-11,color))
         if len(alerts)>1:
-            items.append(text(x2-12,(y1+y2)/2,f"+{len(alerts)-1}",9,color,"e","bold",translate=False))
+            items.append(text(x2-12,(y1+y2)/2,f"+{len(alerts)-1}",-12,color,"e","bold",translate=False))
         for item in items:c.addtag_withtag("alert",item)
+        return True
 
     def scale(self):
         return max(self.canvas.winfo_width(),480)/WIDTH
@@ -655,6 +771,11 @@ class App:
         if self.dial_angle(x,y,strict=True) is not None:
             self.dial_drag=True
             self.dial_from_event(event)
+
+    def release_dial(self,event=None):
+        if self.dial_drag:
+            self.dial_drag=False
+            self.draw()
 
     def dial_angle(self,x,y,strict=False):
         """The ring position (0–1) under a point, or None away from the ring."""
@@ -679,6 +800,7 @@ class App:
         try:same=float(self.temp.get())==value
         except ValueError:same=False
         if not same:self.staged("tempSel",value)
+        else:self.draw()
 
     def drag_temperature(self,event):
         if self.dial_drag and not self.busy and self.selected:
@@ -1041,9 +1163,11 @@ class App:
         self.set_busy(True)
         def done(value):
             self.selected=None;self.devices=[];self.dirty={}
-            self.airflow.set_state(None,WIDTH/2,ART[3]-3,215,30)
+            self.airflow.set_state(None,WIDTH/2,*FLOW)
+            self.toast.hide()
             self.panel.pack_forget()
-            self.login_frame.pack(fill="x",pady=(5,0),before=self.status_label)
+            self.login_frame.pack(fill="x",pady=(5,0))
+            self.status_label.pack(fill="x",pady=(8,0))
             self.remember_account.set(False)
             self.status.set("Signed out.")
             self.set_busy(False)

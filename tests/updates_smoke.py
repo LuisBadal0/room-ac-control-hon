@@ -37,14 +37,16 @@ try:
     app.settings_button.event_generate("<Button-1>")
     root.update()
     panel = app.settings_panel
-    settle(root, lambda: float(panel.window.attributes("-alpha")) == 1.0)
-    assert app.settings_button.pressed
-    texts = [panel.update_card.itemcget(item, "text") for item in panel.update_card.find_all() if panel.update_card.type(item) == "text"]
-    assert "Updates are off in the preview" in texts, texts
-    assert panel.update_button.instate(["disabled"]) and panel.automatic_toggle.instate(["disabled"])
-    assert panel.sign_out.instate(["disabled"])  # The preview has no account to sign out of.
-    # Details opens the Updates window, which keeps Diagnostics, above the panel.
-    app.open_updates(panel.window)
+    actions = lambda: [action for box, action in panel.regions]
+    # The dropdown opens inside the main window, under the button, over a dimmed page.
+    assert app.settings_button.pressed and panel.canvas.winfo_ismapped() and panel.canvas.master is root
+    assert panel.canvas.winfo_rootx() + panel.canvas.winfo_width() <= root.winfo_rootx() + root.winfo_width()
+    texts = panel.texts()
+    assert "Updates are off in the preview" in texts and "Check now" in texts, texts
+    assert panel.primary not in actions() and panel.toggle_automatic not in actions()  # Shown, but not clickable.
+    assert "Sign out" in texts and panel.logout not in actions()  # The preview has no account to sign out of.
+    # The version line opens the Updates window, which keeps What's new and Diagnostics.
+    app.open_updates()
     view = app.updates_view
     settle(root, lambda: float(view.window.attributes("-alpha")) == 1.0)
     texts = [view.card.itemcget(item, "text") for item in view.card.find_all() if view.card.type(item) == "text"]
@@ -53,7 +55,7 @@ try:
     buttons = [child.cget("text") for child in view.primary.master.winfo_children() if child.winfo_class() == "TButton"]
     assert "Diagnostics" in buttons and "Close" in buttons, buttons
     view.close()
-    panel.close()
+    app.settings_button.event_generate("<Button-1>")  # The button toggles the dropdown closed.
     root.update()
     assert app.updates_view is None and app.settings_panel is None and not app.settings_button.pressed
 
@@ -64,14 +66,19 @@ try:
     app.updater.listen(app.updates_changed)
     app.open_settings()
     panel = app.settings_panel
-    assert panel.update_button.cget("text") == "Check now" and panel.update_button.instate(["!disabled"])
+    assert "Check now" in panel.texts() and panel.primary in actions()
     with patch.object(updates, "check", return_value=dict(RELEASE)):
-        panel.update_button.invoke()
+        panel.primary()
+        assert "Checking for updates…" in panel.texts()
         settle(root, lambda: app.updater.state == "available")
     assert app.settings_button.badge  # The dot marks a waiting update.
-    assert panel.update_button.cget("text") == "Update"
-    texts = [panel.update_card.itemcget(item, "text") for item in panel.update_card.find_all() if panel.update_card.type(item) == "text"]
-    assert "Version 9.9.9 is available." in texts, texts
+    texts = panel.texts()
+    assert "Update" in texts and "Version 9.9.9 is available." in texts, texts
+    # The automatic-check switch is saved.
+    panel.toggle_automatic()
+    assert app.updater.enabled is False and app.storage.auto_update() is False
+    panel.toggle_automatic()
+    assert app.updater.enabled is True
     panel.close()
     app.open_updates()
     view = app.updates_view

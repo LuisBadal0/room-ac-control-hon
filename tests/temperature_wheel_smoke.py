@@ -36,24 +36,27 @@ try:
     wheel.event_generate("<MouseWheel>", delta=120)
     root.update()
     assert wheel.get() == "23.5"
-    assert not view.settings_changes and not requests
+    assert not app.dirty and not requests
     next(child for child in descendants(popup) if child.winfo_class() == "TButton" and child.cget("text") == "Set value").invoke()
-    assert view.settings_changes["tempSel"] == "23.5" and not requests
+    assert app.dirty["tempSel"] == "23.5" and not requests  # Staged on the dashboard, not sent.
+    app.discard()
 
     preset = {"kind":"function", "command":"startProgram", "label":"Offline cool",
               "section":"everyday", "form":{"category":"iot_cool", "parameters":[snapshot["controls"]["tempSel"]]}}
     view.configure_function(preset)
     root.update()
-    wheel = next(child for child in descendants(view.inner) if isinstance(child, TemperatureWheel))
-    assert any(child.winfo_class() == "TLabel" and child.cget("text") == "Target temperature" for child in descendants(view.inner))
-    before = view.scroll.yview()
+    wheel = next(widget for widget in view.sheet["widgets"] if isinstance(widget, TemperatureWheel))
+    texts = [view.sheet["canvas"].itemcget(item, "text") for item in view.sheet["canvas"].find_all()
+             if view.sheet["canvas"].type(item) == "text"]
+    assert "Temperature" in texts and "Start preset" in texts, texts
+    before = view.content.yview()
     wheel.event_generate("<MouseWheel>", delta=120)
     root.update()
-    assert wheel.get() == "23.5" and view.scroll.yview() == before
-    wheel.press(SimpleNamespace(y=54, y_root=300))
-    wheel.release(SimpleNamespace(y=-66, y_root=180))
+    assert wheel.get() == "23.5" and view.content.yview() == before
+    wheel.press(SimpleNamespace(y=60, y_root=300))
+    wheel.release(SimpleNamespace(y=-60, y_root=180))
     assert wheel.get() == "25.5" and not requests
-    next(child for child in descendants(view.inner) if child.winfo_class() == "TButton" and child.cget("text") == "Start preset").invoke()
+    view.sheet["hits"][-1][1]()  # Start preset, the sheet's last button.
     assert requests == [("execute", {"command":"startProgram", "category":"iot_cool", "parameters":{"tempSel":"25.5"}})]
     assert not app.dirty  # The main dashboard value is not changed by scrolling.
     print("Temperature setting confirmation, decimal preset drafts and wheel/page-scroll isolation passed offline.")

@@ -17,7 +17,7 @@ app.staged("tempSel", "26")
 app.staged("ecoMode", "0")
 app.open_functions()
 view = app.functions_view
-view.change_setting("silentSleepStatus", "1")
+view.toggle_feature("silentSleepStatus")  # Sleep with Cool: staged with the remembered Cool settings.
 new = copy.deepcopy(app.selected)
 new.update(room=25.5, target=21, fan="High", power="Off")
 new["controls"]["tempSel"]["value"] = 21
@@ -28,12 +28,12 @@ root.update_idletasks()
 assert app.selected["room"] == 25.5
 assert app.selected["power"] == "Off"
 assert app.airflow.tone is None
-assert view.airflow.tone is None
 assert app.temp.get() == "26"
 assert app.fan.get() == "High"
-assert app.dirty == {"tempSel": "26", "ecoMode": "0"}
-assert view.settings_changes["silentSleepStatus"] == "1"
-assert view.setting_value(new["controls"]["healthMode"]) == "1"
+# Edits made on the dashboard and in All functions both survive the refresh.
+assert {key: app.dirty[key] for key in ("tempSel", "ecoMode", "silentSleepStatus")} == {"tempSel": "26", "ecoMode": "0", "silentSleepStatus": "1"}
+assert app.current("healthMode") == "1"
+assert view.window.winfo_exists()
 view.close()
 
 # Replace submission with an offline recorder. Close coroutines to avoid leaks.
@@ -91,7 +91,7 @@ assert app.fan.get()=="Low"
 app.action("apply")
 submissions[-1][0]("Accepted offline")
 assert app.fan.get()=="Low" and app.pending_changes=={"windSpeed":"3.0"}
-assert not app.dirty and str(app.apply_button.cget("state"))=="disabled"
+assert not app.dirty and not app.apply_button.enabled
 stale(newer)
 assert app.fan.get()=="Low"
 waiting=copy.deepcopy(newer)
@@ -99,7 +99,7 @@ waiting["pending_changes"]={"windSpeed":"3"}
 app.show_device(waiting,preserve_edits=True)
 assert app.fan.get()=="Low" and app.selected["fan"]=="Auto"
 app.open_functions()
-assert app.functions_view.setting_value(waiting["controls"]["windSpeed"])=="3"
+assert app.current("windSpeed")=="3"
 app.functions_view.close()
 app.staged("windSpeed","5")
 assert app.dirty=={"windSpeed":"5"}  # The user can explicitly replace the pending request.

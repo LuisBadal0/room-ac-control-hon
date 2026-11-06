@@ -211,6 +211,7 @@ class SchedulesView:
         self.busy = False
         self.editing = None
         self.in_editor = False
+        self.on_close = None  # All functions reloads its Schedules tab when the editor closes.
         # Opened from All functions, it sits above that window and returns to it.
         parent = parent or app.root
         self.previous_grab = parent.grab_current()
@@ -452,3 +453,5 @@ class SchedulesView:
             self.window.destroy()
         if self.previous_grab is not None and self.previous_grab.winfo_exists():
             self.previous_grab.grab_set()
+        if self.on_close:
+            self.on_close()

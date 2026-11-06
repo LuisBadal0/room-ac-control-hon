@@ -73,7 +73,13 @@ def opened_cleanly(header, size):
 from room_ac_control.schedules_view import SIZE as SCHEDULES_SIZE
 app.open_functions()
 view = app.functions_view
-opened_cleanly(view.header, (620, 700))
+from room_ac_control.functions_view import SIZE as FUNCTIONS_SIZE
+if root.winfo_screenheight() >= FUNCTIONS_SIZE[1] + 80:
+    opened_cleanly(view.header, FUNCTIONS_SIZE)  # The main window's size, opened over it.
+else:  # Short CI screens cap the height, as for the main window.
+    for _ in range(40):
+        root.update(); root.after(15)
+    assert view.window.winfo_width() == FUNCTIONS_SIZE[0]
 view.close()
 app.open_schedules()
 opened_cleanly(app.schedules_view.header, SCHEDULES_SIZE)

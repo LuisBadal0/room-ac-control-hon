@@ -1,8 +1,8 @@
-"""A soft moving curtain of air, rendered without video playback dependencies."""
+"""Animated airflow below the unit: dashed lines that drift down in the mode's accent."""
 import math
 import time
 
-from .theme import C
+from .theme import C, accent, blend
 
 
 def airflow_tone(device):
@@ -17,28 +17,19 @@ def airflow_tone(device):
     return "neutral"
 
 
-# Light airflow darkens the pale page; dark airflow brightens the charcoal one.
-COLORS = {
-    "light": {"cool": (10, 108, 165), "heat": (163, 75, 12), "neutral": (85, 96, 112)},
-    "dark": {"cool": (92, 200, 255), "heat": (255, 159, 67), "neutral": (143, 153, 168)},
-}
-
-
-def tint(tone, opacity):
-    background = tuple(int(C.BG[i:i+2], 16) for i in (1, 3, 5))
-    rgb = COLORS[C.mode][tone]
-    return "#" + "".join(f"{round(a+(b-a)*opacity):02x}" for a, b in zip(background, rgb))
-
-
 class AirflowAnimation:
-    """Own one cancellable Tk timer and a small set of reusable canvas strokes."""
+    """Own one cancellable Tk timer and a fixed set of reusable dash strokes."""
+    LINES, DASH, GAP, SPEED = 11, 5, 9, 12.7  # count, px, px, px per second
+
     def __init__(self, canvas):
         self.canvas = canvas
         self.job = None
         self.closed = False
         self.tone = None
-        self.geometry = (0, 0, 1, 1, 1)
+        self.color = None
+        self.paths = []
         self.strokes = []
+        self.scale = 1
         self.start = time.monotonic()
         self.canvas.bind("<Destroy>", self._destroyed, add="+")
 
@@ -46,17 +37,27 @@ class AirflowAnimation:
         if self.closed:
             return
         self.tone = airflow_tone(device)
-        self.geometry = (x, outlet, width, length, scale)
-        # A dashboard redraw removes these items; recreate once, never per frame.
+        # A redraw removes these items; recreate once, never per frame.
         self.canvas.delete("airflow")
-        self.strokes = []
+        self.strokes, self.paths, self.scale = [], [], scale
         if self.tone:
-            for strand in range(19):
-                for depth in range(8):
-                    glow = self.canvas.create_line(0, 0, 1, 1, fill=C.BG, width=4*scale, smooth=True, tags="airflow")
-                    core = self.canvas.create_line(0, 0, 1, 1, fill=C.BG, width=1.2*scale, smooth=True, tags="airflow")
-                    self.strokes.append((strand, depth, glow, core))
-            self.canvas.tag_lower("airflow")
+            self.color = blend(accent(device.get("mode")), C.BG, .75)
+            for line in range(self.LINES):
+                x0 = x - width/2 + line*width/(self.LINES-1)
+                drift = (x0-x)*.16
+                points = []
+                for step in range(13):
+                    t = step/12
+                    px = (1-t)**2*x0 + 2*(1-t)*t*(x0+drift*.3) + t*t*(x0+drift)
+                    py = (1-t)**2*outlet + 2*(1-t)*t*(outlet+length*.47) + t*t*(outlet+length)
+                    points.append((px*scale, py*scale))
+                lengths = [0]
+                for a, b in zip(points, points[1:]):
+                    lengths.append(lengths[-1]+math.dist(a, b))
+                self.paths.append((points, lengths))
+                for dash in range(4):
+                    self.strokes.append(self.canvas.create_line(0, 0, 1, 1, fill=self.color, width=2.2*scale,
+                                                                capstyle="round", tags="airflow", state="hidden"))
             self.paint(time.monotonic()-self.start)
         if self.job is None:
             self.job = self.canvas.after(40, self.tick)
@@ -64,24 +65,35 @@ class AirflowAnimation:
     def paint(self, elapsed):
         if not self.tone:
             return
-        x, y, width, length, scale = self.geometry
-        for strand, depth, glow, core in self.strokes:
-            fraction = (strand-9)/18
-            coords = []
-            for step in range(3):
-                progress = (depth+step/2)/8
-                wave = math.sin(progress*5-elapsed*2.5+strand*.27)
-                drift = -length*.23*progress + wave*length*.035*progress
-                coords.extend(((x+fraction*width*(1+.10*progress)+drift)*scale,
-                               (y+length*progress)*scale))
-            progress = (depth+.5)/8
-            pulse = .68+.32*math.sin(progress*12-elapsed*4+strand*.31)
-            edge = 1-abs(fraction)*.7
-            opacity = .33*(1-progress)**1.3*pulse*edge
-            self.canvas.coords(glow, *coords)
-            self.canvas.coords(core, *coords)
-            self.canvas.itemconfigure(glow, fill=tint(self.tone, opacity*.38))
-            self.canvas.itemconfigure(core, fill=tint(self.tone, opacity))
+        period = (self.DASH+self.GAP)*self.scale
+        offset = (elapsed*self.SPEED*self.scale) % period
+        for index, (points, lengths) in enumerate(self.paths):
+            total = lengths[-1]
+            for dash in range(4):
+                item = self.strokes[index*4+dash]
+                start = offset+(dash-1)*period
+                end = start+self.DASH*self.scale
+                start, end = max(0, start), min(total, end)
+                if end-start < .5:
+                    self.canvas.itemconfigure(item, state="hidden")
+                    continue
+                self.canvas.coords(item, *self.segment(points, lengths, start, end))
+                self.canvas.itemconfigure(item, state="normal")
+
+    @staticmethod
+    def segment(points, lengths, start, end):
+        def at(distance):
+            for i in range(1, len(lengths)):
+                if lengths[i] >= distance:
+                    span = lengths[i]-lengths[i-1] or 1
+                    t = (distance-lengths[i-1])/span
+                    (ax, ay), (bx, by) = points[i-1], points[i]
+                    return ax+(bx-ax)*t, ay+(by-ay)*t
+            return points[-1]
+        coords = [*at(start)]
+        coords.extend(c for i in range(1, len(lengths)) if start < lengths[i] < end for c in points[i])
+        coords.extend(at(end))
+        return coords
 
     def tick(self):
         self.job = None

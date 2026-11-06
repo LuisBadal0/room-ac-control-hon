@@ -41,14 +41,15 @@ assert not app.preview_timers
 app.staged("tempSel", "26")
 card.run()
 assert card.active
-assert card.hour.surface == C.SOFT and card.hour.pill == C.CARD
+# Active: the row takes the mode's accent tint and the numbers its colour.
+assert card.hour.surface not in {C.CARD, C.BG} and card.hour.tone == app.dial_accent()
 assert app.preview_timers[app.selected["id"]]["off"] is not None
 assert app.dirty == {"tempSel": "26"}
 card.hour.step(1)
 assert card.draft
 card.run(stop=True)
 assert not card.active
-assert card.hour.surface == C.CARD and card.hour.pill == C.SURFACE
+assert card.hour.surface == C.CARD and card.hour.pill == C.SURFACE and card.hour.tone == C.TEXT
 assert app.preview_timers[app.selected["id"]]["off"] is None
 # The dashboard keeps only End at; start times are set in Schedules.
 assert set(app.inline_timers.cards) == {"off"}
@@ -89,7 +90,7 @@ new["timers"] = {"available": True, "values": {
 app.show_device(new, preserve_edits=True)
 assert card.active
 assert card.supported
-assert card.hour.surface == C.SOFT
+assert card.hour.surface not in {C.CARD, C.BG}
 callbacks = []
 def native_submit(coroutine, callback, operation, on_error=None):
     coroutine.close()

@@ -46,11 +46,11 @@ def self_test(output):
         wheel.step(1)
         check(wheel.get() == "24")
         app.set_language("pt-PT")
-        check(app.all_button.cget("text") == "Todas as funções")
+        check(app.all_button.label() == "Todas as funções")
         check(app.i18n.number("23.5") == "23,5")
         check(wheel.get() == "24")
         app.set_language("en")
-        check(app.all_button.cget("text") == "All functions")
+        check(app.all_button.label() == "All functions")
         from .theme import C
         app.theme_preference = "dark"
         check(app.apply_theme() and C.mode == "dark" and app.canvas.cget("bg") == C.BG)

@@ -48,40 +48,59 @@ if __name__ == "__main__":
     app.choice_menu("machMode")
     main_modes=app.choice_panel.options
     app.choice_panel.close()
+    # Dashboard tiles step through their options, as in the mockup.
+    app.dirty={}
+    app.show_device(app.selected)
+    before=app.fan.get()
+    app.cycle_fan()
+    assert app.fan.get()!=before and "windSpeed" in app.dirty
+    app.cycle_airflow()
+    assert "windDirectionVertical" in app.dirty
+    app.toggle_sleep()
+    assert app.dirty["silentSleepStatus"]=="1"
+    app.discard()
+    assert not app.dirty
     app.open_functions()
     view=app.functions_view
-    # Language, Appearance and Updates live in the main window header; the footer only applies or closes.
-    footer=[child.cget("text") for child in view.footer.winfo_children() if child.winfo_class()=="TButton"]
-    assert footer[1:]==["Close"] and footer[0].startswith("Apply changes"), footer
-    view.edit_setting(app.selected["controls"]["machMode"],None)
-    assert view.choice_panel.options==main_modes
-    view.choice_panel.choose(next(option["value"] for option in main_modes if option["label"]=="Heat Night"))
-    assert view.settings_changes["machMode"]=="4"
-    assert view.settings_changes["silentSleepStatus"]=="1"
-    view.edit_setting(app.selected["controls"]["windDirectionVertical"],None)
-    view.choice_panel.choose(next(option["value"] for option in view.choice_panel.options if option["label"]=="Position 1"))
-    assert view.settings_changes["windDirectionVertical"]=="2"
-    # The Schedules tab opens the Schedules window above All functions and returns to it.
     root.update()
-    view.navigate(type("Event",(),{"x":10**4})())  # The last tab, whatever the width.
+    # Mode tiles, fan speed and the airflow sheet stage on the dashboard; Apply shows the count.
+    heat=next(option for option in app.mode_options() if option["label"]=="Heat")
+    view.stage_mode(heat)
+    assert app.dirty["machMode"]=="4" and view.footer.winfo_manager()
+    assert view.apply_button.badge==len(app.dirty)
+    view.toggle_feature("silentSleepStatus")
+    assert app.dirty["silentSleepStatus"]=="1" and app.mode.get()=="Heat Night"
+    view.open_airflow_sheet()
+    assert view.sheet and view.sheet_choice
+    position1=next(value for label,value in app.selected["controls"]["windDirectionVertical"]["options"].items() if label=="Position 1")
+    view.sheet_choice["windDirectionVertical"]=position1
+    view.sheet["hits"][-1][1]()  # Set value
+    assert app.dirty["windDirectionVertical"]==position1 and view.sheet is None
+    view.discard()
+    assert not app.dirty and not view.footer.winfo_manager()
+    # The Schedules tab lists the preview schedules inside All functions.
+    view.navigate(3)
+    root.update()
+    assert view.section=="schedules" and view.rows is not None
+    view.edit_schedule(None)
     schedules=app.schedules_view
-    assert schedules and schedules.window.winfo_exists() and view.section=="settings"
+    assert schedules and schedules.window.winfo_exists() and schedules.in_editor
     assert str(schedules.window.wm_transient())==str(view.window)
     schedules.close()
-    assert view.window.grab_current() is not None
+    assert view.window.grab_current() is not None and view.rows is not None
     view.close()
     # Settings: theme and language choices apply at once; Sign out is off in the preview.
     app.open_settings()
     panel=app.settings_panel
     root.update()
-    panel.pick_look(type("Event",(),{"x":max(panel.looks.winfo_width(),360)-10})())
+    panel.pick_look("dark")
     assert app.theme_preference=="dark"
-    panel.pick_language(type("Event",(),{"y":46*2+10})())
-    assert app.i18n.preference=="pt-PT" and app.all_button.cget("text")=="Todas as funções"
+    panel.pick_language("pt-PT")
+    assert app.i18n.preference=="pt-PT" and app.all_button.label()=="Todas as funções"
     panel.step_language(-1)
     panel.step_look(-2)
     assert app.i18n.preference=="en" and app.theme_preference=="system"
-    assert panel.sign_out.instate(["disabled"])
+    assert panel.logout not in [action for box,action in panel.regions]
     panel.close()
     assert app.password.cget("show")=="•"
     assert matches({"machMode":"1","silentSleepStatus":"0"},{"machMode":1.0,"silentSleepStatus":0.0})
@@ -105,15 +124,13 @@ if __name__ == "__main__":
     view.edit_setting(silent, None)
     assert view.choice_panel.options[1]["description"] == silent["description"]
     view.choice_panel.choose("1")
-    assert view.settings_changes["muteStatus"] == "1"
-    assert "echoStatus" not in view.settings_changes
+    assert app.dirty["muteStatus"] == "1"
+    assert "echoStatus" not in app.dirty
     view.search.set("buzzer")
     assert {item.get("key") for item in view.visible_items} == {"echoStatus"}
-    view.edit_setting(app.selected["controls"]["echoStatus"], None)
-    view.choice_panel.choose("1")
-    assert view.settings_changes["echoStatus"] == "1"
-    assert view.settings_changes["muteStatus"] == "1"
-    assert "silentSleepStatus" not in view.settings_changes
+    view.toggle_feature("echoStatus")
+    assert app.dirty["echoStatus"] == "1" and app.dirty["muteStatus"] == "1"
+    assert "silentSleepStatus" not in app.dirty
     view.search.set("")
     everyday = section_items(app.selected, "everyday")
     maintenance = section_items(app.selected, "maintenance")
@@ -124,16 +141,15 @@ if __name__ == "__main__":
     view.search.set("  NIGHT  ")
     root.update_idletasks()
     assert {item["label"] for item in view.visible_items} == {"Cool Night", "Heat Night"}
-    assert len(view.card_widgets) == 2
     assert all(item["section"] == "everyday" for item in view.visible_items)
-    assert view.settings_changes["tempSel"] == "24.0"
+    assert app.dirty["tempSel"] == "24.0"
     view.search.set("heat night")
     assert len(view.visible_items) == 1
     view.configure_function(view.visible_items[0])
     assert str(view.search_entry.cget("state")) == "disabled"
     view.refresh_status()
-    assert view.selected_function["label"] == "Heat Night"
-    view.render_section()
+    assert view.selected_function["label"] == "Heat Night" and view.sheet
+    view.close_sheet()
     assert view.search.get() == "heat night"
     assert len(view.visible_items) == 1
     assert str(view.search_entry.cget("state")) == "normal"
@@ -142,29 +158,31 @@ if __name__ == "__main__":
     assert view.visible_items[0]["section"] == "maintenance"
     view.configure_function(view.visible_items[0])
     root.update_idletasks()
-    assert "Start maintenance routine" in [widget.cget("text") for widget in view.inner.winfo_children()[0].winfo_children() if widget.winfo_class() == "TButton"]
-    view.render_section()
+    texts=[view.sheet["canvas"].itemcget(item,"text") for item in view.sheet["canvas"].find_all() if view.sheet["canvas"].type(item)=="text"]
+    assert "Start maintenance routine" in texts, texts
+    view.close_sheet()
     view.search.set("zzzz-no-such-function")
     assert not view.visible_items
-    assert not view.card_widgets
     view.reset_search()
     assert view.search.get() == ""
     assert view.visible_items
-    view.section = "everyday"
-    view.render_section()
+    view.navigate(1)
     root.update_idletasks()
-    assert len(view.card_widgets) == 4
+    assert len(view.visible_items) == 4
+    # Each preset card lists what it applies.
+    color, glyph, description, features = view.preset_details(next(item for item in view.visible_items if item["kind"] == "night"))
+    assert [label for label, *rest in features][:2] == ["Mode", "Temperature"] and ("Sleep", "On", "moon", True) in features
     view.configure_function(next(item for item in everyday if item["kind"] == "function"))
     root.update_idletasks()
     assert view.selected_function["form"]["category"] == "iot_cool"
-    view.section = "maintenance"
-    view.render_section()
+    view.close_sheet()
+    view.navigate(2)
     root.update_idletasks()
-    assert len(view.card_widgets) == 1
-    assert app.unit_image.width() > 200
-    app.dialog.destroy();app.dialog=None
+    assert len(view.visible_items) == 1
+    assert app.unit_image.width() == 270
+    view.close()
     app.set_busy(True)
-    assert str(app.all_button.cget("state"))=="disabled"
+    assert not app.all_button.enabled
     assert app.hits==[]
     app.set_busy(False)
     app.choice_menu("machMode")

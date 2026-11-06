@@ -1,21 +1,38 @@
-"""Dashboard-style controls, with everyday presets separate from maintenance."""
-from .i18n import tr, localized, localized_title, refresh_on_language, TranslatedVariable, translator, search_text
-import tkinter as tk
-from tkinter import ttk
+"""All functions, as in the Ambient mockup: Settings, Everyday use, Maintenance and Schedules.
 
-from .controller import function_group, readable, mode_choices, mode_label
+Choices made here are staged on the dashboard, so Apply (here or there) sends them together."""
+from datetime import datetime, timedelta
+import tkinter as tk
+from tkinter import messagebox
+
+from .i18n import tr, localized_title, refresh_on_language, translator, search_text
+from .controller import function_group, mode_choices, code
 from .choice_widgets import ChoicePanel
-from .control_choices import mode_icon, airflow_icon, airflow_choices
-from .theme import C, font, measure, paint, icon, rounded, ac_art, unit_photo, control_card, refresh_on_theme
-from .worker import degrees
-from .canvas_hover import CanvasHover
-from .airflow import AirflowAnimation
+from .control_choices import mode_icon
+from .schedules import clock_text, day_labels, DAY_NAMES
+from .temperature_wheel import TemperatureWheel
+from .theme import C, font, measure, paint, icon, rounded, blend, accent, unit_photo, refresh_on_theme
+from .widgets import PillButton, Overlay, raise_widget, section_label, switch, fan_bars, louver
 
 SECTIONS = (("settings", "Settings"), ("everyday", "Everyday use"), ("maintenance", "Maintenance"))
-# The navigation also offers Schedules, which opens its own window above this one.
 TABS = SECTIONS + (("schedules", "Schedules"),)
 SECTION_GLYPHS = {"settings": "sliders", "everyday": "sparkle", "maintenance": "wrench", "schedules": "clock"}
+SIZE = (540, 920)
+WIDTH = 500
 NEUTRAL = {"Off", "Unknown", "Unavailable"}
+# Shown in the Comfort card rather than as feature tiles or extra rows.
+COMFORT = {"machMode", "windSpeed", "windDirectionVertical", "windDirectionHorizontal", "tempSel", "onOffStatus"}
+# Feature tiles: glyph, the accent they take, and a short explanation.
+FEATURES = {
+    "ecoMode": ("leaf", "dry", "Limits power use"),
+    "muteStatus": ("speaker", "fan", "Quieter, slower to reach temperature"),
+    "silentSleepStatus": ("moon", "cool", "Eases the temperature through the night"),
+    "echoStatus": ("bell", "heat", "Beeps when the AC gets a command"),
+}
+FEATURE_ORDER = ("ecoMode", "muteStatus", "silentSleepStatus", "echoStatus")
+AIRFLOW_NOTES = {"Swing": "Louver moves up and down", "Position 1": "Most closed", "Position 2": "Slightly open",
+                 "Position 3": "Half open", "Position 4": "Mostly open", "Position 5": "Most open"}
+FAN_LEVELS = {"Low": 1, "Medium": 2, "High": 3}
 
 
 def matches_search(item, query):
@@ -58,14 +75,68 @@ def section_items(device, section):
 
 def glyph_for(name):
     name = name.lower()
-    if name in {"auto","cool","dry","heat","fan","cool night","heat night"}: return mode_icon(name)
+    if name in {"auto", "cool", "dry", "heat", "fan", "cool night", "heat night"}: return mode_icon(name)
     if "fan" in name: return "fan"
-    if "airflow" in name or "wind" in name: return "wind"
-    if "sleep" in name or "night" in name or "quiet" in name or "silent" in name: return "moon"
+    if "airflow" in name or "wind" in name: return "swing"
+    if "sleep" in name or "night" in name: return "moon"
+    if "quiet" in name or "silent" in name or "mute" in name: return "speaker"
+    if "buzzer" in name or "echo" in name: return "bell"
     if "eco" in name or "health" in name: return "leaf"
+    if "clean" in name or "steril" in name: return "sparkle"
     if "temperature" in name: return "thermo"
     if "cool" in name or "mode" in name or "temp" in name: return "snow"
-    return "wind"
+    return "sliders"
+
+
+def is_toggle(spec):
+    return spec.get("kind") == "enum" and len(spec.get("options", {})) == 2 and \
+        {code(value) for value in spec["options"].values()} == {"0", "1"}
+
+
+def option_label(spec, value):
+    from .dashboard import equal
+    if value is None:
+        return "Unknown"
+    if spec.get("kind") == "enum":
+        return next((label for label, option in spec.get("options", {}).items() if equal(option, value)), "Unknown")
+    try:
+        number = f"{float(value):g}"
+    except (TypeError, ValueError):
+        return str(value)
+    return number + ("°" if spec.get("key") == "tempSel" else "")
+
+
+def louver_position(label):
+    return int(label[-1]) if label.startswith("Position ") and label[-1].isdigit() else 0
+
+
+class SheetWheel(TemperatureWheel):
+    """The preset sheet's temperature column: neighbours above and below a tinted band."""
+    ROW_HEIGHT = 34
+    CLICK_TOP, CLICK_BOTTOM = 38, 82
+
+    def __init__(self, parent, spec, value, tone):
+        self.tone_color = tone
+        super().__init__(parent, spec, value)
+        self.configure(width=108, height=120)
+        self.draw()
+
+    def draw(self):
+        if not self.enabled:
+            self.cancel_drag()
+        self.delete("all")
+        self.configure(bg=C.SURFACE, cursor="sb_v_double_arrow" if self.enabled else "arrow")
+        tone = getattr(self, "tone_color", C.BRAND)
+        rounded(self, 0, 36, 108, 84, 12, fill=blend(tone, C.SURFACE, .16), outline="")
+        for offset in range(-1, 2):
+            index = self.value+offset
+            if not 0 <= index < self.limit:
+                continue
+            y = 60+offset*self.ROW_HEIGHT+self.drag_offset
+            centre = abs(y-60) < self.ROW_HEIGHT/2
+            text = "—" if offset == 0 and not self.chosen else translator(self).number(self.number(index))+("°" if centre else "")
+            self.create_text(54, y, text=text, fill=tone if centre else C.FAINT,
+                             font=font(-40 if centre else -18, "light"))
 
 
 class FunctionsView:
@@ -74,152 +145,134 @@ class FunctionsView:
         self.window = tk.Toplevel(app.root)
         app.dialog = self.window
         app.dialog_view = self
-        localized_title(self.window,"Room AC Control · All functions")
-        # Fixed at the minimum size; cards scroll when a section needs more room.
-        self.window.geometry("620x700")
+        localized_title(self.window, "Room AC Control · All functions")
+        self.window.geometry("{}x{}".format(*SIZE))
         self.window.resizable(False, False)
         paint(self.window, bg="BG")
         self.window.transient(app.root)
         self.window.grab_set()
         self.window.protocol("WM_DELETE_WINDOW", self.close)
         from .window_header import WindowHeader
-        self.header = WindowHeader(self.window, "Room AC Control · All functions", self.close, maximize=False,
-                                   size=(620, 700), owner=app.root)
-        self.photo = unit_photo(self.window, 230)
+        self.header = WindowHeader(self.window, "Room AC Control", self.close, maximize=False, size=SIZE, owner=app.root)
+        self.photo = unit_photo(self.window, 92)
         self.section = "settings"
-        self.settings_changes = dict(app.dirty)
-        self.card_widgets = []
+        self.rows, self.loading, self.schedule_error = None, False, None
+        self.hits, self.visible_items = [], []
+        self.sheet = None
         self.selected_function = None
-        self.body = ttk.Frame(self.window, padding=(24, 4, 24, 20))
-        self.body.pack(fill="both", expand=True)
-        self.hero = paint(tk.Canvas(self.body, height=112, highlightthickness=0), bg="BG")
-        self.hero.pack(fill="x", pady=(0, 12))
-        self.airflow = AirflowAnimation(self.hero)
-        self.hero.bind("<Configure>", lambda event: self.draw_hero())
-        refresh_on_language(self.hero,self.draw_hero)
-        refresh_on_theme(self.hero,self.draw_hero)
-        self.navigation = paint(tk.Canvas(self.body, height=48, highlightthickness=0), bg="BG")
-        self.navigation_hover = CanvasHover(self.navigation)
-        self.navigation.pack(fill="x", pady=(0, 12))
-        self.navigation.bind("<Configure>", lambda event: self.draw_navigation())
-        self.navigation.bind("<Button-1>", self.navigate)
-        refresh_on_language(self.navigation,self.draw_navigation)
-        refresh_on_theme(self.navigation,self.draw_navigation)
-        self.search = tk.StringVar()
-        search_bar = paint(tk.Frame(self.body, highlightthickness=1), bg="CARD", highlightbackground="EDGE")
-        search_bar.pack(fill="x", pady=(0, 12))
-        glass = paint(tk.Canvas(search_bar, width=22, height=22, highlightthickness=0), bg="CARD")
-        glass.pack(side="left", padx=(14, 8))
-        draw_glass = lambda: (glass.delete("all"), icon(glass, "search", 11, 11, C.MUTED, scale=.8))
-        draw_glass()
-        refresh_on_theme(glass, draw_glass)
-        self.search_entry = tk.Entry(search_bar, textvariable=self.search, relief="flat", font=font(11), bd=0)
-        paint(self.search_entry, bg="CARD", fg="TEXT", insertbackground="TEXT", disabledbackground="CARD",
-              disabledforeground="MUTED", selectbackground="SOFT", selectforeground="ON_SOFT")
-        self.search_entry.pack(side="left", fill="x", expand=True, pady=12)
-        self.placeholder = localized(paint(tk.Label(self.search_entry, text="Search functions", font=font(11), bd=0, cursor="xterm"),
-                                           bg="CARD", fg="MUTED"))
-        self.placeholder.bind("<Button-1>", lambda event: self.search_entry.focus_set())
-        self.clear_search = localized(ttk.Button(search_bar, text="Clear", command=lambda: self.search.set(""),
-                                                 style="Card.Ghost.TButton",cursor="hand2"))
-        self.clear_search.pack(side="right", padx=(4, 6))
-        shortcut = paint(tk.Label(search_bar, text="Ctrl+F", font=font(8, "bold"), padx=6, pady=2), bg="SURFACE", fg="TEXT")
-        shortcut.pack(side="right")
-        self.search_entry.bind("<FocusIn>", lambda event: (search_bar.configure(highlightbackground=C.BRAND), self.update_placeholder()))
-        self.search_entry.bind("<FocusOut>", lambda event: (search_bar.configure(highlightbackground=C.EDGE), self.update_placeholder()))
-        self.search_entry.bind("<Escape>", self.reset_search)
-        self.window.bind("<Control-f>", self.focus_search)
-        self.note = tk.StringVar()
-        self.note_display=TranslatedVariable(self.window,self.note)
-        ttk.Label(self.body, textvariable=self.note_display, style="Muted.TLabel", wraplength=680).pack(anchor="w", pady=(0, 14))
-        area = ttk.Frame(self.body)
-        area.pack(fill="both", expand=True)
-        self.scroll = paint(tk.Canvas(area, highlightthickness=0), bg="BG")
         self.scrollable = False
         self.wheel_remainder = 0
-        self.bar = ttk.Scrollbar(area, orient="vertical", command=self.scroll_to)
-        self.bar.pack(side="right", fill="y")
-        # Tk 8.6.15 also scrolls a ttk scrollbar from its class binding; route it once here.
-        self.bar.bind("<MouseWheel>", self.wheel)
-        self.scroll.pack(side="left", fill="both", expand=True)
-        self.scroll.configure(yscrollcommand=self.bar.set)
-        self.inner = ttk.Frame(self.scroll)
-        self.inner_id = self.scroll.create_window(0, 0, window=self.inner, anchor="nw")
-        self.inner.bind("<Configure>", self.update_scroll_region)
-        self.scroll.bind("<Configure>", self.resize)
-        # Toplevel bindtags cover cards, labels, frames and the empty canvas alike.
+        self.body = paint(tk.Frame(self.window, padx=20), bg="BG")
+        self.body.pack(fill="both", expand=True)
+        self.top = tk.Canvas(self.body, height=48, highlightthickness=0)
+        self.top.pack(fill="x", pady=(0, 14))
+        self.top.bind("<Button-1>", lambda event: self.close() if event.x <= 48 else None)
+        self.top.bind("<Motion>", lambda event: self.top.configure(cursor="hand2" if event.x <= 48 else ""))
+        # Search: a rounded field with the glass, the entry and a Ctrl F hint.
+        self.search = tk.StringVar()
+        self.search_bar = tk.Canvas(self.body, height=48, highlightthickness=0)
+        self.search_bar.pack(fill="x", pady=(0, 14))
+        self.search_entry = tk.Entry(self.search_bar, textvariable=self.search, relief="flat", bd=0, font=font(-14, "semibold"))
+        self.search_bar.bind("<Configure>", lambda event: self.draw_search())
+        self.search_bar.bind("<Button-1>", lambda event: self.search_entry.focus_set())
+        self.search_entry.bind("<FocusIn>", lambda event: self.draw_search())
+        self.search_entry.bind("<FocusOut>", lambda event: self.draw_search())
+        self.search_entry.bind("<Escape>", self.reset_search)
+        self.window.bind("<Control-f>", self.focus_search)
+        self.window.bind("<Escape>", lambda event: self.close_sheet() if self.sheet else None)
+        self.tabs = tk.Canvas(self.body, height=48, highlightthickness=0, cursor="hand2")
+        self.tabs.pack(fill="x", pady=(0, 16))
+        self.tabs.bind("<Button-1>", lambda event: self.navigate(int(event.x // (max(self.tabs.winfo_width(), WIDTH)/len(TABS)))))
+        self.footer = paint(tk.Frame(self.body), bg="BG")
+        self.apply_button = PillButton(self.footer, "Apply", self.apply, kind="accent", size=-14, tone=app.dial_accent)
+        self.discard_button = PillButton(self.footer, "Discard", self.discard, kind="ghost")
+        self.content = tk.Canvas(self.body, highlightthickness=0, yscrollincrement=1)
+        self.content.pack(fill="both", expand=True)
+        self.content.bind("<Configure>", lambda event: self.render(keep_scroll=True))
+        self.content.bind("<Button-1>", self.click)
+        self.content.bind("<Motion>", self.motion)
         self.window.bind("<MouseWheel>", self.wheel)
-        self.footer = ttk.Frame(self.body)
-        self.footer.pack(fill="x", pady=(16, 0))
-        self.apply_button = ttk.Button(self.footer, style="Accent.TButton", command=self.apply)
-        refresh_on_language(self.apply_button, self.update_apply)
-        self.apply_button.pack(side="left", expand=True, fill="x", padx=(0, 10))
-        localized(ttk.Button(self.footer, text="Close", command=self.close)).pack(side="right")
-        self.search.trace_add("write", lambda *args: self.update_placeholder())
-        self.search.trace_add("write", lambda *args: self.render_section())
-        self.render_section()
-        self.window.after_idle(self.focus_search)
+        self.search.trace_add("write", lambda *args: (self.draw_search(), self.render()))
+        refresh_on_theme(self.top, self.repaint)
+        refresh_on_language(self.top, self.repaint)
+        self.repaint()
 
-    def update_placeholder(self):
-        empty = not self.search.get() and self.window.focus_get() is not self.search_entry
-        if empty:
-            self.placeholder.place(x=0, rely=.5, anchor="w")
-        else:
-            self.placeholder.place_forget()
+    # Frame
 
-    def draw_hero(self):
-        c = self.hero
-        c.delete("all")
-        width = max(c.winfo_width(), 550)
-        selected = self.app.selected
-        c.create_text(2, 20, text=tr(c, "All functions"), anchor="w", fill=C.TEXT, font=font(21, "black"))
-        c.create_text(2, 52, text=f"{selected['name']} · {selected['model']}", anchor="w", fill=C.MUTED, font=font(10))
-        on = selected["power"] == "On"
-        chips = ((tr(c, selected["power"]), C.OK_BG if on else C.SURFACE, C.OK_TEXT if on else C.TEXT, True),
-                 (tr(c, mode_label(selected, self.settings_changes)) + " · " + translator(c).number(degrees(selected["target"])),
-                  C.CARD, C.TEXT, False))
-        x = 2
-        for label, fill, ink, dot in chips:
-            chip = measure(c, label, 9, "bold") + (34 if dot else 22)
-            rounded(c, x, 74, x+chip, 100, 13, fill=fill, outline="" if dot else C.EDGE)
-            if dot:
-                c.create_oval(x+11, 83.5, x+18, 90.5, fill=ink, outline="")
-            c.create_text(x+chip-11, 87, text=label, anchor="e", fill=ink, font=font(9, "bold"))
-            x += chip + 8
-        ac_art(c, width-112, 36, photo=self.photo)
-        self.airflow.set_state(selected, width-112, 68, 180, 34)
-
-    def draw_navigation(self):
-        c = self.navigation
-        c.delete("all")
-        width = max(c.winfo_width(), 550)
-        self.navigation_hover.reset()
-        rounded(c, 0, 0, width, 48, 12, fill=C.RAISED, outline="")
-        segment = (width-8)/len(TABS)
-        for index, (key, label) in enumerate(TABS):
-            x = 4+index*segment
-            selected = key == self.section and not self.search.get().strip()
-            fill = C.SEGMENT if selected else C.RAISED
-            surface = rounded(c, x+2, 4, x+segment-2, 44, 8, fill=fill, outline="")
-            self.navigation_hover.add((x, 0, x+segment, 48), surface, {"fill": fill}, {"fill": C.SEGMENT if selected else C.SURFACE})
-            caption = tr(c, label)
-            weight = "bold" if selected else "normal"
-            left = x+segment/2-(measure(c, caption, 9, weight)+22)/2
-            icon(c, SECTION_GLYPHS[key], left+8, 24, C.BRAND if selected else C.MUTED, scale=.6, bg=fill)
-            c.create_text(left+21, 24, text=caption, anchor="w", fill=C.TEXT if selected else C.MUTED, font=font(9, weight))
-        self.navigation_hover.update()
-
-    def navigate(self, event):
-        index = max(0, min(len(TABS)-1, int(event.x / max(self.navigation.winfo_width(), 550) * len(TABS))))
-        if TABS[index][0] == "schedules":
-            self.app.open_schedules(self.window)
+    def repaint(self):
+        if not self.window.winfo_exists():
             return
+        self.draw_top()
+        self.draw_search()
+        self.render(keep_scroll=True)
+        if self.sheet:
+            self.sheet["draw"]()
+
+    def draw_top(self):
+        c = self.top
+        c.delete("all")
+        c.configure(bg=C.BG)
+        width = max(c.winfo_width(), WIDTH)
+        rounded(c, 0, 2, 44, 46, 14, fill=C.CARD, outline="")
+        icon(c, "back", 22, 24, C.TEXT, scale=.8, bg=C.CARD)
+        c.create_text(56, 13, text=tr(c, "All functions"), anchor="w", fill=C.TEXT, font=font(-24, "black"))
+        selected = self.app.selected
+        c.create_text(56, 37, text=f"{selected['name']} · {selected['model']}", anchor="w", fill=C.MUTED, font=font(-12, "semibold"))
+        c.create_image(width, 24, image=self.photo, anchor="e")
+
+    def draw_search(self):
+        c = self.search_bar
+        if not c.winfo_exists():
+            return
+        c.delete("all")
+        c.configure(bg=C.BG)
+        width = max(c.winfo_width(), WIDTH)
+        focused = self.window.focus_get() is self.search_entry
+        rounded(c, 1, 1, width-1, 47, 14, fill=C.CARD, outline=C.BRAND if focused else C.TRACK, width=1.2)
+        icon(c, "search", 24, 24, C.MUTED, scale=.75, bg=C.CARD)
+        hint = "Ctrl F"
+        chip = measure(c, hint, -11, "black")+14
+        rounded(c, width-14-chip, 14, width-14, 34, 6, fill=C.SURFACE, outline="")
+        c.create_text(width-14-chip/2, 24, text=hint, fill=C.MUTED, font=font(-11, "black"))
+        self.search_entry.configure(bg=C.CARD, fg=C.TEXT, insertbackground=C.TEXT, disabledbackground=C.CARD,
+                                    selectbackground=C.SOFT, selectforeground=C.ON_SOFT)
+        c.create_window(44, 24, window=self.search_entry, anchor="w", width=width-44-chip-30, height=28)
+        if not self.search.get() and not focused:
+            c.create_text(46, 24, text=tr(c, "Search settings, presets and schedules"), anchor="w", fill=C.MUTED,
+                          font=font(-14, "semibold"), tags="placeholder")
+            c.tag_bind("placeholder", "<Button-1>", lambda event: self.search_entry.focus_set())
+
+    def draw_tabs(self):
+        c = self.tabs
+        c.delete("all")
+        c.configure(bg=C.BG)
+        width = max(c.winfo_width(), WIDTH)
+        rounded(c, 0, 0, width, 48, 16, fill=C.CARD, outline="")
+        segment = (width-8-4*(len(TABS)-1))/len(TABS)
+        query = self.search.get().strip()
+        tone = self.app.dial_accent()
+        for index, (key, label) in enumerate(TABS):
+            x = 4+index*(segment+4)
+            on = key == self.section and not query
+            fill = blend(tone, C.CARD, .14) if on else C.CARD
+            rounded(c, x, 4, x+segment, 44, 12, fill=fill, outline="")
+            caption = tr(c, label)
+            size = -12 if measure(c, caption, -12, "bold")+22 <= segment-8 else -11
+            left = x+segment/2-(measure(c, caption, size, "bold")+20)/2
+            ink = tone if on else C.MUTED
+            icon(c, SECTION_GLYPHS[key], left+7, 24, ink, scale=.55, bg=fill)
+            c.create_text(left+20, 24, text=caption, anchor="w", fill=ink, font=font(size, "bold"))
+
+    def navigate(self, index):
+        index = max(0, min(len(TABS)-1, index))
         self.section = TABS[index][0]
-        if self.search.get(): self.search.set("")
-        else: self.render_section()
+        if self.search.get():
+            self.search.set("")
+        else:
+            self.render()
 
     def focus_search(self, event=None):
-        if self.selected_function is None:
+        if self.sheet is None:
             self.search_entry.focus_set()
             self.search_entry.selection_range(0, "end")
         return "break"
@@ -228,186 +281,241 @@ class FunctionsView:
         self.search.set("")
         return "break"
 
-    def resize(self, event):
-        self.scroll.itemconfigure(self.inner_id, width=event.width)
-        self.update_scroll_region()
-        for card in self.card_widgets:
-            card.event_generate("<<RedrawCard>>")
+    # Content
 
-    def update_scroll_region(self, event=None):
-        height = max(1, self.scroll.winfo_height())
-        content_height = self.inner.winfo_reqheight()
-        self.scrollable = content_height > height
-        self.scroll.configure(scrollregion=(0, 0, self.scroll.winfo_width(), max(height, content_height)))
-        if self.scrollable:
-            if not self.bar.winfo_manager():
-                self.bar.pack(side="right", fill="y", before=self.scroll)
-        else:
-            self.scroll.yview_moveto(0)
-            self.wheel_remainder = 0
-            self.bar.pack_forget()
-
-    def scroll_to(self, *args):
-        if self.scrollable:
-            self.scroll.yview(*args)
-
-    def wheel(self, event):
-        widget = event.widget
-        if widget.winfo_class() in {"Entry", "TEntry", "Spinbox", "TSpinbox", "TCombobox", "Scale", "TScale", "Text"}:
-            return  # Editable fields keep their own wheel behavior.
-        while widget not in {self.scroll, self.bar}:
-            if widget is self.window or widget is None:
-                return  # Header, search, footer and other windows are not this list.
-            widget = widget.master
-        if self.scrollable:
-            self.wheel_remainder -= event.delta / 120
-            steps = int(self.wheel_remainder)
-            if steps:
-                self.scroll.yview_scroll(steps, "units")
-                self.wheel_remainder -= steps
-        return "break"
-
-    def render_section(self):
-        for child in self.inner.winfo_children(): child.destroy()
-        self.card_widgets = []
-        self.selected_function = None
-        self.search_entry.configure(state="normal")
-        self.clear_search.configure(state="normal" if self.search.get() else "disabled")
-        self.draw_navigation()
-        self.scroll.yview_moveto(0)
-        notes = {
-            "settings": "Comfort, airflow and everyday features. Select changes, then apply.",
-            "everyday": "Presets for normal use. Select a card to review and start a preset.",
-            "maintenance": "Cleaning and service routines. Select a card to review its controls.",
-        }
-        query = self.search.get().strip()
-        groups = []
-        for section, title in SECTIONS:
-            if query or section == self.section:
-                items = [dict(item, section=section) for item in section_items(self.app.selected, section)
-                         if matches_search(item, query)]
-                groups.append((title, items))
-        count = sum(len(items) for _, items in groups)
-        self.note.set(f"{count} {'result' if count == 1 else 'results'} across all functions" if query else notes[self.section])
-        for column in range(3): self.inner.columnconfigure(column, weight=1, uniform="cards")
-        row = 0
-        self.visible_items = []
-        for title, items in groups:
-            if not items: continue
-            if query:
-                localized(ttk.Label(self.inner, text=title, style="Muted.TLabel", font=font(10, "bold"))).grid(
-                    row=row, column=0, columnspan=3, sticky="w", pady=(4, 10))
-                row += 1
-            self.visible_items.extend(items)
-            for index, item in enumerate(items):
-                card = self.card(item)
-                card.grid(row=row+index//3, column=index%3, sticky="nsew", padx=(0, 10), pady=(0, 12))
-            row += (len(items)+2)//3
-        if not count:
-            text = "No matching functions. Try another word or clear the search." if query else "No functions in this section are exposed by your AC."
-            localized(ttk.Label(self.inner, text=text, style="Muted.TLabel", wraplength=520)).grid(row=0, column=0, columnspan=3, pady=40)
-        self.update_apply()
-
-    def setting_value(self, spec):
-        key = spec["key"]
-        spec = self.app.selected.get("controls", {}).get(key, spec)
-        if key in self.settings_changes: return self.settings_changes[key]
-        if key in self.app.pending_changes: return self.app.pending_changes[key]
-        return spec["value"] if spec.get("reported") else None
-
-    def refresh_status(self):
-        # Redraw values in place; keep open menus, preset forms, scroll position and edits.
-        self.draw_hero()
-        for card in self.card_widgets:
-            card.event_generate("<<RedrawCard>>")
-
-    def card(self, item):
-        card = tk.Canvas(self.inner, highlightthickness=0, width=200, height=105, cursor="hand2", takefocus=True)
-        card.hover_style = CanvasHover(card)
-        def draw(event=None):
-            card.delete("all")
-            card.configure(bg=C.BG)
-            width = max(card.winfo_width(), 150)
-            card.hover_style.reset()
-            glyph=glyph_for(item["label"])
-            heading=item["label"]
-            active, pending = True, False
-            if item["kind"] == "setting":
-                spec = item["spec"]
-                value = self.setting_value(spec)
-                if spec["kind"] == "enum":
-                    from .dashboard import equal
-                    label = next((label for label, option in spec["options"].items() if equal(option, value)), "Unknown")
-                else:
-                    label = "Unknown" if value is None else translator(card).number(f"{float(value):g}")
-                if spec["key"] == "tempSel" and value is not None: label += " °C"
-                if spec["key"] == "machMode":
-                    label = mode_label(self.app.selected,self.settings_changes)
-                    glyph = mode_icon(label)
-                elif spec["key"] in {"windDirectionVertical","windDirectionHorizontal"}:
-                    glyph = airflow_icon(label)
-                active = label not in NEUTRAL
-                pending = spec["key"] in self.settings_changes
-            else:
-                heading = "Maintenance routine" if item.get("section", self.section) == "maintenance" else "Preset" if item.get("command") == "startProgram" or item["kind"] == "night" else "Function"
-                label = item["label"]
-            surface=control_card(card,1,1,width-2,heading,label,glyph,active=active,pending=pending,height=103)
-            outline = C.BRAND if pending else C.EDGE
-            card.hover_style.add((0,0,width,105),surface,{"fill":C.CARD,"outline":outline},{"fill":C.HOVER,"outline":C.BRAND})
-            card.hover_style.update()
-        def choose(event=None):
-            if item["kind"] != "setting": self.configure_function(item)
-            else: self.edit_setting(item["spec"], card)
-        card.bind("<Configure>", draw)
-        card.bind("<<RedrawCard>>", draw)
-        refresh_on_language(card,draw)
-        refresh_on_theme(card,draw)
-        card.bind("<Button-1>", choose)
-        card.bind("<Return>", choose)
-        card.bind("<space>", choose)
-        self.card_widgets.append(card)
-        return card
-
-    def change_setting(self, key, value):
-        from .dashboard import equal
-        spec = self.app.selected["controls"][key]
-        if spec.get("reported") and equal(value, spec["value"]):
-            self.settings_changes.pop(key, None)
-        else:
-            self.settings_changes[key] = str(value)
-        for card in self.card_widgets: card.event_generate("<<RedrawCard>>")
-        self.draw_hero()
-        self.update_apply()
-
-    def edit_setting(self, spec, card):
-        if spec["kind"] == "enum":
-            if spec["key"] == "machMode":
-                options = mode_choices(self.app.selected)
-                current = {key: self.setting_value(self.app.selected["controls"][key]) for key in ("machMode", "silentSleepStatus") if key in self.app.selected["controls"]}
-                def selected(patch):
-                    for key,value in self.app.memory.mode_values(self.app.selected,patch).items(): self.change_setting(key,value)
-            else:
-                options = (airflow_choices(spec) if spec["key"] in {"windDirectionVertical","windDirectionHorizontal"}
-                           else [{"label":label,"value":value,"glyph":glyph_for(spec["label"]),
-                                  "description":spec.get("description", "")} for label,value in spec["options"].items()])
-                current = self.setting_value(spec)
-                def selected(value):
-                    patch={spec["key"]:value}
-                    from .controller import code
-                    mode=self.app.selected.get("controls",{}).get("machMode",{})
-                    current_mode=self.setting_value(mode) if mode else None
-                    if spec["key"]=="silentSleepStatus" and code(current_mode) in {"1","4"}:
-                        patch["machMode"]=code(current_mode)
-                        patch=self.app.memory.mode_values(self.app.selected,patch)
-                    for key,new_value in patch.items():self.change_setting(key,new_value)
-            self.choice_panel = ChoicePanel(self.window,spec["label"],options,current,selected)
+    def render(self, keep_scroll=False):
+        if not self.window.winfo_exists() or not self.app.selected:
             return
+        c = self.content
+        position = c.yview()[0] if keep_scroll else 0
+        c.delete("all")
+        c.configure(bg=C.BG)
+        self.hits = []
+        self.draw_tabs()
+        query = self.search.get().strip()
+        if query:
+            height = self.draw_results(c, 0, query)
+        else:
+            draw = {"settings": self.draw_settings, "everyday": self.draw_everyday,
+                    "maintenance": self.draw_maintenance, "schedules": self.draw_schedules}[self.section]
+            height = draw(c, 0)
+        visible = max(1, c.winfo_height())
+        c.configure(scrollregion=(0, 0, WIDTH, max(visible, height+16)))
+        self.scrollable = height+16 > visible
+        c.yview_moveto(position if self.scrollable else 0)
+        self.update_footer()
+
+    # Kept for callers of the earlier card view.
+    render_section = render
+
+    def text(self, c, x, y, value, size, color=None, anchor="w", weight="normal", width=None, translate=True):
+        options = {"width": width} if width else {}
+        return c.create_text(x, y, text=tr(c, value) if translate else value, anchor=anchor, fill=color or C.TEXT,
+                             font=font(size, weight), **options)
+
+    def hit(self, box, action):
+        self.hits.append((box, action))
+
+    def card(self, c, x1, y1, x2, y2, radius=20, fill=None):
+        item = rounded(c, x1, y1, x2, y2, radius, fill=fill or C.CARD, outline="")
+        c.tag_lower(item)
+        return item
+
+    def divider(self, c, y):
+        c.create_line(16, y, WIDTH-16, y, fill=C.TRACK)
+
+    # Settings
+
+    def draw_settings(self, c, y):
+        selected = self.app.selected
+        controls = selected.get("controls", {})
+        tone = self.app.dial_accent()
+        x0, x1 = 16, WIDTH-16
+        section_label(c, 4, y+7, "Comfort")
+        y += 24
+        top = y
+        y += 16
+        blocks = []
+        options = self.app.mode_options()
+        if options:
+            blocks.append("mode")
+        if "windSpeed" in controls and selected.get("fans"):
+            blocks.append("fan")
+        if self.app.airflow_spec():
+            blocks.append("airflow")
+        if "tempSel" in controls:
+            blocks.append("temperature")
+        for index, block in enumerate(blocks):
+            if index:
+                self.divider(c, y)
+                y += 16
+            if block == "mode":
+                self.text(c, x0, y+9, "Mode", -14, weight="bold")
+                self.text(c, x1, y+9, "Takes effect after Apply", -12, C.MUTED, "e", "semibold")
+                y += 26
+                gap = 6
+                width = (x1-x0-gap*(len(options)-1))/len(options)
+                current = self.app.base_mode()
+                for i, option in enumerate(options):
+                    bx = x0+i*(width+gap)
+                    label = option["label"]
+                    on = label == current
+                    color = accent(label)
+                    fill = self.app.soft(color) if on else C.SURFACE
+                    rounded(c, bx, y, bx+width, y+66, 14, fill=fill, outline=color if on else fill, width=1.5)
+                    ink = color if on else C.MUTED
+                    icon(c, mode_icon(label), bx+width/2, y+24, ink, scale=.8, bg=fill)
+                    caption = tr(c, label)
+                    size = -12 if measure(c, caption, -12, "bold") <= width-6 else -10
+                    self.text(c, bx+width/2, y+48, caption, size, ink, "center", "bold", translate=False)
+                    self.hit((bx, y, bx+width, y+66), lambda option=option: self.stage_mode(option))
+                y += 66+16
+            elif block == "fan":
+                self.text(c, x0, y+9, "Fan speed", -14, weight="bold")
+                y += 26
+                fans = list(selected["fans"].items())
+                gap = 6
+                width = (x1-x0-gap*(len(fans)-1))/len(fans)
+                for i, (label, value) in enumerate(fans):
+                    bx = x0+i*(width+gap)
+                    on = label == self.app.fan.get()
+                    fill = self.app.soft(tone) if on else C.SURFACE
+                    rounded(c, bx, y, bx+width, y+60, 14, fill=fill, outline=tone if on else fill, width=1.5)
+                    ink = tone if on else C.MUTED
+                    fan_bars(c, bx+width/2-9, y+26, FAN_LEVELS.get(label, 0), ink if on else C.FAINT, fill,
+                             heights=(7, 11, 15), width=5)
+                    self.text(c, bx+width/2, y+43, label, -12, ink, "center", "bold")
+                    self.hit((bx, y, bx+width, y+60), lambda value=value: self.stage("windSpeed", value))
+                y += 60+16
+            elif block == "airflow":
+                value = self.app.airflow_value()
+                rounded(c, x0, y, x0+64, y+52, 14, fill=C.SURFACE, outline="")
+                louver(c, x0+4, y+1, louver_position(value), C.TEXT, tone, scale=.78)
+                self.text(c, x0+78, y+16, "Airflow", -14, weight="bold")
+                note = tr(c, value) + (" · " + tr(c, AIRFLOW_NOTES[value]) if value in AIRFLOW_NOTES else "")
+                self.text(c, x0+78, y+36, note, -12, C.MUTED, weight="semibold", translate=False)
+                icon(c, "next", x1-8, y+26, C.MUTED, scale=.7, bg=C.CARD)
+                self.hit((x0, y, x1, y+52), self.open_airflow_sheet)
+                y += 52+16
+            elif block == "temperature":
+                spec = controls["tempSel"]
+                self.text(c, x0, y+11, "Target temperature", -14, weight="bold")
+                number = translator(c).number
+                note = f"{number(f'{spec['min']:g}')}–{number(f'{spec['max']:g}')} °C · " + \
+                    tr(c, "{value}° steps").format(value=number(f"{spec['step']:g}"))
+                self.text(c, x0, y+31, note, -12, C.MUTED, weight="semibold", translate=False)
+                try:
+                    value = number(f"{float(self.app.temp.get()):g}") + "°"
+                except ValueError:
+                    value = "—"
+                plus, minus = x1-20, x1-20-40-56
+                for x, direction in ((minus, -1), (plus, 1)):
+                    c.create_oval(x-20, y+1, x+20, y+41, fill=C.SURFACE, outline="")
+                    c.create_line(x-7, y+21, x+7, y+21, fill=C.TEXT, width=2.4, capstyle="round")
+                    if direction > 0:
+                        c.create_line(x, y+14, x, y+28, fill=C.TEXT, width=2.4, capstyle="round")
+                    self.hit((x-20, y+1, x+20, y+41), lambda direction=direction: self.step_temp(direction))
+                self.text(c, (minus+plus)/2, y+21, value, -24, tone, "center", "light", translate=False)
+                y += 42+16
+        if blocks:
+            self.card(c, 0, top, WIDTH, y)
+        else:
+            self.text(c, WIDTH/2, y+20, "No comfort controls are exposed by your AC.", -13, C.MUTED, "center")
+            y += 40
+        y += 16
+        # Features: on/off settings as tiles.
+        toggles = [(key, controls[key]) for key in FEATURE_ORDER if key in controls and is_toggle(controls[key])]
+        toggles += [(key, spec) for key, spec in controls.items() if key not in FEATURE_ORDER and key not in COMFORT
+                    and is_toggle(spec) and function_group(key, label=spec["label"]) != "maintenance"]
+        if toggles:
+            section_label(c, 4, y+7, "Features")
+            y += 24
+            width = (WIDTH-10)/2
+            for index, (key, spec) in enumerate(toggles):
+                bx, by = (index % 2)*(width+10), y+(index//2)*126
+                self.draw_feature(c, bx, by, width, key, spec)
+            y += ((len(toggles)+1)//2)*126
+            y += 6
+        # Anything else the AC exposes, as rows.
+        others = [item for item in section_items(self.app.selected, "settings")
+                  if item["key"] not in COMFORT and not is_toggle(item["spec"])]
+        if others:
+            section_label(c, 4, y+7, "More settings")
+            y += 24
+            top = y
+            for index, item in enumerate(others):
+                if index:
+                    c.create_line(16, y, WIDTH, y, fill=C.TRACK)
+                spec = item["spec"]
+                self.text(c, 16, y+26, spec["label"], -14, weight="bold")
+                value = tr(c, option_label(spec, self.app.current(spec["key"])))
+                self.text(c, WIDTH-36, y+26, value, -13, C.MUTED, "e", "semibold", translate=False)
+                icon(c, "next", WIDTH-18, y+26, C.MUTED, scale=.6, bg=C.CARD)
+                self.hit((0, y, WIDTH, y+52), lambda spec=spec: self.edit_setting(spec))
+                y += 52
+            self.card(c, 0, top, WIDTH, y)
+            y += 16
+        self.visible_items = [dict(item, section="settings") for item in section_items(selected, "settings")]
+        return y
+
+    def draw_feature(self, c, x, y, width, key, spec):
+        glyph, tone_key, description = FEATURES.get(key, (glyph_for(spec["label"]), "auto", ""))
+        if key not in FEATURES and spec.get("description"):
+            description = spec["description"]
+        color = accent(tone_key)
+        on = code(self.app.current(key)) == "1"
+        fill = blend(color, C.CARD, .08) if on else C.CARD
+        rounded(c, x, y, x+width, y+116, 18, fill=fill, outline=blend(color, C.BG, .35) if on else fill, width=1.5)
+        square = blend(color, C.CARD, .16) if on else C.SURFACE
+        rounded(c, x+14, y+14, x+50, y+50, 12, fill=square, outline="")
+        icon(c, glyph, x+32, y+32, color if on else C.MUTED, scale=.7, bg=square)
+        switch(c, x+width-54, y+20, on, color)
+        self.text(c, x+14, y+70, spec["label"], -14, weight="bold")
+        if description:
+            self.text(c, x+14, y+82, description, -12, C.MUTED, "nw", width=width-28)
+        self.hit((x, y, x+width, y+116), lambda: self.toggle_feature(key))
+
+    def stage(self, key, value):
+        self.app.staged(key, value)
+        self.render(keep_scroll=True)
+
+    def stage_mode(self, option):
+        self.app.pick_mode(option)
+        self.render(keep_scroll=True)
+
+    def step_temp(self, direction):
+        self.app.step_temp(direction)
+        self.render(keep_scroll=True)
+
+    def toggle_feature(self, key):
+        if key == "silentSleepStatus":
+            self.app.toggle_sleep()
+        else:
+            self.app.staged(key, "0" if code(self.app.current(key)) == "1" else "1")
+        self.render(keep_scroll=True)
+
+    def edit_setting(self, spec, card=None):
+        """An editor for settings outside the Comfort card: a choice panel, or a value field."""
+        key = spec["key"]
+        if spec["kind"] == "enum":
+            from .control_choices import airflow_choices
+            if key in {"windDirectionVertical", "windDirectionHorizontal"}:
+                options = airflow_choices(spec)
+            else:
+                options = [{"label": label, "value": value, "glyph": glyph_for(spec["label"]),
+                            "description": spec.get("description", "")} for label, value in spec["options"].items()]
+            self.choice_panel = ChoicePanel(self.window, spec["label"], options, self.app.current(key),
+                                            lambda value: self.stage(key, value))
+            return
+        from tkinter import ttk
+        from .i18n import localized
         window = tk.Toplevel(self.window)
-        localized_title(window,spec["label"])
+        localized_title(window, spec["label"])
         paint(window, bg="BG")
         window.resizable(False, False)
         window.transient(self.window)
         window.grab_set()
+
         def close_detail():
             window.destroy()
             self.window.grab_set()
@@ -415,70 +523,821 @@ class FunctionsView:
         window.header = WindowHeader(window, spec["label"], close_detail, maximize=False)
         body = ttk.Frame(window, padding=22)
         body.pack(fill="both", expand=True)
-        getter, initial = self.app.field(body, spec, self.setting_value(spec), use_reported=True,
-                                         show_label=spec["key"] != "tempSel")
+        getter, initial = self.app.field(body, spec, self.app.current(key), use_reported=True,
+                                         show_label=key != "tempSel")
         hint = (f"Drag, scroll or use ↑ ↓ · {spec['min']:g}–{spec['max']:g}°C · Step {spec['step']:g}"
-                if spec["key"] == "tempSel" else f"Range {spec['min']:g}–{spec['max']:g} · Step {spec['step']:g}")
+                if key == "tempSel" else f"Range {spec['min']:g}–{spec['max']:g} · Step {spec['step']:g}")
         localized(ttk.Label(body, text=hint, style="Muted.TLabel")).pack(anchor="w", pady=12)
+
         def done():
             value = getter()
-            if value is not None: self.change_setting(spec["key"], value)
+            if value is not None:
+                self.stage(key, value)
             close_detail()
         localized(ttk.Button(body, text="Set value", style="Accent.TButton", command=done)).pack(fill="x")
         window.protocol("WM_DELETE_WINDOW", close_detail)
 
-    def configure_function(self, item):
-        self.selected_function = item
-        maintenance = item.get("section", self.section) == "maintenance"
-        # Preserve an open preset's draft until the user returns to the cards.
-        self.search_entry.configure(state="disabled")
-        self.clear_search.configure(state="disabled")
-        for child in self.inner.winfo_children(): child.destroy()
-        self.card_widgets = []
-        # Reset equal-width card columns for the full-width detail form.
-        for column in range(3): self.inner.columnconfigure(column, weight=0, uniform="")
-        self.inner.columnconfigure(0, weight=1)
-        detail = ttk.Frame(self.inner, padding=(12, 8))
-        detail.grid(row=0, column=0, sticky="ew", columnspan=3)
-        localized(ttk.Button(detail, text="‹ Back to cards", command=self.render_section)).pack(anchor="w", pady=(0, 18))
-        localized(ttk.Label(detail, text=item["label"], style="Heading.TLabel")).pack(anchor="w", pady=(0, 6))
-        description = "Cleaning / service routine" if maintenance else "Everyday comfort preset"
-        localized(ttk.Label(detail, text=description, style="Muted.TLabel")).pack(anchor="w", pady=(0, 20))
-        saved=self.app.memory.function_values(self.app.selected["id"],item["command"],item["form"]) if item["kind"]=="function" else {}
-        fields = {spec["key"]: self.app.field(detail, spec, saved.get(spec["key"])) for spec in item.get("form", {}).get("parameters", [])}
-        if item["kind"] == "night":
-            localized(ttk.Label(detail,text=item["description"],style="Muted.TLabel")).pack(anchor="w",pady=14)
-        if not fields:
-            localized(ttk.Label(detail, text="This routine has no adjustable options.", style="Muted.TLabel")).pack(anchor="w", pady=14)
-        text = "This routine may interrupt the current operation." if maintenance else "Starting this preset may turn the AC on and replace its settings."
-        localized(ttk.Label(detail, text=text, wraplength=580, style="Muted.TLabel")).pack(anchor="w", pady=20)
-        def run():
-            if item["kind"] == "night":
-                self.close()
-                self.app.action("on",dict(item["changes"]))
-                return
-            request = {"command": item["command"], "category": item["form"]["category"],
-                       "parameters": {key: get() for key, (get, initial) in fields.items() if get() is not None}}
-            self.close()
-            self.app.action("execute", request)
-        button = "Start maintenance routine" if maintenance else "Start preset" if item.get("command") == "startProgram" or item["kind"] == "night" else "Run function"
-        localized(ttk.Button(detail, text=button, style="Accent.TButton", command=run)).pack(fill="x")
-        self.scroll.yview_moveto(0)
-        self.update_apply()
+    # Everyday use
 
-    def update_apply(self):
-        count = len(self.settings_changes)
-        self.apply_button.configure(text=tr(self.apply_button, "Apply changes")+(f" ({count})" if count else ""),
-                                    state="normal" if self.settings_changes and self.selected_function is None else "disabled")
+    def preset_details(self, item):
+        """Colour, glyph, description and the settings a preset applies, as (label, value, glyph, on)."""
+        selected = self.app.selected
+        controls = selected.get("controls", {})
+        features = []
+        if item["kind"] == "night":
+            mode = item["label"].replace(" Night", "")
+            values = self.app.memory.mode_values(selected, dict(item["changes"]))
+            color = accent(mode)
+            features.append(("Mode", mode, mode_icon(mode), True))
+            temperature = values.get("tempSel", selected.get("target"))
+            if temperature is not None:
+                features.append(("Temperature", option_label({"key": "tempSel"}, temperature), "thermo", True))
+            for key, label, glyph in (("windSpeed", "Fan speed", "fan"), ("windDirectionVertical", "Airflow", "swing")):
+                if key in controls:
+                    value = values.get(key, self.app.current(key))
+                    features.append((label, option_label(controls[key], value), glyph, True))
+            features.append(("Sleep", "On", "moon", True))
+            for key in ("muteStatus", "ecoMode"):
+                if key in values and key in controls:
+                    on = code(values[key]) == "1"
+                    features.append((controls[key]["label"], "On" if on else "Off", FEATURES[key][0], on))
+            description = ("Cooling with the unit’s Sleep feature, for the night." if mode == "Cool" else
+                           "Heating with the unit’s Sleep feature, for the night.")
+            return color, mode_icon(mode), description, features[:6]
+        form = item["form"]
+        saved = self.app.memory.function_values(selected["id"], item["command"], form)
+        color, glyph = C.BRAND, glyph_for(item["label"])
+        for spec in form.get("parameters", []):
+            key = spec["key"]
+            value = saved.get(key, spec.get("value"))
+            label = option_label(spec, value)
+            if key == "machMode":
+                color, glyph = accent(label), mode_icon(label)
+                features.insert(0, ("Mode", label, mode_icon(label), True))
+            elif is_toggle(spec):
+                on = code(value) == "1"
+                features.append((spec["label"], "On" if on else "Off", FEATURES.get(key, (glyph_for(spec["label"]),))[0], on))
+            else:
+                features.append((spec["label"], label, "thermo" if key == "tempSel" else glyph_for(spec["label"]), True))
+        maintenance = item.get("section") == "maintenance" or form.get("group") == "maintenance"
+        description = "Cleaning / service routine" if maintenance else "Everyday comfort preset"
+        return color, glyph, description, features[:6]
+
+    def draw_everyday(self, c, y):
+        self.text(c, 4, y+9, "Presets for normal use. Open one to review it, then start it.", -13, C.MUTED, width=WIDTH-8)
+        y += 32
+        items = [dict(item, section="everyday") for item in section_items(self.app.selected, "everyday")]
+        self.visible_items = items
+        for item in items:
+            color, glyph, description, features = self.preset_details(item)
+            rows = (len(features)+2)//3
+            height = 16+64+(14+rows*50-6 if features else 0)+16
+            top = y
+            tint = self.app.soft(color)
+            rounded(c, 16, y+16, 80, y+80, 18, fill=tint, outline="")
+            icon(c, glyph, 48, y+48, color, scale=1.3, bg=tint)
+            review = tr(c, "Review")
+            chip = measure(c, review, -12, "black")+30
+            self.text(c, 94, y+36, item["label"], -17, weight="black", width=WIDTH-94-chip-28)
+            self.text(c, 94, y+60, description, -12, C.MUTED, width=WIDTH-94-chip-28)
+            rounded(c, WIDTH-16-chip, y+31, WIDTH-16, y+65, 11, fill=tint, outline="")
+            self.text(c, WIDTH-16-chip+12, y+48, review, -12, color, weight="black", translate=False)
+            icon(c, "next", WIDTH-28, y+48, color, scale=.5, bg=tint)
+            if features:
+                cell = (WIDTH-32-12)/3
+                for index, (label, value, symbol, on) in enumerate(features):
+                    fx = 16+(index % 3)*(cell+6)
+                    fy = y+94+(index//3)*50
+                    rounded(c, fx, fy, fx+cell, fy+44, 12, fill=C.SURFACE, outline="")
+                    square = self.app.soft(color, C.SURFACE) if on else C.STRONG
+                    rounded(c, fx+10, fy+9, fx+36, fy+35, 8, fill=square, outline="")
+                    icon(c, symbol, fx+23, fy+22, color if on else C.MUTED, scale=.5, bg=square)
+                    caption = tr(c, label)
+                    while measure(c, caption, -11, "semibold") > cell-50 and len(caption) > 3:
+                        caption = caption[:-2]+"…"
+                    self.text(c, fx+44, fy+14, caption, -11, C.MUTED, weight="semibold", translate=False)
+                    shown = tr(c, value)
+                    while measure(c, shown, -13, "black") > cell-50 and len(shown) > 3:
+                        shown = shown[:-2]+"…"
+                    self.text(c, fx+44, fy+30, shown, -13, C.TEXT if on else C.MUTED, weight="black", translate=False)
+            self.card(c, 0, top, WIDTH, top+height, 22)
+            self.hit((0, top, WIDTH, top+height), lambda item=item: self.open_preset(item))
+            y += height+10
+        if not items:
+            self.text(c, WIDTH/2, y+30, "No presets are exposed by your AC.", -13, C.MUTED, "center")
+            y += 60
+        # What each mode restores when the AC is turned on in it.
+        options = self.app.mode_options()
+        if options:
+            y += 6
+            section_label(c, 4, y+7, "Remembered per mode")
+            self.text(c, 4, y+26, "Turning on in a mode brings back what you last used in it.", -12, C.MUTED)
+            y += 42
+            width = (WIDTH-20)/3
+            controls = self.app.selected.get("controls", {})
+            for index, option in enumerate(options):
+                bx, by = (index % 3)*(width+10), y+(index//3)*110
+                label = option["label"]
+                color = accent(label)
+                values = self.app.memory.mode_values(self.app.selected, dict(option["value"]))
+                rounded(c, bx, by, bx+width, by+100, 18, fill=C.CARD, outline="")
+                icon(c, mode_icon(label), bx+22, by+22, color, scale=.6, bg=C.CARD)
+                self.text(c, bx+36, by+22, label, -12, color, weight="bold")
+                temperature = option_label({"key": "tempSel"}, values["tempSel"]) if "tempSel" in values else "—"
+                self.text(c, bx+14, by+56, translator(c).number(temperature), -30, weight="light", translate=False)
+                parts = []
+                if "windSpeed" in values and "windSpeed" in controls:
+                    parts.append(tr(c, option_label(controls["windSpeed"], values["windSpeed"])))
+                spec = self.app.airflow_spec()
+                if spec and spec["key"] in values:
+                    parts.append(tr(c, option_label(spec, values[spec["key"]])))
+                detail = " · ".join(parts) or tr(c, "Not used yet")
+                self.text(c, bx+14, by+84, detail, -11, C.MUTED, weight="semibold", width=width-20, translate=False)
+            y += ((len(options)+2)//3)*110
+        return y
+
+    # Maintenance
+
+    def draw_maintenance(self, c, y):
+        warn = C.WARN_TEXT
+        rounded(c, 0, y, WIDTH, y+46, 16, fill=C.WARN_BG, outline="")
+        icon(c, "alert", 22, y+23, warn, scale=.6, bg=C.WARN_BG)
+        self.text(c, 40, y+23, "Routines can interrupt what the AC is doing. Nothing here starts on its own.", -12, warn,
+                  weight="semibold", width=WIDTH-56)
+        y += 46+16
+        # Air filter status from the AC's own reminder.
+        reminder = any(alert.get("kind") == "filter" for alert in self.app.selected.get("alerts", []))
+        color = C.WARN_TEXT if reminder else C.OK
+        tint = blend(color, C.CARD, .12)
+        rounded(c, 18, y+18, 114, y+114, 22, fill=tint, outline="")
+        icon(c, "filter", 66, y+66, color, scale=1.9, bg=tint)
+        self.text(c, 132, y+36, "Air filter", -17, weight="black")
+        detail = ("The AC reports that its filter needs cleaning." if reminder else
+                  "The unit hasn’t asked for a clean. When it does, a reminder shows on the dashboard.")
+        self.text(c, 132, y+50, detail, -12, C.MUTED, "nw", width=WIDTH-150)
+        label = tr(c, "Clean the air filter" if reminder else "No reminder")
+        chip = measure(c, label, -11, "black")+34
+        chip_fill = blend(color, C.CARD, .16)
+        rounded(c, 132, y+88, 132+chip, y+112, 12, fill=chip_fill, outline="")
+        icon(c, "alert" if reminder else "check", 146, y+100, color, scale=.42, bg=chip_fill)
+        self.text(c, 156, y+100, label, -11, color, weight="black", translate=False)
+        self.card(c, 0, y, WIDTH, y+132, 22)
+        y += 132+16
+        items = [dict(item, section="maintenance") for item in section_items(self.app.selected, "maintenance")]
+        self.visible_items = items
+        if not items:
+            self.text(c, WIDTH/2, y+30, "No maintenance functions are exposed by your AC.", -13, C.MUTED, "center")
+            return y+60
+        section_label(c, 4, y+7, "Cleaning routines")
+        y += 24
+        width = (WIDTH-10)/2
+        palette = ("cool", "heat", "dry", "fan", "auto")
+        for index, item in enumerate(items):
+            bx, by = (index % 2)*(width+10), y+(index//2)*210
+            color = accent(palette[index % len(palette)])
+            tint = self.app.soft(color)
+            rounded(c, bx, by, bx+width, by+200, 20, fill=C.CARD, outline="")
+            rounded(c, bx+16, by+16, bx+72, by+72, 16, fill=tint, outline="")
+            icon(c, glyph_for(item["label"]), bx+44, by+44, color, scale=1.1, bg=tint)
+            self.text(c, bx+16, by+92, item["label"], -15, weight="black", width=width-32)
+            if item["kind"] == "setting":
+                detail = item.get("description") or tr(c, option_label(item["spec"], self.app.current(item["key"])))
+            else:
+                detail = "Cleaning / service routine"
+            self.text(c, bx+16, by+108, detail, -12, C.MUTED, "nw", width=width-32)
+            rounded(c, bx+16, by+144, bx+width-16, by+184, 12, fill=C.CARD, outline=C.STRONG, width=1.2)
+            self.text(c, bx+width/2, by+164, "Review", -13, C.TEXT, "center", "bold")
+            action = (lambda item=item: self.edit_setting(item["spec"])) if item["kind"] == "setting" else \
+                (lambda item=item: self.open_preset(item))
+            self.hit((bx, by, bx+width, by+200), action)
+        return y+((len(items)+1)//2)*210
+
+    # Schedules
+
+    def load_schedules(self):
+        if self.loading:
+            return
+        self.loading, self.schedule_error = True, None
+
+        def done(rows):
+            self.loading, self.rows = False, rows
+            if self.window.winfo_exists():
+                self.render(keep_scroll=True)
+
+        def failed(error):
+            self.loading, self.schedule_error = False, error
+            if self.window.winfo_exists():
+                self.render(keep_scroll=True)
+        self.app.load_schedules(done, failed)
+
+    def row_segments(self, row):
+        """Hour spans a schedule covers, as (day, start, end) for the week view."""
+        start = row["start"][0]+row["start"][1]/60 if row["start"] else None
+        end = row["end"][0]+row["end"][1]/60 if row["end"] else None
+        if row["kind"] == "repeat":
+            days = row["days"]
+        elif row["kind"] == "once" and row["due"].date()-datetime.now().date() < timedelta(days=7):
+            days = (row["due"].weekday(),)
+        else:
+            return []
+        spans = []
+        for day in days:
+            if start is not None and end is not None:
+                if end > start:
+                    spans.append((day, start, end))
+                else:
+                    spans.extend([(day, start, 24), ((day+1) % 7, 0, end)])
+            elif start is not None:
+                spans.append((day, start, min(24, start+.5)))
+            else:
+                spans.append((day, max(0, end-.5), end))
+        return spans
+
+    def schedule_color(self, row):
+        if not row["active"]:
+            return C.STRONG
+        if row.get("mode"):
+            return accent(row["mode"])
+        return C.FAINT
+
+    def draw_schedules(self, c, y):
+        self.visible_items = []
+        if self.rows is None:
+            if not self.loading and self.schedule_error is None:
+                self.load_schedules()
+            if self.rows is None:
+                message = self.schedule_error or "Loading schedules from hOn…"
+                self.text(c, WIDTH/2, y+40, message, -13, C.DANGER if self.schedule_error else C.MUTED, "center",
+                          width=WIDTH-40)
+                if self.schedule_error:
+                    self.text(c, WIDTH/2, y+76, "Try again", -13, C.BRAND, "center", "black")
+                    self.hit((WIDTH/2-60, y+60, WIDTH/2+60, y+92), self.retry_schedules)
+                return y+100
+        rows = self.rows
+        today = datetime.now()
+        # This week.
+        top = y
+        y += 16
+        self.text(c, 16, y+10, "This week", -14, weight="bold")
+        saved = tr(c, "Saved in hOn")
+        self.text(c, WIDTH-16, y+10, saved, -12, C.MUTED, "e", "semibold", translate=False)
+        icon(c, "cloud", WIDTH-16-measure(c, saved, -12, "semibold")-14, y+10, C.MUTED, scale=.6, bg=C.CARD)
+        y += 30
+        left, right = 58, WIDTH-16
+        spans = [(row, span) for row in rows for span in self.row_segments(row)]
+        for day in range(7):
+            is_today = day == today.weekday()
+            self.text(c, 16, y+8, DAY_NAMES[day], -12, C.TEXT if is_today else C.MUTED,
+                      weight="black" if is_today else "semibold")
+            rounded(c, left, y, right, y+16, 8, fill=C.STRONG if is_today else C.SURFACE, outline="")
+            for row, (span_day, start, end) in spans:
+                if span_day == day:
+                    x1 = left+(right-left)*start/24
+                    x2 = max(x1+8, left+(right-left)*end/24)
+                    rounded(c, x1, y, x2, y+16, 8, fill=self.schedule_color(row), outline="")
+            if is_today:
+                now = left+(right-left)*(today.hour+today.minute/60)/24
+                c.create_line(now, y-4, now, y+20, fill=C.TEXT, width=2)
+            y += 26
+        for index, hour in enumerate(("00", "06", "12", "18", "24")):
+            self.text(c, left+(right-left)*index/4, y+2, hour, -10, C.FAINT, "center", "semibold", translate=False)
+        y += 18
+        legend = []
+        for row in rows:
+            mode = (row.get("mode") or "").replace(" Night", "")
+            if mode and row["active"] and mode not in [label for label, color in legend]:
+                legend.append((mode, accent(mode)))
+        legend.append(("Paused", C.STRONG))
+        x = left
+        for label, color in legend:
+            rounded(c, x, y+2, x+10, y+12, 3, fill=color, outline="")
+            x += 15
+            item = self.text(c, x, y+7, label, -11, C.MUTED, weight="semibold")
+            x = c.bbox(item)[2]+14
+        c.create_line(x, y+1, x, y+13, fill=C.TEXT, width=2)
+        self.text(c, x+6, y+7, "Now", -11, C.MUTED, weight="semibold")
+        y += 30
+        self.card(c, 0, top, WIDTH, y)
+        y += 16
+        repeating = [row for row in rows if row["kind"] == "repeat"]
+        if repeating:
+            section_label(c, 4, y+7, "Repeating")
+            y += 24
+            for row in repeating:
+                y = self.draw_repeating(c, y, row)+10
+        others = [row for row in rows if row["kind"] != "repeat"]
+        if others:
+            y += 6
+            section_label(c, 4, y+7, "One-time and other")
+            y += 24
+            top = y
+            for index, row in enumerate(others):
+                if index:
+                    c.create_line(64, y, WIDTH, y, fill=C.TRACK)
+                once = row["kind"] == "once"
+                square = self.app.soft(C.BRAND) if once else C.SURFACE
+                rounded(c, 16, y+14, 52, y+50, 12, fill=square, outline="")
+                icon(c, ("power" if row["start"] else "clock") if once else "calendar", 34, y+32,
+                     C.BRAND if once else C.MUTED, scale=.6, bg=square)
+                if once:
+                    action = "Turn on" if row["start"] else "Turn off"
+                    when = translator(c).date(row["due"]) + " " + clock_text(row["start"] or row["end"])
+                    title = tr(c, action) + " · " + when
+                    sub = tr(c, row["mode"]) if row.get("mode") else tr(c, "Turns the AC on" if row["start"] else "Turns the AC off")
+                else:
+                    title, sub = tr(c, "A repeat this app does not edit"), tr(c, "Made in the hOn app")
+                self.text(c, 66, y+23, title, -14, weight="bold", translate=False, width=WIDTH-170)
+                self.text(c, 66, y+42, sub, -12, C.MUTED, weight="semibold", translate=False)
+                if once:
+                    self.text(c, WIDTH-16, y+32, "Delete", -12, C.DANGER, "e", "black")
+                    self.hit((WIDTH-90, y, WIDTH, y+64), lambda row=row: self.delete_schedule(row))
+                else:
+                    self.text(c, WIDTH-16, y+32, "Manage in hOn", -12, C.MUTED, "e", "black")
+                y += 64
+            self.card(c, 0, top, WIDTH, y)
+            y += 16
+        if not rows:
+            self.text(c, WIDTH/2, y+20, "No schedules yet. Create one, or choose a repeat on End at.", -13, C.MUTED,
+                      "center", width=WIDTH-40)
+            y += 50
+        # New schedule.
+        tone = C.BRAND
+        rounded(c, 0, y, WIDTH, y+54, 16, fill=tone, outline="")
+        label = tr(c, "New schedule")
+        width = measure(c, label, -15, "black")+26
+        icon(c, "plus", WIDTH/2-width/2+8, y+27, C.ON_BRAND, scale=.7, bg=tone)
+        self.text(c, WIDTH/2-width/2+26, y+27, label, -15, C.ON_BRAND, weight="black", translate=False)
+        self.hit((0, y, WIDTH, y+54), lambda: self.edit_schedule(None))
+        return y+54
+
+    def retry_schedules(self):
+        self.schedule_error = None
+        self.load_schedules()
+        self.render(keep_scroll=True)
+
+    def draw_repeating(self, c, y, row):
+        active = row["active"]
+        color = accent(row["mode"]) if row.get("mode") else C.MUTED
+        top = y
+        start, end = row["start"], row["end"]
+        if start and end:
+            title = f"{clock_text(start)} → {clock_text(end)}"
+        elif start:
+            title = tr(c, f"On at {clock_text(start)}")
+        else:
+            title = tr(c, f"Off at {clock_text(end)}")
+        ink = C.TEXT if active else C.MUTED
+        self.text(c, 16, y+30, title, -24, ink, weight="light", translate=False)
+        switch(c, WIDTH-62, y+16, active, C.BRAND, width=46, height=28)
+        self.hit((WIDTH-70, y+8, WIDTH, y+52), lambda: self.set_active(row, not active))
+        y += 56
+        for day in range(7):
+            x = 16+day*29
+            included = day in row["days"]
+            fill = blend(color, C.CARD, .16) if included else C.CARD
+            c.create_oval(x, y, x+24, y+24, fill=fill, outline="")
+            initial = tr(c, DAY_NAMES[day])[:1]
+            self.text(c, x+12, y+12, initial, -11, color if included else C.FAINT, "center", "black", translate=False)
+        if start:
+            chip = tr(c, row["mode"]) if row.get("mode") else tr(c, "Turns the AC on")
+            if "temperature" in row:
+                chip += " " + translator(c).number(f"{row['temperature']:g}") + "°"
+            glyph = mode_icon(row["mode"]) if row.get("mode") else "power"
+        else:
+            chip, glyph = tr(c, "Turns the AC off"), "power"
+        width = measure(c, chip, -12, "bold")+40
+        tint = blend(color, C.CARD, .14)
+        rounded(c, WIDTH-16-width, y-1, WIDTH-16, y+25, 13, fill=tint, outline="")
+        icon(c, glyph, WIDTH-16-width+15, y+12, color, scale=.45, bg=tint)
+        self.text(c, WIDTH-16-width+27, y+12, chip, -12, color, weight="bold", translate=False)
+        y += 38
+        c.create_line(16, y, WIDTH-16, y, fill=C.TRACK)
+        y += 10
+        rounded(c, 16, y, 76, y+34, 10, fill=C.SURFACE, outline="")
+        self.text(c, 46, y+17, "Edit", -12, C.TEXT, "center", "black")
+        self.hit((16, y, 76, y+34), lambda: self.edit_schedule(row))
+        self.text(c, 92, y+17, "Delete", -12, C.DANGER, weight="black")
+        self.hit((84, y, 150, y+34), lambda: self.delete_schedule(row))
+        note = ", ".join(tr(c, label) for label in day_labels(row["days"])) if active else tr(c, "Paused")
+        self.text(c, WIDTH-16, y+17, note, -12, C.MUTED, "e", "semibold", translate=False)
+        y += 34+16
+        card = self.card(c, 0, top, WIDTH, y)
+        if not active:
+            c.itemconfigure(card, fill=blend(C.CARD, C.BG, .6))
+        return y
+
+    def set_active(self, row, active):
+        self.app.change_schedule("active", row["id"], self.schedules_changed, self.schedule_failed, active=active)
+
+    def delete_schedule(self, row):
+        if not messagebox.askyesno("Room AC Control", tr(self.window, "Delete this schedule from hOn?"), parent=self.window):
+            return
+        self.app.change_schedule("delete", row["id"], self.schedules_changed, self.schedule_failed)
+
+    def schedules_changed(self, rows):
+        self.rows = rows
+        if self.window.winfo_exists():
+            self.render(keep_scroll=True)
+
+    def schedule_failed(self, error):
+        self.app.status.set(error)
+        self.rows = None
+        self.schedule_error = error
+        if self.window.winfo_exists():
+            self.render(keep_scroll=True)
+
+    def edit_schedule(self, row):
+        """Open the schedule editor above this window; the list reloads when it closes."""
+        self.app.open_schedules(self.window)
+        view = self.app.schedules_view
+        if view is None:
+            return
+        view.on_close = self.schedules_closed
+        view.edit(row)
+
+    def schedules_closed(self):
+        self.rows = None
+        if self.window.winfo_exists():
+            self.load_schedules()
+
+    # Search
+
+    def draw_results(self, c, y, query):
+        groups = []
+        for section, title in SECTIONS:
+            items = [dict(item, section=section) for item in section_items(self.app.selected, section)
+                     if matches_search(item, query)]
+            if items:
+                groups.append((title, items))
+        self.visible_items = [item for _, items in groups for item in items]
+        count = len(self.visible_items)
+        self.text(c, 4, y+9, f"{count} {'result' if count == 1 else 'results'} across all functions", -13, C.MUTED)
+        y += 30
+        for title, items in groups:
+            section_label(c, 4, y+7, title)
+            y += 24
+            top = y
+            for index, item in enumerate(items):
+                if index:
+                    c.create_line(64, y, WIDTH, y, fill=C.TRACK)
+                rounded(c, 16, y+12, 52, y+48, 12, fill=C.SURFACE, outline="")
+                icon(c, glyph_for(item["label"]), 34, y+30, C.MUTED, scale=.6, bg=C.SURFACE)
+                self.text(c, 66, y+21, item["label"], -14, weight="bold")
+                if item["kind"] == "setting":
+                    sub = tr(c, option_label(item["spec"], self.app.current(item["key"])))
+                    if is_toggle(item["spec"]) and item["key"] not in COMFORT:
+                        action = lambda item=item: self.toggle_feature(item["key"])
+                    else:
+                        action = lambda item=item: self.edit_setting(item["spec"])
+                else:
+                    sub = tr(c, "Maintenance routine" if title == "Maintenance" else "Preset")
+                    action = lambda item=item: self.open_preset(item)
+                self.text(c, 66, y+40, sub, -12, C.MUTED, weight="semibold", translate=False)
+                icon(c, "next", WIDTH-18, y+30, C.MUTED, scale=.6, bg=C.CARD)
+                self.hit((0, y, WIDTH, y+60), action)
+                y += 60
+            self.card(c, 0, top, WIDTH, y)
+            y += 16
+        if not count:
+            self.text(c, WIDTH/2, y+30, "No matching functions. Try another word or clear the search.", -13, C.MUTED,
+                      "center", width=WIDTH-40)
+            y += 60
+        return y
+
+    # Sheets
+
+    def open_sheet(self, draw):
+        self.close_sheet()
+        self.overlay = Overlay(self.window, self.close_sheet)
+        canvas = tk.Canvas(self.window, highlightthickness=0, takefocus=True)
+        canvas.bind("<Button-1>", self.sheet_click)
+        canvas.bind("<Escape>", lambda event: self.close_sheet())
+        self.sheet = {"canvas": canvas, "draw": lambda: self.draw_sheet(draw), "hits": [], "widgets": []}
+        self.draw_sheet(draw)
+        canvas.place(x=0, rely=1, relwidth=1, anchor="sw")
+        raise_widget(canvas)
+        canvas.focus_set()
+
+    def draw_sheet(self, draw):
+        sheet = self.sheet
+        c = sheet["canvas"]
+        c.delete("all")
+        c.configure(bg=C.BG)
+        sheet["hits"] = []
+        width = SIZE[0]
+        height = draw(c, width)
+        c.configure(height=height)
+        sheet["height"] = height
+        background = rounded(c, 0, 0, width, height+40, 26, fill=C.CARD, outline=C.TRACK)
+        c.tag_lower(background)
+        rounded(c, width/2-20, 12, width/2+20, 17, 3, fill=C.STRONG, outline="")
+
+    def sheet_hit(self, box, action):
+        self.sheet["hits"].append((box, action))
+
+    def sheet_click(self, event):
+        for (x1, y1, x2, y2), action in list(self.sheet["hits"]):
+            if x1 <= event.x <= x2 and y1 <= event.y <= y2:
+                action()
+                return
+
+    def close_sheet(self):
+        if not self.sheet:
+            return
+        for widget in self.sheet["widgets"]:
+            widget.destroy()
+        if self.sheet["canvas"].winfo_exists():
+            self.sheet["canvas"].destroy()
+        self.sheet = None
+        self.selected_function = None
+        self.overlay.destroy()
+        self.search_entry.configure(state="normal")
+
+    def sheet_buttons(self, c, y, width, back, primary, run, primary_flex=2):
+        tone = self.app.dial_accent()
+        gap = 10
+        left_width = (width-48-gap)/(1+primary_flex)
+        x1, x2 = 24, 24+left_width
+        rounded(c, x1, y, x2, y+50, 14, fill=C.CARD, outline=C.STRONG, width=1.2)
+        self.text(c, (x1+x2)/2, y+25, back, -14, C.TEXT, "center", "bold")
+        self.sheet_hit((x1, y, x2, y+50), self.close_sheet)
+        x1, x2 = x2+gap, width-24
+        rounded(c, x1, y, x2, y+50, 14, fill=tone, outline="")
+        self.text(c, (x1+x2)/2, y+25, primary, -14, C.ON_BRAND, "center", "black")
+        self.sheet_hit((x1, y, x2, y+50), run)
+        return y+50+28
+
+    def open_airflow_sheet(self):
+        controls = self.app.selected.get("controls", {})
+        specs = [controls[key] for key in ("windDirectionVertical", "windDirectionHorizontal") if key in controls]
+        if not specs:
+            return
+        self.sheet_choice = {spec["key"]: self.app.current(spec["key"]) for spec in specs}
+
+        def choose(key, value):
+            self.sheet_choice[key] = value
+            self.sheet["draw"]()
+
+        def done():
+            for key, value in self.sheet_choice.items():
+                if value is not None:
+                    self.app.staged(key, value)
+            self.close_sheet()
+            self.render(keep_scroll=True)
+
+        def draw(c, width):
+            from .dashboard import equal
+            tone = self.app.dial_accent()
+            y = 30
+            self.text(c, 24, y+12, "Airflow", -22, weight="black")
+            self.text(c, 24, y+38, "Vertical louver. Position 1 is the most closed, 5 the most open.", -13, C.MUTED,
+                      width=width-48)
+            y += 62
+            for spec in specs:
+                if len(specs) > 1:
+                    section_label(c, 24, y+6, spec["label"])
+                    y += 22
+                options = list(spec["options"].items())
+                cell = (width-48-20)/3
+                for index, (label, value) in enumerate(options):
+                    x = 24+(index % 3)*(cell+10)
+                    top = y+(index//3)*128
+                    on = equal(value, self.sheet_choice.get(spec["key"]))
+                    fill = self.app.soft(tone) if on else C.SURFACE
+                    rounded(c, x, top, x+cell, top+118, 18, fill=fill, outline=tone if on else fill, width=2)
+                    louver(c, x+cell/2-36, top+14, louver_position(label), C.TEXT, tone if on else C.FAINT)
+                    self.text(c, x+cell/2, top+96, label, -13, tone if on else C.TEXT, "center", "bold")
+                    self.sheet_hit((x, top, x+cell, top+118), lambda key=spec["key"], value=value: choose(key, value))
+                y += ((len(options)+2)//3)*128+6
+            return self.sheet_buttons(c, y+6, width, "Cancel", "Set value", done)
+        self.open_sheet(draw)
+
+    def open_preset(self, item):
+        """Review a preset, Night mode or maintenance routine, then start it explicitly."""
+        selected = self.app.selected
+        controls = selected.get("controls", {})
+        color, glyph, description, features = self.preset_details(item)
+        maintenance = item.get("section") == "maintenance" or \
+            (item["kind"] == "function" and item["form"].get("group") == "maintenance")
+        # Editable parameters: (spec, initial value).
+        if item["kind"] == "night":
+            values = self.app.memory.mode_values(selected, dict(item["changes"]))
+            parameters = [(controls[key], values.get(key, self.app.current(key)))
+                          for key in ("tempSel", "windSpeed", "windDirectionVertical", "muteStatus", "ecoMode")
+                          if key in controls]
+        else:
+            saved = self.app.memory.function_values(selected["id"], item["command"], item["form"])
+            parameters = [(spec, saved.get(spec["key"], spec.get("value"))) for spec in item["form"].get("parameters", [])
+                          if spec["key"] != "machMode"]
+        values = {spec["key"]: value for spec, value in parameters}
+        holder = {}
+
+        def pick(key, value):
+            values[key] = value
+            self.sheet["draw"]()
+
+        def draw(c, width):
+            from .dashboard import equal
+            y = 30
+            tint = self.app.soft(color)
+            rounded(c, 24, y, 108, y+84, 22, fill=tint, outline="")
+            icon(c, glyph, 66, y+42, color, scale=1.5, bg=tint)
+            kind = "Maintenance routine" if maintenance else "Preset"
+            self.text(c, 124, y+12, tr(c, kind).upper(), -11, color, weight="black", translate=False)
+            self.text(c, 124, y+38, item["label"], -24, weight="black", width=width-148)
+            self.text(c, 124, y+56, description, -13, C.MUTED, "nw", width=width-148)
+            y += 84+20
+            temperature = next(((spec, value) for spec, value in parameters if spec["key"] == "tempSel"), None)
+            enums = [(spec, value) for spec, value in parameters
+                     if spec["key"] != "tempSel" and spec.get("kind") == "enum" and not is_toggle(spec)]
+            toggles = [(spec, value) for spec, value in parameters if is_toggle(spec)]
+            others = [(spec, value) for spec, value in parameters
+                      if spec["key"] != "tempSel" and spec.get("kind") != "enum"]
+            left = 24
+            if temperature:
+                spec, value = temperature
+                rounded(c, 24, y, 156, y+150, 18, fill=C.SURFACE, outline="")
+                self.text(c, 36, y+16, "Temperature", -11, C.MUTED, weight="bold")
+                # One wheel for the sheet's lifetime, so a redraw keeps an in-progress drag.
+                wheel = holder.get("wheel")
+                if wheel is None or not wheel.winfo_exists():
+                    wheel = SheetWheel(c, spec, values.get("tempSel", value), color)
+                    holder["wheel"] = wheel
+                    self.sheet["widgets"].append(wheel)
+                    original = wheel.changed
+
+                    def changed(wheel=wheel, original=original):
+                        original()
+                        values["tempSel"] = wheel.get()
+                    wheel.changed = changed
+                wheel.tone_color = color
+                wheel.draw()
+                c.create_window(36, y+26, window=wheel, anchor="nw")
+                left = 168
+            ry = y
+            for spec, value in enums:
+                options = list(spec["options"].items())
+                current = values.get(spec["key"], value)
+                if len(options) <= 4:
+                    box = 74
+                    rounded(c, left, ry, width-24, ry+box, 18, fill=C.SURFACE, outline="")
+                    self.text(c, left+12, ry+16, spec["label"], -11, C.MUTED, weight="bold")
+                    cell = (width-24-left-24-4*(len(options)-1))/len(options)
+                    for index, (label, option) in enumerate(options):
+                        x = left+12+index*(cell+4)
+                        on = equal(option, current)
+                        fill = blend(color, C.SURFACE, .18) if on else C.SURFACE
+                        rounded(c, x, ry+30, x+cell, ry+62, 9, fill=fill, outline="")
+                        shown = tr(c, label)
+                        while measure(c, shown, -12, "bold") > cell-4 and len(shown) > 3:
+                            shown = shown[:-2]+"."
+                        self.text(c, x+cell/2, ry+46, shown, -12, color if on else C.MUTED, "center", "bold", translate=False)
+                        self.sheet_hit((x, ry+30, x+cell, ry+62), lambda key=spec["key"], option=option: pick(key, option))
+                else:
+                    box = 62
+                    rounded(c, left, ry, width-24, ry+box, 18, fill=C.SURFACE, outline="")
+                    self.text(c, left+12, ry+20, spec["label"], -11, C.MUTED, weight="bold")
+                    self.text(c, left+12, ry+42, option_label(spec, current), -14, weight="bold")
+                    icon(c, "next", width-40, ry+31, C.MUTED, scale=.6, bg=C.SURFACE)
+
+                    def choose(spec=spec):
+                        from .control_choices import airflow_choices
+                        choices = airflow_choices(spec) if spec["key"].startswith("windDirection") else \
+                            [{"label": label, "value": option} for label, option in spec["options"].items()]
+                        self.choice_panel = ChoicePanel(self.window, spec["label"], choices, values.get(spec["key"]),
+                                                        lambda value: pick(spec["key"], value))
+                    self.sheet_hit((left, ry, width-24, ry+box), choose)
+                ry += box+10
+            for spec, value in others:
+                rounded(c, left, ry, width-24, ry+62, 18, fill=C.SURFACE, outline="")
+                self.text(c, left+12, ry+20, spec["label"], -11, C.MUTED, weight="bold")
+                self.text(c, left+12, ry+42, option_label(spec, values.get(spec["key"], value)), -14, weight="bold")
+                ry += 72
+            if temperature or enums or others:
+                y = max(y+(160 if temperature else 0), ry)
+            if toggles:
+                section_label(c, 24, y+6, "Features")
+                y += 22
+                cell = (width-48-16)/3
+                for index, (spec, value) in enumerate(toggles):
+                    x = 24+(index % 3)*(cell+8)
+                    top = y+(index//3)*58
+                    on = code(values.get(spec["key"], value)) == "1"
+                    fill = blend(color, C.CARD, .10) if on else C.SURFACE
+                    rounded(c, x, top, x+cell, top+50, 14, fill=fill, outline=blend(color, C.BG, .45) if on else fill, width=1.5)
+                    symbol = FEATURES.get(spec["key"], (glyph_for(spec["label"]),))[0]
+                    icon(c, symbol, x+20, top+25, color if on else C.MUTED, scale=.55, bg=fill)
+                    name = tr(c, spec["label"])
+                    while measure(c, name, -12, "black") > cell-46 and len(name) > 3:
+                        name = name[:-2]+"…"
+                    self.text(c, x+36, top+17, name, -12, weight="black", translate=False)
+                    self.text(c, x+36, top+34, "On" if on else "Off", -11, color if on else C.MUTED, weight="black")
+                    self.sheet_hit((x, top, x+cell, top+50), lambda key=spec["key"], on=on: pick(key, "0" if on else "1"))
+                y += ((len(toggles)+2)//3)*58+6
+            if item["kind"] == "night":
+                fill = blend(color, C.CARD, .10)
+                rounded(c, 24, y, width-24, y+44, 14, fill=fill, outline="")
+                icon(c, "moon", 46, y+22, color, scale=.55, bg=fill)
+                self.text(c, 64, y+22, "Sleep is on for this preset.", -12, color, weight="bold")
+                y += 54
+            warn = "This routine may interrupt the current operation." if maintenance else \
+                "Starting this preset may turn the AC on and replace its current settings."
+            rounded(c, 24, y, width-24, y+48, 14, fill=C.WARN_BG, outline="")
+            icon(c, "alert", 46, y+24, C.WARN_TEXT, scale=.55, bg=C.WARN_BG)
+            self.text(c, 64, y+24, warn, -12, C.WARN_TEXT, weight="semibold", width=width-100)
+            y += 48+18
+            primary = "Start maintenance routine" if maintenance else \
+                "Start preset" if item["kind"] == "night" or item.get("command") == "startProgram" else "Run function"
+            return self.sheet_buttons(c, y, width, "Back to cards", primary, lambda: self.run_preset(item, values), 1.4)
+        self.open_sheet(draw)
+        self.selected_function = item
+        self.search_entry.configure(state="disabled")
+
+    # Kept for callers of the earlier card view.
+    configure_function = open_preset
+
+    def run_preset(self, item, values):
+        values = {key: value for key, value in values.items() if value is not None}
+        if item["kind"] == "night":
+            request = dict(self.app.memory.mode_values(self.app.selected, dict(item["changes"])))
+            request.update(values)
+            request.update(item["changes"])
+            self.close()
+            self.app.action("on", request)
+            return
+        request = {"command": item["command"], "category": item["form"]["category"], "parameters": values}
+        self.close()
+        self.app.action("execute", request)
+
+    # Input
+
+    def click(self, event):
+        if self.sheet:
+            return
+        x, y = self.content.canvasx(event.x), self.content.canvasy(event.y)
+        for (x1, y1, x2, y2), action in list(self.hits):
+            if x1 <= x <= x2 and y1 <= y <= y2:
+                action()
+                return
+
+    def motion(self, event):
+        x, y = self.content.canvasx(event.x), self.content.canvasy(event.y)
+        inside = any(x1 <= x <= x2 and y1 <= y <= y2 for (x1, y1, x2, y2), _ in self.hits)
+        self.content.configure(cursor="hand2" if inside else "")
+
+    def wheel(self, event):
+        widget = event.widget
+        if isinstance(widget, TemperatureWheel) or self.sheet:
+            return
+        if widget.winfo_class() in {"Entry", "TEntry", "Spinbox", "TSpinbox", "TCombobox", "Scale", "TScale", "Text"}:
+            return
+        while widget is not None and widget is not self.content:
+            if widget is self.window:
+                return
+            widget = widget.master
+        if widget is None or not self.scrollable:
+            return "break"
+        self.wheel_remainder -= event.delta / 120
+        steps = int(self.wheel_remainder)
+        if steps:
+            self.content.yview_scroll(steps*48, "units")
+            self.wheel_remainder -= steps
+        return "break"
+
+    # Status and footer
+
+    def refresh_status(self):
+        """Redraw values in place; keep the open sheet, scroll position and edits."""
+        if self.window.winfo_exists():
+            self.draw_top()
+            self.render(keep_scroll=True)
+
+    def update_footer(self):
+        count = len(self.app.dirty)
+        if count:
+            self.apply_button.set_badge(count)
+            self.apply_button.set_enabled(not self.app.busy)
+            if not self.footer.winfo_manager():
+                self.footer.pack(side="bottom", fill="x", pady=(12, 20), before=self.content)
+                self.apply_button.pack(side="right")
+                self.discard_button.pack(side="right", padx=(0, 4))
+            self.apply_button.draw()
+        elif self.footer.winfo_manager():
+            self.footer.pack_forget()
+
+    def discard(self):
+        self.app.discard()
+        self.render(keep_scroll=True)
 
     def apply(self):
-        if not self.settings_changes or self.selected_function is not None: return
-        changes = dict(self.settings_changes)
+        if not self.app.dirty:
+            return
         self.close()
-        self.app.action("configure", changes)
+        self.app.action("apply")
 
     def close(self):
+        self.close_sheet()
         self.app.dialog = None
         self.app.dialog_view = None
-        self.airflow.close()
-        self.window.destroy()
+        if self.window.winfo_exists():
+            self.window.destroy()

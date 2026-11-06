@@ -50,12 +50,12 @@ try:
         # Wheels, the repeat chip and Set never overlap, and everything stays in the card.
         width = card.winfo_width()
         assert card.minute.winfo_x() + card.minute.winfo_width() < card.chip_box[0]
-        assert card.chip_box[2] < width - 14 - EndAtCard.BUTTON
+        assert card.chip_box[2] < width - 10 - EndAtCard.BUTTON
         for item in card.find_all():
             margin = 2 if card.type(item) == "polygon" else 0
             left, top, right, bottom = card.bbox(item)
             assert left >= -1 and top >= -1 and right <= width + margin and bottom <= card.winfo_height() + margin
-        button = SimpleNamespace(x=width - 14 - EndAtCard.BUTTON/2, y=40)
+        button = SimpleNamespace(x=width - 10 - EndAtCard.BUTTON/2, y=42)
         card.motion(button)
         assert card.hover
         card.motion(SimpleNamespace(x=30, y=40))
@@ -75,7 +75,7 @@ try:
             root.update_idletasks()
             number = app.canvas.bbox("target-temperature")
             unit = app.canvas.bbox("temperature-unit")
-            assert unit[0] - number[2] >= 2
+            assert unit[0] >= number[2] - 1  # °C follows the number, as in the mockup.
             assert number[0] > (DIAL[0] - DIAL[2]) * scale and unit[2] < (DIAL[0] + DIAL[2]) * scale
         assert app.status_label.winfo_y() + app.status_label.winfo_height() <= app.body.winfo_height()
         # Dial: clicking the top of the ring picks the middle value; dragging past the
@@ -101,7 +101,7 @@ try:
         # Mode bar: the five standard modes; choosing Heat stages it and recolours.
         modes = [option["label"] for option in app.mode_options()]
         assert modes == ["Auto", "Cool", "Dry", "Heat", "Fan"], modes
-        segment = (WIDTH - 8 - 4*4) / 5
+        segment = (WIDTH - 8 - 4*4) / 5  # Five modes, 4 px apart, inside a 4 px inset.
         app.click(point(4 + 3*(segment+4) + segment/2, MODES_TOP + MODES_HEIGHT/2))
         assert app.dirty["machMode"] == "4" and app.mode.get() == "Heat"
         app.discard()

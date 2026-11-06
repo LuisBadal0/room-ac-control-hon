@@ -12,6 +12,7 @@ import hashlib
 import json
 import os
 import queue
+from datetime import datetime
 import re
 import shutil
 import subprocess
@@ -338,6 +339,7 @@ class Updater:
         self.cancel = threading.Event()
         self.applied = False
         self.quiet = False
+        self.checked = None  # When a check last finished, for "Last checked today at 09:12".
 
     @property
     def supported(self):
@@ -436,6 +438,7 @@ class Updater:
                 if result == "checked":
                     self.release = payload or self.release
                     self.state = "available" if payload else "current"
+                    self.checked = datetime.now()
                 elif result == "installed":
                     self.state = "ready"
         if changed:

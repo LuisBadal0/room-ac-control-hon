@@ -46,7 +46,7 @@ try:
     assert app.selected==original and app.dirty=={"tempSel":"26.5"}
     assert app.temp.get()=="26.5" and app.mode.get()=="Cool"
     assert app.canvas.itemcget(app.canvas.find_withtag("target-temperature")[0],"text")=="26,5"
-    assert app.apply_button.cget("text")=="Aplicar alterações (1)"  # One staged change is counted.
+    assert app.apply_button.label()=="Aplicar" and app.apply_button.badge==1  # One staged change is counted.
     app.staged("silentSleepStatus","1")
     root.update()
     texts={app.canvas.itemcget(item,"text"):item for item in app.canvas.find_all() if app.canvas.type(item)=="text"}
@@ -75,21 +75,22 @@ try:
             "form":{"category":"iot_cool","parameters":[snapshot["controls"]["tempSel"]]}}
     view.configure_function(preset)
     root.update()
-    wheel=next(child for child in descendants(view.inner) if isinstance(child,TemperatureWheel))
+    wheel=next(widget for widget in view.sheet["widgets"] if isinstance(widget,TemperatureWheel))
     wheel.step(2)
     assert wheel.get()=="24.5"
     app.language_menu(view.window)
     app.language_panel.choose("en")
     root.update()
     assert view.selected_function is preset and wheel.winfo_exists() and wheel.get()=="24.5"
-    assert view.settings_changes=={"tempSel":"26.5"}
+    assert app.dirty=={"tempSel":"26.5"}
     app.set_language("pt-PT")
     assert wheel.get()=="24.5"
-    assert "24,5°C" in [wheel.itemcget(item,"text") for item in wheel.find_all() if wheel.type(item)=="text"]
+    assert "24,5°" in [wheel.itemcget(item,"text") for item in wheel.find_all() if wheel.type(item)=="text"]
     captured=[]
     app.action=lambda action,requested=None:captured.append((action,requested))
-    button=next(child for child in descendants(view.inner) if child.winfo_class()=="TButton" and child.cget("text")=="Iniciar predefinição")
-    button.invoke()
+    texts=[view.sheet["canvas"].itemcget(item,"text") for item in view.sheet["canvas"].find_all() if view.sheet["canvas"].type(item)=="text"]
+    assert "Iniciar predefinição" in texts and "Voltar aos cartões" in texts, texts
+    view.sheet["hits"][-1][1]()  # Start preset.
     assert captured==[("execute",{"command":"startProgram","category":"iot_cool","parameters":{"tempSel":"24.5"}})]
     assert len(callbacks)==1  # Language changes never initiate another connection or AC command.
     print("System default, live login/dashboard/preset translation, Portuguese search, draft retention and unchanged wire values passed offline.")
