@@ -1,9 +1,11 @@
 <!--
   Setup.exe for Room AC Control: a WiX bundle that installs the same per-user
-  MSI with a simpler window and a Launch button. No administrator rights.
+  MSI with a simpler window, a "Create a desktop shortcut" checkbox and a
+  Launch button. No administrator rights.
 -->
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
-     xmlns:bal="http://wixtoolset.org/schemas/v4/wxs/bal">
+     xmlns:bal="http://wixtoolset.org/schemas/v4/wxs/bal"
+     xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util">
   <Bundle Name="Room AC Control for hOn"
           Manufacturer="Room AC Control contributors"
           Version="$(var.Version)"
@@ -15,6 +17,8 @@
     <BootstrapperApplication>
       <bal:WixStandardBootstrapperApplication
           Theme="hyperlinkLicense"
+          ThemeFile="$(var.SourceDir)\SetupTheme.xml"
+          LocalizationFile="$(var.SourceDir)\SetupTheme.wxl"
           LicenseUrl="https://github.com/LuisBadal0/room-ac-control-hon/blob/main/LICENSE"
           LogoFile="$(var.Logo)"
           SuppressOptionsUI="yes"
@@ -25,8 +29,27 @@
               Value="[LocalAppDataFolder]Programs\Room AC Control\runtime\RoomACControl\RoomACControl.exe" />
     <Variable Name="LaunchWorkingFolder" Value="[LocalAppDataFolder]Programs\Room AC Control" />
 
+    <!-- The checkbox: 1 ticked, 0 unticked, 2 "not decided yet" (shown ticked, and the
+         MSI treats it as yes). InstallDesktopShortcut=0 or 1 on the command line wins.
+         Otherwise a new install starts ticked and an upgrade keeps the previous
+         choice. Version 0.3.0 always made a desktop shortcut and recorded "Shortcuts". -->
+    <Variable Name="InstallDesktopShortcut" Type="numeric" Value="2" bal:Overridable="yes" />
+    <util:RegistrySearch Id="FindPreviousInstall" Variable="PreviousInstall" Result="exists"
+                         Root="HKCU" Key="Software\RoomACControl\Installer" Value="InstallFolder" />
+    <util:RegistrySearch Id="FindShortcuts030" After="FindPreviousInstall"
+                         Condition="PreviousInstall AND InstallDesktopShortcut = 2"
+                         Variable="Installed030" Result="exists"
+                         Root="HKCU" Key="Software\RoomACControl\Installer" Value="Shortcuts" />
+    <util:RegistrySearch Id="FindDesktopShortcut" After="FindShortcuts030"
+                         Condition="PreviousInstall AND InstallDesktopShortcut = 2 AND NOT Installed030"
+                         Variable="InstallDesktopShortcut" Result="exists"
+                         Root="HKCU" Key="Software\RoomACControl\Installer" Value="DesktopShortcut" />
+
     <Chain>
-      <MsiPackage SourceFile="$(var.Msi)" />
+      <MsiPackage SourceFile="$(var.Msi)">
+        <MsiProperty Name="INSTALLDESKTOPSHORTCUT" Value="[InstallDesktopShortcut]" />
+        <MsiProperty Name="DESKTOPCHOICEMADE" Value="1" />
+      </MsiPackage>
     </Chain>
   </Bundle>
 </Wix>

@@ -103,13 +103,14 @@ def main():
     msi, setup = releases / names["msi"], releases / names["setup"]
     for stale in (msi, setup):
         stale.unlink(missing_ok=True)
-    wix("build", str(sources / "RoomACControl.wxs"), "-arch", "x64",
+    wix("build", str(sources / "RoomACControl.wxs"), str(sources / "InstallerUI.wxs"), "-arch", "x64",
         "-ext", "WixToolset.UI.wixext", "-ext", "WixToolset.Util.wixext",
         "-d", f"Version={app_version}", "-d", f"StageDir={stage}", "-d", f"Icon={icon}",
         "-d", f"LicenseRtf={work / 'License.rtf'}",
         "-intermediatefolder", str(work / "obj-msi"), "-pdbtype", "none", "-o", str(msi), cwd=work)
-    wix("build", str(sources / "Setup.wxs"), "-arch", "x64", "-ext", "WixToolset.BootstrapperApplications.wixext",
+    wix("build", str(sources / "Setup.wxs"), "-arch", "x64", "-ext", "WixToolset.BootstrapperApplications.wixext", "-ext", "WixToolset.Util.wixext",
         "-d", f"Version={app_version}", "-d", f"Msi={msi}", "-d", f"Icon={icon}", "-d", f"Logo={work / 'logo.png'}",
+        "-d", f"SourceDir={sources}",
         "-intermediatefolder", str(work / "obj-setup"), "-pdbtype", "none", "-o", str(setup), cwd=work)
     checksums(releases, [names["zip"], names["msi"], names["setup"]])
     print(f"Installer: {msi}\nInstaller: {setup}", flush=True)

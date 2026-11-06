@@ -1,6 +1,6 @@
 # Using Room AC Control
 
-Launch from the **Room AC Control** Start menu or desktop shortcut that the installer adds, or with **Start Room AC Control.cmd** in the portable folder. Sign in using the hOn email/password account that already controls the AC on your phone. **Remember me on this computer** enables encrypted automatic sign-in after the first successful login.
+Launch from the **Room AC Control** shortcut that the installer adds to the Start menu (and to the desktop, if you left that ticked), or with **Start Room AC Control.cmd** in the portable folder. Sign in using the hOn email/password account that already controls the AC on your phone. **Remember me on this computer** enables encrypted automatic sign-in after the first successful login.
 
 Remember me is off by default. Enabling it saves your actual email and password using Windows encryption; other programs running as your Windows user can decrypt them. Existing remembered accounts retain their previous choice. Your password is passed to pyhOn for authentication.
 
@@ -109,7 +109,7 @@ Turn off **Check automatically** in Settings (or **Check for updates automatical
 
 ## Install and uninstall
 
-`Setup.exe` and the `.msi` install the same files as the portable ZIP, for your Windows user only and without administrator rights. Running a newer installer replaces the installed version; an older one is refused. Uninstall from **Settings › Apps › Installed apps** (**Room AC Control for hOn**): it removes the app folder, including files written by in-app updates, and its Start menu and desktop shortcuts. Your remembered sign-in and settings in `%LOCALAPPDATA%\RoomACControl` are kept; sign out first if you want them removed too.
+`Setup.exe` and the `.msi` install the same files as the portable ZIP, for your Windows user only and without administrator rights. The Start menu shortcut is always added. **Create a desktop shortcut** (on the first page of Setup.exe, or the **Shortcuts** page of the MSI) is ticked for a new install; when you install a newer version over an older one, it starts as you left it last time. For a silent install, add `InstallDesktopShortcut=0` to `Setup.exe /quiet`, or `INSTALLDESKTOPSHORTCUT=0` to `msiexec /i ... /qn`, to skip the desktop shortcut. Running a newer installer replaces the installed version; an older one is refused. Uninstall from **Settings › Apps › Installed apps** (**Room AC Control for hOn**): it removes the app folder, including files written by in-app updates, and its shortcuts. Your remembered sign-in and settings in `%LOCALAPPDATA%\RoomACControl` are kept; sign out first if you want them removed too.
 
 ## Sign out and privacy
 
