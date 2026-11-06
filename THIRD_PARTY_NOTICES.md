@@ -10,7 +10,7 @@ Room AC Control for hOn's original code and original geometric artwork are MIT l
 | AWS IoT SDK / AWS CRT | Apache-2.0 and component notices | https://github.com/aws/aws-iot-device-sdk-python-v2 |
 | CPython and Tcl/Tk | Bundled licenses | https://www.python.org/ |
 | PyInstaller runtime | GPL with the bootloader exception | https://pyinstaller.org/ |
-| WiX Toolset (Setup.exe bootstrapper and installer actions) | MS-RL | https://github.com/wixtoolset/wix |
+| WiX Toolset (Setup.exe bootstrapper and installer actions; `packaging/installer/InstallerUI.wxs` and `SetupTheme.*` adapt its WixUI and HyperlinkTheme sources) | MS-RL | https://github.com/wixtoolset/wix |
 | Manrope typeface (Light, Regular, SemiBold, Bold, ExtraBold) | SIL Open Font License 1.1 | https://github.com/googlefonts/manrope |
 
 Portable builds include license texts and notices in `runtime/RoomACControl/licenses/`. The pystray library is shipped as separate, unmodified Python source under `_internal/pystray/`, so it can be inspected and replaced.

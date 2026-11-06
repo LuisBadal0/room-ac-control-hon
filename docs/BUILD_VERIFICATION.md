@@ -32,7 +32,9 @@ app keeps its `runtime\RoomACControl` layout and its signed in-app updates.
 The WiX Toolset is the .NET local tool pinned in `.config/dotnet-tools.json`
 (`dotnet tool restore`), and its UI, Util and BootstrapperApplications
 extensions are pinned to the same version. The recipes are in
-`packaging/installer/`; keep their `UpgradeCode`s unchanged, or new installers
+`packaging/installer/`: `RoomACControl.wxs` (the MSI), `InstallerUI.wxs` (its pages, with the
+desktop-shortcut checkbox), `Setup.wxs` (the bundle) and `SetupTheme.xml`/`.wxl`
+(its window, adapted from WiX's HyperlinkTheme). Keep their `UpgradeCode`s unchanged, or new installers
 will no longer upgrade old ones. `SHA256SUMS.txt` lists the ZIP, MSI and
 Setup.exe. The installers are not Authenticode-signed.
 

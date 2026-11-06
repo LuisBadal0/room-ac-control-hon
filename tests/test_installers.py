@@ -66,6 +66,42 @@ class InstallerTests(unittest.TestCase):
         self.assertEqual(targets, {"[INSTALLFOLDER]runtime\\RoomACControl\\RoomACControl.exe"})
         self.assertIsNotNone(package.find(f"{WXS}MajorUpgrade"))
 
+    def test_msi_desktop_shortcut_follows_its_checkbox(self):
+        package = ElementTree.parse(ROOT / "packaging" / "installer" / "RoomACControl.wxs").find(f"{WXS}Package")
+        components = {component.get("Id"): component for component in package.iter(f"{WXS}Component")}
+        self.assertIsNone(components["StartMenuShortcut"].get("Condition"))
+        self.assertEqual(components["DesktopShortcut"].get("Condition"),
+                         'INSTALLDESKTOPSHORTCUT AND INSTALLDESKTOPSHORTCUT <> "0"')
+        self.assertEqual(components["DesktopShortcut"].find(f"{WXS}Shortcut").get("Directory"), "DesktopFolder")
+        secure = {prop.get("Id") for prop in package.iter(f"{WXS}Property") if prop.get("Secure") == "yes"}
+        self.assertEqual(secure, {"INSTALLDESKTOPSHORTCUT", "DESKTOPCHOICEMADE"})
+        self.assertEqual(package.find(f"{WXS}UIRef").get("Id"), "RoomACControlUI")
+
+        ui = ElementTree.parse(ROOT / "packaging" / "installer" / "InstallerUI.wxs").find(f"{WXS}Fragment/{WXS}UI")
+        self.assertEqual(ui.get("Id"), "RoomACControlUI")
+        dialog = ui.find(f"{WXS}Dialog[@Id='ShortcutsDlg']")
+        checkbox = dialog.find(f"{WXS}Control[@Type='CheckBox']")
+        self.assertEqual((checkbox.get("Property"), checkbox.get("CheckBoxValue")), ("INSTALLDESKTOPSHORTCUT", "1"))
+        steps = {(p.get("Dialog"), p.get("Control")): p.get("Value") for p in ui.iter(f"{WXS}Publish")
+                 if p.get("Event") == "NewDialog" and p.get("Condition") in (None, "NOT Installed", 'LicenseAccepted = "1"')}
+        self.assertEqual(steps[("LicenseAgreementDlg", "Next")], "ShortcutsDlg")
+        self.assertEqual(steps[("ShortcutsDlg", "Next")], "VerifyReadyDlg")
+        self.assertEqual(steps[("VerifyReadyDlg", "Back")], "ShortcutsDlg")
+
+    def test_setup_exe_desktop_checkbox_reaches_the_msi(self):
+        folder = ROOT / "packaging" / "installer"
+        bundle = ElementTree.parse(folder / "Setup.wxs").find(f"{WXS}Bundle")
+        variable = bundle.find(f"{WXS}Variable[@Name='InstallDesktopShortcut']")
+        self.assertEqual(variable.get("{http://wixtoolset.org/schemas/v4/wxs/bal}Overridable"), "yes")
+        properties = {p.get("Name"): p.get("Value") for p in bundle.iter(f"{WXS}MsiProperty")}
+        self.assertEqual(properties, {"INSTALLDESKTOPSHORTCUT": "[InstallDesktopShortcut]", "DESKTOPCHOICEMADE": "1"})
+        theme = ElementTree.parse(folder / "SetupTheme.xml").getroot()
+        names = [box.get("Name") for box in theme.iter("{http://wixtoolset.org/schemas/v4/thmutil}Checkbox")]
+        self.assertIn("InstallDesktopShortcut", names)
+        strings = ElementTree.parse(folder / "SetupTheme.wxl").getroot()
+        self.assertIn("InstallDesktopShortcutCheckbox",
+                      {s.get("Id") for s in strings.iter("{http://wixtoolset.org/schemas/v4/wxl}String")})
+
     def test_upgrade_codes_never_change(self):
         package = ElementTree.parse(ROOT / "packaging" / "installer" / "RoomACControl.wxs").find(f"{WXS}Package")
         bundle = ElementTree.parse(ROOT / "packaging" / "installer" / "Setup.wxs").find(f"{WXS}Bundle")
