@@ -552,10 +552,11 @@ class App:
         number=lambda value,places:self.i18n.number(f"{float(value):.{places}f}")+"°"
         try:room=number(self.selected["room"],1)
         except (TypeError,ValueError):room="—"
-        chips=[("Room",room,None)]
-        if "outdoor" in sensors:chips.append(("Outside",number(sensors["outdoor"],0),None))
-        if "humidity" in sensors:chips.append(("Humidity",f"{sensors['humidity']:.0f}%",None))
-        if sensors.get("air"):chips.append(("Air quality",tr(c,sensors["air"]),getattr(C,AIR_COLORS[sensors["air"]])))
+        outside=number(sensors["outdoor"],0) if "outdoor" in sensors else "—"
+        humidity=f"{sensors['humidity']:.0f}%" if "humidity" in sensors else "—"
+        quality=sensors.get("air")
+        chips=[("Room",room,None),("Outside",outside,None),("Humidity",humidity,None),
+               ("Air quality",tr(c,quality) if quality else "—",getattr(C,AIR_COLORS[quality]) if quality else None)]
         gap=8
         width=(WIDTH-gap*(len(chips)-1))/len(chips)
         top=READINGS_TOP

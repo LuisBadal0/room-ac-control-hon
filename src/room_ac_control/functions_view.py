@@ -21,6 +21,8 @@ SECTION_GLYPHS = {"settings": "sliders", "everyday": "sparkle", "maintenance": "
 SIZE = (540, 920)
 WIDTH = 500
 NEUTRAL = {"Off", "Unknown", "Unavailable"}
+# The everyday presets most people use, shown ahead of the "More" section.
+PRESETS_UP_FRONT = ("cool", "coolnight", "heat", "heatnight")
 # Shown in the Comfort card rather than as feature tiles or extra rows.
 COMFORT = {"machMode", "windSpeed", "windDirectionVertical", "windDirectionHorizontal", "tempSel", "onOffStatus"}
 # Feature tiles: glyph, the accent they take, and a short explanation.
@@ -159,6 +161,8 @@ class FunctionsView:
         self.section = "settings"
         self.rows, self.loading, self.schedule_error = None, False, None
         self.hits, self.visible_items = [], []
+        # Preset settings start closed; "More" starts closed too.
+        self.expanded_presets, self.more_open = set(), False
         self.sheet = None
         self.selected_function = None
         self.scrollable = False
@@ -589,41 +593,24 @@ class FunctionsView:
         y += 32
         items = [dict(item, section="everyday") for item in section_items(self.app.selected, "everyday")]
         self.visible_items = items
-        for item in items:
-            color, glyph, description, features = self.preset_details(item)
-            rows = (len(features)+2)//3
-            height = 16+64+(14+rows*50-6 if features else 0)+16
-            top = y
-            tint = self.app.soft(color)
-            rounded(c, 16, y+16, 80, y+80, 18, fill=tint, outline="")
-            icon(c, glyph, 48, y+48, color, scale=1.3, bg=tint)
-            review = tr(c, "Review")
-            chip = measure(c, review, -12, "black")+30
-            self.text(c, 94, y+36, item["label"], -17, weight="black", width=WIDTH-94-chip-28)
-            self.text(c, 94, y+60, description, -12, C.MUTED, width=WIDTH-94-chip-28)
-            rounded(c, WIDTH-16-chip, y+31, WIDTH-16, y+65, 11, fill=tint, outline="")
-            self.text(c, WIDTH-16-chip+12, y+48, review, -12, color, weight="black", translate=False)
-            icon(c, "next", WIDTH-28, y+48, color, scale=.5, bg=tint)
-            if features:
-                cell = (WIDTH-32-12)/3
-                for index, (label, value, symbol, on) in enumerate(features):
-                    fx = 16+(index % 3)*(cell+6)
-                    fy = y+94+(index//3)*50
-                    rounded(c, fx, fy, fx+cell, fy+44, 12, fill=C.SURFACE, outline="")
-                    square = self.app.soft(color, C.SURFACE) if on else C.STRONG
-                    rounded(c, fx+10, fy+9, fx+36, fy+35, 8, fill=square, outline="")
-                    icon(c, symbol, fx+23, fy+22, color if on else C.MUTED, scale=.5, bg=square)
-                    caption = tr(c, label)
-                    while measure(c, caption, -11, "semibold") > cell-50 and len(caption) > 3:
-                        caption = caption[:-2]+"…"
-                    self.text(c, fx+44, fy+14, caption, -11, C.MUTED, weight="semibold", translate=False)
-                    shown = tr(c, value)
-                    while measure(c, shown, -13, "black") > cell-50 and len(shown) > 3:
-                        shown = shown[:-2]+"…"
-                    self.text(c, fx+44, fy+30, shown, -13, C.TEXT if on else C.MUTED, weight="black", translate=False)
-            self.card(c, 0, top, WIDTH, top+height, 22)
-            self.hit((0, top, WIDTH, top+height), lambda item=item: self.open_preset(item))
-            y += height+10
+        key = lambda item: item["label"].lower().replace(" ", "")
+        primary = [item for name in PRESETS_UP_FRONT for item in items if key(item) == name]
+        others = [item for item in items if key(item) not in PRESETS_UP_FRONT]
+        for item in primary:
+            y = self.draw_preset_card(c, y, item)+10
+        if others:
+            y += 6
+            section_label(c, 4, y+7, "More")
+            count = translator(c).number(len(others))
+            chip = measure(c, count, -11, "black")+16
+            rounded(c, WIDTH-48-chip, y-4, WIDTH-48, y+18, 9, fill=C.SURFACE, outline="")
+            self.text(c, WIDTH-48-chip/2, y+7, count, -11, C.MUTED, "center", "black", translate=False)
+            icon(c, "chevron", WIDTH-28, y+7, C.MUTED, scale=.7, bg=C.BG, rotate=180 if self.more_open else 0)
+            self.hit((0, y-8, WIDTH, y+22), self.toggle_more)
+            y += 30
+            if self.more_open:
+                for item in others:
+                    y = self.draw_preset_card(c, y, item)+10
         if not items:
             self.text(c, WIDTH/2, y+30, "No presets are exposed by your AC.", -13, C.MUTED, "center")
             y += 60
@@ -656,6 +643,60 @@ class FunctionsView:
                 self.text(c, bx+14, by+84, detail, -11, C.MUTED, weight="semibold", width=width-20, translate=False)
             y += ((len(options)+2)//3)*110
         return y
+
+    def draw_preset_card(self, c, y, item):
+        """A preset header, a settings toggle and, when open, the settings grid."""
+        color, glyph, description, features = self.preset_details(item)
+        expanded = item["label"] in self.expanded_presets
+        toggle = y+88
+        rows = (len(features)+2)//3 if expanded else 0
+        height = 128+rows*50+4 if expanded else 128
+        tint = self.app.soft(color)
+        rounded(c, 16, y+16, 80, y+80, 18, fill=tint, outline="")
+        icon(c, glyph, 48, y+48, color, scale=1.3, bg=tint)
+        review = tr(c, "Review")
+        chip = measure(c, review, -12, "black")+30
+        self.text(c, 94, y+36, item["label"], -17, weight="black", width=WIDTH-94-chip-28)
+        self.text(c, 94, y+60, description, -12, C.MUTED, width=WIDTH-94-chip-28)
+        rounded(c, WIDTH-16-chip, y+31, WIDTH-16, y+65, 11, fill=tint, outline="")
+        self.text(c, WIDTH-16-chip+12, y+48, review, -12, color, weight="black", translate=False)
+        icon(c, "next", WIDTH-28, y+48, color, scale=.5, bg=tint)
+        aa_line(c, 16, toggle, WIDTH-16, toggle, fill=C.TRACK)
+        self.text(c, 16, toggle+18, "Hide settings" if expanded else "Show settings", -13, weight="bold")
+        icon(c, "chevron", WIDTH-26, toggle+18, C.MUTED, scale=.7, rotate=180 if expanded else 0)
+        if expanded:
+            cell = (WIDTH-32-12)/3
+            for index, (label, value, symbol, on) in enumerate(features):
+                fx = 16+(index % 3)*(cell+6)
+                fy = y+128+(index//3)*50
+                rounded(c, fx, fy, fx+cell, fy+44, 12, fill=C.SURFACE, outline="")
+                square = self.app.soft(color, C.SURFACE) if on else C.STRONG
+                rounded(c, fx+10, fy+9, fx+36, fy+35, 8, fill=square, outline="")
+                icon(c, symbol, fx+23, fy+22, color if on else C.MUTED, scale=.5, bg=square)
+                caption = tr(c, label)
+                while measure(c, caption, -11, "semibold") > cell-50 and len(caption) > 3:
+                    caption = caption[:-2]+"…"
+                self.text(c, fx+44, fy+14, caption, -11, C.MUTED, weight="semibold", translate=False)
+                shown = tr(c, value)
+                while measure(c, shown, -13, "black") > cell-50 and len(shown) > 3:
+                    shown = shown[:-2]+"…"
+                self.text(c, fx+44, fy+30, shown, -13, C.TEXT if on else C.MUTED, weight="black", translate=False)
+        self.card(c, 0, y, WIDTH, y+height, 22)
+        self.hit((0, y, WIDTH, y+88), lambda item=item: self.open_preset(item))
+        self.hit((0, toggle, WIDTH, toggle+36), lambda item=item: self.toggle_preset(item))
+        return y+height
+
+    def toggle_preset(self, item):
+        label = item["label"]
+        if label in self.expanded_presets:
+            self.expanded_presets.discard(label)
+        else:
+            self.expanded_presets.add(label)
+        self.render(keep_scroll=True)
+
+    def toggle_more(self):
+        self.more_open = not self.more_open
+        self.render(keep_scroll=True)
 
     # Maintenance
 
