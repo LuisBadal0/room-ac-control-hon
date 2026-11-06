@@ -277,4 +277,5 @@ PORTUGUESE = {
     "Search settings, presets and schedules": "Pesquisar definições, predefinições e agendamentos",
     "Not used yet": "Ainda não usado", "Try again": "Tentar novamente", "Turn on": "Ligar", "Turn off": "Desligar",
     "Made in the hOn app": "Criado na app hOn", "{value}° steps": "passos de {value}°",
+    "Show settings": "Mostrar definições", "Hide settings": "Ocultar definições", "More": "Mais",
 }
