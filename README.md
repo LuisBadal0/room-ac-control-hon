@@ -29,9 +29,10 @@ Keep the `runtime/` folder next to the launcher: it contains the application, Py
 - Banners for AC errors (with the reported code), defrosting and filter-cleaning reminders.
 - Light and dark modes. **Appearance** follows the Windows app mode by default, or stays on Light or Dark; the choice is saved.
 - One **Settings** button in the window header for Appearance, Language, Updates and Sign out.
+- The Manrope typeface, bundled with the app.
 - A room card showing the selected AC, with a chooser for multiple units.
 - Auto, Cool, Dry, Heat and Fan modes when supported by your AC. Cool Night and Heat Night use the unit's Sleep feature.
-- All functions organized into **Settings**, **Everyday use**, **Maintenance** and **Schedules**.
+- All functions in four tabs: **Settings** (comfort controls and feature switches), **Everyday use** (presets that list what they apply, and what each mode remembers), **Maintenance** (filter status and cleaning routines) and **Schedules** (a week view of every timer in hOn).
 - Draggable temperature number wheels in setting editors and preset forms, following the unit's range and step.
 - Blue, amber or neutral animated airflow based on the AC's reported operating mode.
 - Automatic status refresh through cloud events, with a periodic backup check.

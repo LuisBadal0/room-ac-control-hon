@@ -8,7 +8,7 @@ During manual or automatic sign-in, a rotating loading ring appears while your a
 
 ## Choose a language
 
-The interface starts in your Windows display language: English or Portuguese (Portugal). Other system languages use English as the fallback. Click **Settings** in the window header and choose **System language**, **English**, or **Português (Portugal)** under **Language**. The choice takes effect immediately and is saved for later launches, including after signing out.
+The interface starts in your Windows display language: English or Portuguese (Portugal). Other system languages use English as the fallback. Click **Settings** in the window header; its panel opens over the dashboard. Choose **System language**, **English**, or **Português (Portugal)** under **Language**. The choice takes effect immediately and is saved for later launches, including after signing out.
 
 Changing language keeps your signed-in account, pending settings and open preset drafts. Account room names and model identifiers stay as supplied by hOn. Search accepts English and Portuguese labels, with or without accents. Portuguese shows decimal temperatures with a comma; command values sent to the service retain their original format. Unrecognized cloud labels remain in their original language.
 
@@ -34,7 +34,7 @@ If several apply, the most serious is shown with a count such as **+1**.
 
 ## Set comfort controls
 
-Set the temperature on the dial: drag along the ring, click a point on it, scroll over it, use the arrow keys, or use − and +. Choose a mode in the bar below the dial, and open Fan speed, Airflow or Sleep from their tiles. Changes are staged until you click **Apply changes**, which shows how many are waiting; **Discard** drops them. Applying changes preserves the AC's power state.
+Set the temperature on the dial: drag along the ring, click a point on it, scroll over it, use the arrow keys, or use − and +. Choose a mode in the bar below the dial. Click the Fan speed or Airflow tile to step to its next option, and the Sleep tile to turn Sleep on or off; All functions offers every option at once. Changes are staged until you click **Apply**, which shows how many are waiting; **Discard** drops them. With nothing staged, the row says **In sync with the AC**. Other messages appear briefly above that row. Applying changes preserves the AC's power state.
 
 The dashboard's accent follows the selected mode: blue for Cool, amber for Heat, green for Dry, violet for Fan and teal for Auto. The dial turns grey while the AC is off. Below the number, the dial says whether the AC is running, on standby, has changes pending or is awaiting confirmation.
 
@@ -50,15 +50,20 @@ Animated airflow follows reported operation, with blue for cooling, amber for he
 
 ## All functions
 
-**Settings** contains ordinary adjustable controls. **Everyday use** contains comfort functions and presets. **Maintenance** contains cleaning and service functions. **Schedules** opens the Schedules window (see below). Options are discovered from the selected AC's hOn capabilities; unavailable or unreported values are identified in the interface.
+All functions has four tabs. Options are discovered from the selected AC's hOn capabilities; unavailable or unreported values are identified in the interface. Choices you make here are staged on the dashboard: **Apply** and **Discard** appear at the bottom while changes wait, and the dashboard shows the same count.
+
+- **Settings**: a Comfort card with every mode, the fan speeds, airflow (which opens a picker that draws each louver position) and the target temperature; **Features** tiles that switch on/off settings such as Eco, Silent mode, Sleep and Buzzer (Echo); and **More settings** for anything else your AC exposes.
+- **Everyday use**: preset cards that list what each preset applies (mode, temperature, fan, airflow and features), and **Remembered per mode**, showing what each mode brings back when the AC is turned on in it.
+- **Maintenance**: the air-filter reminder status and the cleaning routines your AC offers.
+- **Schedules**: a week view of every timer saved in hOn, the repeating schedules with their days, mode and an on/off switch, one-time timers, and **New schedule** (see Repeating schedules).
 
 **Silent mode** enables quieter AC operation. It was previously labelled **Quiet mode**. **Buzzer (Echo)** is the separate audible command-feedback setting, previously labelled **Voice / echo**; it is not voice-assistant control or Silent mode. Sleep remains a separate setting. These controls appear only when the selected AC exposes them as editable settings. Their selection cards explain the difference, and Search also finds these descriptions.
 
-Use **Search** (or **Ctrl+F**) to find settings and presets across all three sections. Results stay grouped by their section, including maintenance. Search matches names, descriptions and option names; multiple words narrow the results. **Clear** or **Escape** returns to the current section. Selecting a section also clears the search. Search pauses while a preset's detail form is open; **Back to cards** restores your results.
+Use **Search** (or **Ctrl+F**) to find settings and presets across Settings, Everyday use and Maintenance. Results stay grouped by their section. Search matches names, descriptions and option names; multiple words narrow the results. **Escape** returns to the current tab, and selecting a tab also clears the search. Search pauses while a preset is open; **Back to cards** restores your results.
 
-Scroll anywhere inside the functions list, including the spaces between cards. The scrollbar appears only when the content exceeds the available height; shorter sections and search results stay fixed at the top. Numeric inputs in preset forms keep their own wheel behavior.
+Scroll anywhere inside the list, including the spaces between cards. Shorter tabs and search results stay fixed at the top. The temperature wheel in a preset keeps its own wheel behaviour.
 
-Select a preset to inspect its options, then explicitly start it. A preset may turn the AC on and replace its configuration. Maintenance routines can interrupt current operation. Saved program preferences never start cleaning or service routines automatically.
+Select a preset to review it in a sheet at the bottom of the window, adjust its temperature, fan, airflow and features, then explicitly start it. A preset may turn the AC on and replace its configuration. Maintenance routines can interrupt current operation. Saved program preferences never start cleaning or service routines automatically.
 
 ## On / off timers
 
@@ -96,16 +101,16 @@ The main window and All functions open at a fixed size designed for their layout
 
 ## Updates
 
-The portable app checks for a newer version shortly after it starts and then about once a day. **Settings** in the main window header shows the installed version and the update status, with **Check now** (or **Update** when a new version is available); the button shows a dot when a new version is waiting. **Update details and diagnostics** opens the Updates window with **What's new** and **Diagnostics**.
+The portable app checks for a newer version shortly after it starts and then about once a day. **Settings** in the main window header shows the installed version and the update status (for example **Last checked today at 09:12**), with **Check now**, or **Update** when a new version is available; the button shows a dot when a new version is waiting. Click the version line to open the Updates window with **What's new** and **Diagnostics**.
 
 Nothing is installed until you click **Update**. Room AC Control then downloads the new version and checks that it is signed by this project and matches its published fingerprint. It unpacks the new version next to the current one and runs its offline checks. Only when all of that passes does the app close, swap the folders and open the new version, usually within a few seconds. If the swap fails, the previous version is put back and the app tells you on its next start. Your remembered sign-in, settings and schedules are kept because they live in your Windows profile, not in the app folder. Unapplied changes are discarded, and the app asks before discarding them.
 
-Turn off **Check for updates automatically** in Settings or the Updates window to stop the daily checks; **Check now** still works. Source checkouts and the offline preview never check or install updates. If the app folder is not writable (for example, under Program Files), download the new release from GitHub instead.
+Turn off **Check automatically** in Settings (or **Check for updates automatically** in the Updates window) to stop the daily checks; **Check now** still works. Source checkouts and the offline preview never check or install updates. If the app folder is not writable (for example, under Program Files), download the new release from GitHub instead.
 
 ## Sign out and privacy
 
 **Sign out**, at the bottom of **Settings**, removes remembered credentials but retains your program preferences. Credentials and preferences are protected by Windows DPAPI in `%LOCALAPPDATA%\RoomACControl\state.dpapi`. They are separate from the application folder and are not part of a source upload or portable release.
 
-For troubleshooting, use **Export diagnostics** on the login screen or **Diagnostics** in the Updates window (Settings › Update details and diagnostics). You choose the local JSON file; no report is automatically saved or uploaded. It contains the app version and up to 100 event times, event codes and error categories from this session. It excludes credentials, account/device names, identifiers and raw cloud responses. Review it before sharing. Report vulnerabilities through the [private security form](https://github.com/LuisBadal0/room-ac-control-hon/security/advisories/new).
+For troubleshooting, use **Export diagnostics** on the login screen or **Diagnostics** in the Updates window (click the version line in Settings). You choose the local JSON file; no report is automatically saved or uploaded. It contains the app version and up to 100 event times, event codes and error categories from this session. It excludes credentials, account/device names, identifiers and raw cloud responses. Review it before sharing. Report vulnerabilities through the [private security form](https://github.com/LuisBadal0/room-ac-control-hon/security/advisories/new).
 
 Login, menus, inline timer previews and status refresh do not send AC control commands. An offline preview uses fictional rooms and never loads a saved account. If a command times out, refresh and check the physical unit before retrying: cloud acceptance does not guarantee that the unit has acted.
