@@ -116,20 +116,23 @@ def blend(color, background, strength):
     return "#" + "".join(channels)
 
 
-FONT, HEAVY = "Segoe UI", "Segoe UI Black"
+# Font families by weight. Windows exposes each static Manrope weight as its own
+# family, except Bold, which is Manrope's bold style.
+FAMILIES = {"light": "Segoe UI Light", "normal": "Segoe UI", "semibold": "Segoe UI Semibold",
+            "bold": "Segoe UI", "black": "Segoe UI Black"}
+WEIGHTS = ("Light", "Regular", "SemiBold", "Bold", "ExtraBold")
 
 
 def load_fonts():
-    """Load the bundled Lato (SIL OFL) privately for this process; else keep Segoe UI."""
-    global FONT, HEAVY
+    """Load the bundled Manrope (SIL OFL) privately for this process; else keep Segoe UI."""
     try:
         add = ctypes.windll.gdi32.AddFontResourceExW
     except AttributeError:
         return False
-    loaded = [add(str(ASSETS / "fonts" / f"Lato-{weight}.ttf"), 0x10, 0) > 0
-              for weight in ("Regular", "Bold", "Black")]
+    loaded = [add(str(ASSETS / "fonts" / f"Manrope-{weight}.ttf"), 0x10, 0) > 0 for weight in WEIGHTS]
     if all(loaded):
-        FONT, HEAVY = "Lato", "Lato Black"
+        FAMILIES.update({"light": "Manrope Light", "normal": "Manrope", "semibold": "Manrope SemiBold",
+                         "bold": "Manrope", "black": "Manrope ExtraBold"})
     return all(loaded)
 
 
@@ -137,9 +140,9 @@ load_fonts()
 
 
 def font(size, weight="normal"):
-    if weight == "black":
-        return (HEAVY, size)
-    return (FONT, size, "bold") if weight == "bold" else (FONT, size)
+    """weight: light, normal, semibold, bold or black (ExtraBold)."""
+    family = FAMILIES.get(weight, FAMILIES["normal"])
+    return (family, size, "bold") if weight == "bold" else (family, size)
 
 
 def measure(widget, text, size, weight="normal"):
@@ -150,8 +153,7 @@ def unit_photo(master, width=390):
     """Load original, unbranded appliance artwork, smoothly scaled to fit width."""
     from PIL import Image, ImageTk
     with Image.open(ASSETS / "unit.png") as image:
-        factor = max(1, math.ceil(image.width / width))
-        size = (image.width // factor, image.height // factor)
+        size = (round(width), round(image.height * width / image.width))
         return ImageTk.PhotoImage(image.resize(size, Image.Resampling.LANCZOS), master=master)
 
 
@@ -301,6 +303,34 @@ def icon(canvas, name, x, y, color=None, scale=1, bg=None, tags=()):
         line(x+1, y-10, x+7, y-10, x+7, y+10, x+1, y+10)
         line(x-11, y, x+2, y)
         line(x-6, y-5, x-11, y, x-6, y+5)
+    elif name == "speaker":
+        canvas.create_polygon(x-10, y-3, x-5, y-3, x+1, y-9, x+1, y+9, x-5, y+3, x-10, y+3, fill="", outline=color,
+                              width=1.6, joinstyle="round", tags=tags)
+        canvas.create_arc(x-2, y-6, x+10, y+6, start=-50, extent=100, style="arc", outline=color, width=1.6, tags=tags)
+    elif name == "bell":
+        canvas.create_polygon(x-8, y+5, x-8, y-2, x-6, y-7, x-2, y-10, x+2, y-10, x+6, y-7, x+8, y-2, x+8, y+5, x+10, y+7,
+                              x-10, y+7, fill="", outline=color, width=1.6, smooth=True, tags=tags)
+        line(x-3, y+10, x+3, y+10)
+    elif name == "cloud":
+        canvas.create_polygon(x-9, y+6, x-12, y+2, x-10, y-3, x-5, y-4, x-2, y-9, x+5, y-8, x+8, y-3, x+12, y+1, x+9, y+6,
+                              fill="", outline=color, width=1.6, smooth=True, tags=tags)
+    elif name == "calendar":
+        rounded(canvas, x-10, y-7, x+10, y+10, 3, fill="", outline=color, width=1.6, tags=tags)
+        line(x-10, y-1, x+10, y-1)
+        line(x-5, y-11, x-5, y-5)
+        line(x+5, y-11, x+5, y-5)
+    elif name == "back":
+        line(x+4, y-8, x-4, y, x+4, y+8, width=2.2)
+    elif name == "next":
+        line(x-3, y-7, x+4, y, x-3, y+7, width=2.2)
+    elif name == "plus":
+        line(x-8, y, x+8, y, width=2.4)
+        line(x, y-8, x, y+8, width=2.4)
+    elif name == "filter":
+        rounded(canvas, x-11, y-9, x+11, y+9, 2, fill="", outline=color, width=1.3, tags=tags)
+        for step in (-3, 3):
+            line(x-11, y+step, x+11, y+step, width=1.2)
+            line(x+step*1.2, y-9, x+step*1.2, y+9, width=1.2)
     elif name == "wrench":
         line(x-8, y+8, x+2, y-2, width=3)
         oval(x, y-11, x+11, y, width=1.8)

@@ -75,12 +75,15 @@ class PaletteTests(unittest.TestCase):
         colors.use("sepia")
         self.assertEqual((colors.mode, colors.BG), ("light", "#EEF1F5"))
 
-    def test_bundled_lato_loads_privately(self):
+    def test_bundled_manrope_loads_privately(self):
         self.assertTrue(theme.load_fonts())
-        self.assertEqual(theme.font(10, "bold"), ("Lato", 10, "bold"))
-        self.assertEqual(theme.font(20, "black"), ("Lato Black", 20))
+        self.assertEqual(theme.font(10, "bold"), ("Manrope", 10, "bold"))
+        self.assertEqual(theme.font(20, "black"), ("Manrope ExtraBold", 20))
+        self.assertEqual(theme.font(60, "light"), ("Manrope Light", 60))
+        self.assertEqual(theme.font(9, "semibold"), ("Manrope SemiBold", 9))
         fonts = Path(theme.__file__).parent / "assets" / "fonts"
         self.assertTrue((fonts / "OFL.txt").is_file())
+        self.assertIn("Manrope Project Authors", (fonts / "OFL.txt").read_text(encoding="utf8"))
 
 
 class WindowsModeTests(unittest.TestCase):
@@ -162,7 +165,8 @@ class UnitArtworkTests(unittest.TestCase):
             self.skipTest(f"No display: {error}")
         try:
             root.withdraw()
-            for width, expected in ((330, (300, 90)), (230, (200, 60)), (300, (300, 90))):
+            # Scaled to the exact width the layout asks for, keeping the proportions.
+            for width, expected in ((330, (330, 99)), (230, (230, 69)), (270, (270, 81)), (92, (92, 28))):
                 photo = theme.unit_photo(root, width)
                 self.assertEqual((photo.width(), photo.height()), expected)
         finally:
