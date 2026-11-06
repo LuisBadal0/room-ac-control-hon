@@ -21,6 +21,21 @@ Run `tools/Build.ps1`. It installs both runtime and packaging locks, tests the
 frozen runtime offline, and writes a ZIP plus `SHA256SUMS.txt` to `releases/`.
 `Setup.ps1` alone does not build an executable.
 
+## Build the installers
+
+`tools/build_installers.py` (run by `Build.ps1` when the .NET SDK is installed,
+and by CI) unpacks the portable ZIP's app folder and packages exactly those
+files into `Room-AC-Control-for-hOn-<version>-Windows-x64.msi` and a WiX bundle,
+`...-Windows-x64-Setup.exe`, that installs the same MSI. Both are per-user
+installs into `%LOCALAPPDATA%\Programs\Room AC Control` with no elevation, so the
+app keeps its `runtime\RoomACControl` layout and its signed in-app updates.
+The WiX Toolset is the .NET local tool pinned in `.config/dotnet-tools.json`
+(`dotnet tool restore`), and its UI, Util and BootstrapperApplications
+extensions are pinned to the same version. The recipes are in
+`packaging/installer/`; keep their `UpgradeCode`s unchanged, or new installers
+will no longer upgrade old ones. `SHA256SUMS.txt` lists the ZIP, MSI and
+Setup.exe. The installers are not Authenticode-signed.
+
 The runtime's `BUILD-MANIFEST.json` contains the Git commit, whether the source
 checkout had changes, hashes of tracked source files, Python/dependency versions,
 the executable hash and its Authenticode status. Published CI builds require a
@@ -47,11 +62,11 @@ also supported. The workflow file stores no credentials; the release job reads
 the update-signing key from the `UPDATE_SIGNING_KEY` secret.
 
 Releases are automatic: when a merge to `main` carries an app version with no
-release yet, CI builds, attests and publishes `v<version>` with the ZIP and
-`SHA256SUMS.txt`. Bump the version in the PR to release it; merges that keep the
+release yet, CI builds, attests and publishes `v<version>` with the ZIP, the MSI,
+the Setup.exe and `SHA256SUMS.txt`. Bump the version in the PR to release it; merges that keep the
 current version only build. Pushing a matching `v<version>` tag also works.
 Existing published assets are retained; they are not retroactively attested or
-replaced. For a newly attested ZIP:
+replaced. For a newly attested ZIP (the MSI and Setup.exe verify the same way):
 
 ```powershell
 gh attestation verify .\Room-AC-Control-for-hOn-<version>-Windows-x64.zip --repo LuisBadal0/room-ac-control-hon

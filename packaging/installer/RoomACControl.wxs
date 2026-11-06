@@ -1,0 +1,78 @@
+<!--
+  Per-user Windows Installer package for Room AC Control.
+
+  It installs the same files as the portable ZIP into
+  %LOCALAPPDATA%\Programs\Room AC Control, without administrator rights, so the
+  app keeps its usual runtime\RoomACControl layout and can still apply its own
+  signed in-app updates. tools/build_installers.py supplies the variables.
+-->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui"
+     xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util">
+  <Package Name="Room AC Control for hOn"
+           Manufacturer="Room AC Control contributors"
+           Version="$(var.Version)"
+           UpgradeCode="14F7297C-2E07-4BB0-B0DF-D7054B996DDE"
+           Scope="perUser"
+           Language="1033"
+           Compressed="yes">
+    <SummaryInformation Description="Room AC Control for hOn $(var.Version) installer" />
+    <MajorUpgrade AllowSameVersionUpgrades="yes"
+                  DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
+    <MediaTemplate EmbedCab="yes" CompressionLevel="high" />
+
+    <Icon Id="AppIcon" SourceFile="$(var.Icon)" />
+    <Property Id="ARPPRODUCTICON" Value="AppIcon" />
+    <Property Id="ARPURLINFOABOUT" Value="https://github.com/LuisBadal0/room-ac-control-hon" />
+    <Property Id="ARPHELPLINK" Value="https://github.com/LuisBadal0/room-ac-control-hon/blob/main/docs/USER_GUIDE.md" />
+    <Property Id="ARPURLUPDATEINFO" Value="https://github.com/LuisBadal0/room-ac-control-hon/releases/latest" />
+    <!-- In-app updates replace the files in place, so a repair would roll them back.
+         WixUI_Minimal already sets ARPNOMODIFY. -->
+    <Property Id="ARPNOREPAIR" Value="1" />
+
+    <StandardDirectory Id="LocalAppDataFolder">
+      <Directory Id="ProgramsFolder" Name="Programs">
+        <Directory Id="INSTALLFOLDER" Name="Room AC Control" />
+      </Directory>
+    </StandardDirectory>
+
+    <!-- Found again at uninstall, so files written later by in-app updates are removed too. -->
+    <Property Id="INSTALLFOLDERRECORDED">
+      <RegistrySearch Id="FindInstallFolder" Root="HKCU" Key="Software\RoomACControl\Installer"
+                      Name="InstallFolder" Type="raw" />
+    </Property>
+
+    <ComponentGroup Id="AppFiles" Directory="INSTALLFOLDER">
+      <Files Include="$(var.StageDir)\**" />
+    </ComponentGroup>
+
+    <Component Id="InstallRecord" Directory="INSTALLFOLDER" Guid="5B0C2E7A-3E5C-4C49-9A0F-8C1A3F0D6A11">
+      <RegistryValue Root="HKCU" Key="Software\RoomACControl\Installer" Name="InstallFolder"
+                     Type="string" Value="[INSTALLFOLDER]" KeyPath="yes" />
+      <util:RemoveFolderEx On="uninstall" Property="INSTALLFOLDERRECORDED" />
+      <RemoveFolder Id="RemoveProgramsFolder" Directory="ProgramsFolder" On="uninstall" />
+    </Component>
+
+    <Component Id="Shortcuts" Directory="INSTALLFOLDER" Guid="B7E4D7F2-6C0B-4E3B-8B25-2F4B0C9E7D52">
+      <Shortcut Id="StartMenuShortcut" Directory="ProgramMenuFolder" Name="Room AC Control"
+                Description="Control your hOn air conditioner"
+                Target="[INSTALLFOLDER]runtime\RoomACControl\RoomACControl.exe"
+                WorkingDirectory="INSTALLFOLDER" />
+      <Shortcut Id="DesktopShortcut" Directory="DesktopFolder" Name="Room AC Control"
+                Description="Control your hOn air conditioner"
+                Target="[INSTALLFOLDER]runtime\RoomACControl\RoomACControl.exe"
+                WorkingDirectory="INSTALLFOLDER" />
+      <RegistryValue Root="HKCU" Key="Software\RoomACControl\Installer" Name="Shortcuts"
+                     Type="integer" Value="1" KeyPath="yes" />
+    </Component>
+
+    <Feature Id="Main" Title="Room AC Control" Level="1">
+      <ComponentGroupRef Id="AppFiles" />
+      <ComponentRef Id="InstallRecord" />
+      <ComponentRef Id="Shortcuts" />
+    </Feature>
+
+    <WixVariable Id="WixUILicenseRtf" Value="$(var.LicenseRtf)" />
+    <ui:WixUI Id="WixUI_Minimal" />
+  </Package>
+</Wix>

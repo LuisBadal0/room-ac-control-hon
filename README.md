@@ -11,7 +11,15 @@ An independent community project powered by [pyhOn](https://github.com/Andre0512
 
 ## Start in one click
 
-**Portable Windows release — Python is included.**
+**Install it — Python is included, no administrator rights needed.**
+
+1. Download **Room-AC-Control-for-hOn-<version>-Windows-x64-Setup.exe** (or the `.msi`, if you prefer Windows Installer) from [Releases](https://github.com/LuisBadal0/room-ac-control-hon/releases/latest).
+2. Run it and click **Install**. It installs for your Windows user only, in `%LOCALAPPDATA%\Programs\Room AC Control`, and adds **Room AC Control** to the Start menu and the desktop.
+3. Sign in with the same hOn email and password you use on your phone.
+
+Uninstall from **Settings › Apps › Installed apps**. Your remembered sign-in and settings stay in your Windows profile. The installers are not code-signed yet, so Windows SmartScreen may ask you to confirm (**More info › Run anyway**).
+
+**Or use the portable release.**
 
 1. Download the Windows x64 ZIP from [Releases](https://github.com/LuisBadal0/room-ac-control-hon/releases/latest).
 2. Extract the entire ZIP into a folder.
@@ -67,7 +75,8 @@ packaging/            Windows bundle recipe and build requirements
 tests/                Offline regression and Windows UI checks
 docs/                 User guide, preview and asset provenance
 runtime/RoomACControl/       Generated executable and _internal/ dependencies
-releases/             Generated portable ZIP
+packaging/installer/  WiX recipes for the MSI and Setup.exe
+releases/             Generated portable ZIP and installers
 .venv/                Local development dependencies
 ```
 
@@ -82,11 +91,11 @@ Runtime builds, local environments, shortcuts and account files are excluded fro
 .\tools\Build.ps1
 ```
 
-The preview uses fictional rooms and does not load saved credentials. Use `--preview login` to review the welcome screen. Add `--language pt-PT` or `--language en`, or `--theme light` or `--theme dark`, to preview a specific language or appearance without changing your saved preferences. `tools/Build.ps1` produces `releases/Room-AC-Control-for-hOn-0.2.4-Windows-x64.zip` and a local app-icon shortcut. The build checks bundled assets, Windows encryption, tray imports and MQTT libraries without contacting an account.
+The preview uses fictional rooms and does not load saved credentials. Use `--preview login` to review the welcome screen. Add `--language pt-PT` or `--language en`, or `--theme light` or `--theme dark`, to preview a specific language or appearance without changing your saved preferences. `tools/Build.ps1` produces `releases/Room-AC-Control-for-hOn-0.3.0-Windows-x64.zip`, the matching `.msi` and `-Setup.exe` installers (when the .NET SDK is installed), and a local app-icon shortcut. The build checks bundled assets, Windows encryption, tray imports and MQTT libraries without contacting an account.
 
 Setup and build install full hash-verified Windows dependency locks. `Setup.ps1` prepares source execution; `Build.ps1` produces the portable executable. See [build verification](docs/BUILD_VERIFICATION.md) for checksums, source manifests, optional signing and CI attestations. Binaries remain unsigned until a valid signing certificate is supplied.
 
-Windows UI checks: `tests/ui_smoke.py`, `tests/refresh_smoke.py`, `tests/desktop_smoke.py`, and `tests/timer_smoke.py`, `tests/schedules_smoke.py`, `tests/window_header_smoke.py` and `tests/updates_smoke.py` (all four also run by ui_smoke). Active CI in `.github/workflows/windows.yml` pins actions to immutable commits, runs offline checks, and builds a portable Windows artifact for pull requests and pushes to main. Merging a PR that bumps the app version automatically builds, attests and publishes the release (for example `v0.2.4`); merges that keep the current version only build.
+Windows UI checks: `tests/ui_smoke.py`, `tests/refresh_smoke.py`, `tests/desktop_smoke.py`, and `tests/timer_smoke.py`, `tests/schedules_smoke.py`, `tests/window_header_smoke.py` and `tests/updates_smoke.py` (all four also run by ui_smoke). Active CI in `.github/workflows/windows.yml` pins actions to immutable commits, runs offline checks, and builds the portable ZIP, MSI and Setup.exe for pull requests and pushes to main. Merging a PR that bumps the app version automatically builds, attests and publishes the release (for example `v0.3.0`); merges that keep the current version only build.
 
 See [Contributing](CONTRIBUTING.md) and the [user guide](docs/USER_GUIDE.md) for more detail.
 
