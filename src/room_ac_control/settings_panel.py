@@ -59,7 +59,7 @@ class SettingsPanel:
         self.regions = []
         c.configure(bg=C.BG)
         inner = WIDTH-36
-        tone = self.app.dial_accent()
+        tone = self.app.settings_accent()
         y = 18
         text = lambda x, y, value, size, color=None, anchor="w", weight="normal": aa_text(c, 
             x, y, text=value, anchor=anchor, fill=color or C.TEXT, font=font(size, weight))

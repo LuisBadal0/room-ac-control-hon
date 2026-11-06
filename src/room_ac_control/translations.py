@@ -280,4 +280,6 @@ PORTUGUESE = {
     "Show settings": "Mostrar definições", "Hide settings": "Ocultar definições", "More": "Mais",
     "Start {name}? It may interrupt what the AC is doing.": "Iniciar {name}? Pode interromper o que o AC está a fazer.",
     "Start": "Iniciar", "Started": "Iniciado", "Preview only": "Só pré-visualização",
+    "Back": "Voltar", "Save": "Guardar", "Preset settings saved.": "Definições da predefinição guardadas.",
+    "Preset settings could not be saved on this computer.": "Não foi possível guardar as definições da predefinição neste computador.",
 }

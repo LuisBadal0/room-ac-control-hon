@@ -23,6 +23,12 @@ WIDTH = 500
 NEUTRAL = {"Off", "Unknown", "Unavailable"}
 # The everyday presets most people use, shown ahead of the "More" section.
 PRESETS_UP_FRONT = ("cool", "coolnight", "heat", "heatnight")
+# Starting values for presets that have not been saved yet.
+PRESET_DEFAULTS = {"heat": {"tempSel": "24"}, "heatnight": {"tempSel": "24", "muteStatus": "1"}}
+
+
+def preset_key(item):
+    return item["label"].lower().replace(" ", "")
 # Shown in the Comfort card rather than as feature tiles or extra rows.
 COMFORT = {"machMode", "windSpeed", "windDirectionVertical", "windDirectionHorizontal", "tempSel", "onOffStatus"}
 # Feature tiles: glyph, the accent they take, and a short explanation.
@@ -679,7 +685,8 @@ class FunctionsView(SheetHost):
         features = []
         if item["kind"] == "night":
             mode = item["label"].replace(" Night", "")
-            values = self.app.memory.mode_values(selected, dict(item["changes"]))
+            values = {**PRESET_DEFAULTS.get(preset_key(item), {}),
+                      **self.app.memory.mode_values(selected, dict(item["changes"]))}
             color = accent(mode)
             features.append(("Mode", mode, mode_icon(mode), True))
             temperature = values.get("tempSel", selected.get("target"))
@@ -698,7 +705,8 @@ class FunctionsView(SheetHost):
                            "Heating with the unit’s Sleep feature, for the night.")
             return color, mode_icon(mode), description, features[:6]
         form = item["form"]
-        saved = self.app.memory.function_values(selected["id"], item["command"], form)
+        saved = {**PRESET_DEFAULTS.get(preset_key(item), {}),
+                 **self.app.memory.function_values(selected["id"], item["command"], form)}
         color, glyph = C.BRAND, glyph_for(item["label"])
         for spec in form.get("parameters", []):
             key = spec["key"]
@@ -1222,12 +1230,14 @@ class FunctionsView(SheetHost):
             (item["kind"] == "function" and item["form"].get("group") == "maintenance")
         # Editable parameters: (spec, initial value).
         if item["kind"] == "night":
-            values = self.app.memory.mode_values(selected, dict(item["changes"]))
+            values = {**PRESET_DEFAULTS.get(preset_key(item), {}),
+                      **self.app.memory.mode_values(selected, dict(item["changes"]))}
             parameters = [(controls[key], values.get(key, self.app.current(key)))
                           for key in ("tempSel", "windSpeed", "windDirectionVertical", "muteStatus", "ecoMode")
                           if key in controls]
         else:
-            saved = self.app.memory.function_values(selected["id"], item["command"], item["form"])
+            saved = {**PRESET_DEFAULTS.get(preset_key(item), {}),
+                     **self.app.memory.function_values(selected["id"], item["command"], item["form"])}
             parameters = [(spec, saved.get(spec["key"], spec.get("value"))) for spec in item["form"].get("parameters", [])
                           if spec["key"] != "machMode"]
         values = {spec["key"]: value for spec, value in parameters}
@@ -1249,8 +1259,10 @@ class FunctionsView(SheetHost):
             self.text(c, 124, y+56, description, -13, C.MUTED, "nw", width=width-148)
             y += 84+20
             temperature = next(((spec, value) for spec, value in parameters if spec["key"] == "tempSel"), None)
+            airflows = [(spec, value) for spec, value in parameters if spec["key"].startswith("windDirection")]
             enums = [(spec, value) for spec, value in parameters
-                     if spec["key"] != "tempSel" and spec.get("kind") == "enum" and not is_toggle(spec)]
+                     if spec["key"] != "tempSel" and spec.get("kind") == "enum" and not is_toggle(spec)
+                     and not spec["key"].startswith("windDirection")]
             toggles = [(spec, value) for spec, value in parameters if is_toggle(spec)]
             others = [(spec, value) for spec, value in parameters
                       if spec["key"] != "tempSel" and spec.get("kind") != "enum"]
@@ -1316,6 +1328,24 @@ class FunctionsView(SheetHost):
                 ry += 72
             if temperature or enums or others:
                 y = max(y+(160 if temperature else 0), ry)
+            for spec, value in airflows:
+                section_label(c, 24, y+6, spec["label"])
+                y += 22
+                options = list(spec["options"].items())
+                columns = min(6, len(options))
+                cell = (width-48-8*(columns-1))/columns
+                current = values.get(spec["key"], value)
+                for index, (label, option) in enumerate(options):
+                    x = 24+(index % columns)*(cell+8)
+                    top = y+(index//columns)*96
+                    on = equal(option, current)
+                    fill = self.app.soft(color) if on else C.SURFACE
+                    rounded(c, x, top, x+cell, top+88, 14, fill=fill, outline=color if on else fill, width=2)
+                    louver(c, x+cell/2-25, top+6, louver_position(label), C.TEXT, color if on else C.FAINT, scale=.7)
+                    shown = tr(c, label) if not label.startswith("Position ") else label[-1]
+                    self.text(c, x+cell/2, top+72, shown, -12, color if on else C.TEXT, "center", "bold", translate=False)
+                    self.sheet_hit((x, top, x+cell, top+88), lambda key=spec["key"], option=option: pick(key, option))
+                y += ((len(options)+columns-1)//columns)*96+8
             if toggles:
                 section_label(c, 24, y+6, "Features")
                 y += 22
@@ -1349,7 +1379,9 @@ class FunctionsView(SheetHost):
             y += 48+18
             primary = "Start maintenance routine" if maintenance else \
                 "Start preset" if item["kind"] == "night" or item.get("command") == "startProgram" else "Run function"
-            return self.sheet_buttons(c, y, width, "Back to cards", primary, lambda: self.run_preset(item, values), 1.4)
+            if maintenance:
+                return self.sheet_buttons(c, y, width, "Back to cards", primary, lambda: self.run_preset(item, values), 1.4)
+            return self.preset_buttons(c, y, width, primary, item, values, color)
         self.open_sheet(draw)
         self.selected_function = item
         self.search_entry.configure(state="disabled")
@@ -1362,6 +1394,40 @@ class FunctionsView(SheetHost):
         self.search_entry.configure(state="normal")
 
     def sheet_done(self):
+        self.render(keep_scroll=True)
+
+    def preset_buttons(self, c, y, width, primary, item, values, color):
+        """Back, Save (keep these values for next time) and Start."""
+        gap = 8
+        widths = (width-48-2*gap)*.28, (width-48-2*gap)*.28
+        x = 24
+        for label, action, fill, ink, outline in (
+                ("Back", self.close_sheet, C.CARD, C.TEXT, C.STRONG),
+                ("Save", lambda: self.save_preset(item, values), self.app.soft(color), color, color)):
+            w = widths[0]
+            rounded(c, x, y, x+w, y+50, 14, fill=fill, outline=outline, width=1.2)
+            self.text(c, x+w/2, y+25, label, -14, ink, "center", "black")
+            self.sheet_hit((x, y, x+w, y+50), action)
+            x += w+gap
+        rounded(c, x, y, width-24, y+50, 14, fill=color, outline="")
+        self.text(c, (x+width-24)/2, y+25, primary, -14, C.ON_BRAND, "center", "black")
+        self.sheet_hit((x, y, width-24, y+50), lambda: self.run_preset(item, values))
+        return y+50+28
+
+    def save_preset(self, item, values):
+        """Keep a preset's values for next time without starting it."""
+        from .program_memory import mode_key, normalized
+        selected = self.app.selected
+        chosen = {key: normalized(value) for key, value in values.items() if value is not None}
+        if item["kind"] == "night":
+            stored = {**self.app.memory.mode_values(selected, dict(item["changes"])), **chosen}
+            stored.update({key: normalized(value) for key, value in item["changes"].items()})
+            self.app.memory.save(selected["id"], mode_key(selected, item["changes"]), stored)
+        else:
+            self.app.memory.remember_function(selected["id"], item["command"], item["form"]["category"], chosen)
+        failed = self.app.memory.save_error
+        self.app.status.set("Preset settings could not be saved on this computer." if failed else "Preset settings saved.")
+        self.close_sheet()
         self.render(keep_scroll=True)
 
     def run_preset(self, item, values):

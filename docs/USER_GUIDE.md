@@ -63,7 +63,7 @@ Use **Search** (or **Ctrl+F**) to find settings and presets across Settings, Eve
 
 Scroll anywhere inside the list, including the spaces between cards. Shorter tabs and search results stay fixed at the top. The temperature wheel in a preset keeps its own wheel behaviour.
 
-Select a preset to review it in a sheet at the bottom of the window, adjust its temperature, fan, airflow and features, then explicitly start it. A preset may turn the AC on and replace its configuration. Maintenance routines can interrupt current operation. Saved program preferences never start cleaning or service routines automatically.
+Select a preset to review it in a sheet at the bottom of the window and adjust its temperature, fan, airflow (the same louver picker as the dashboard) and features. **Save** keeps those values for next time without starting anything; **Start preset** sends them. Until you save your own, Heat starts at 24 °C and Heat Night at 24 °C with Sleep and Silent mode on. A preset may turn the AC on and replace its configuration. Maintenance routines can interrupt current operation. Saved program preferences never start cleaning or service routines automatically.
 
 ## On / off timers
 
@@ -101,7 +101,7 @@ The main window and All functions open at a fixed size designed for their layout
 
 ## Updates
 
-The portable app checks for a newer version shortly after it starts and then about once a day. **Settings** in the main window header shows the installed version and the update status (for example **Last checked today at 09:12**), with **Check now**, or **Update** when a new version is available; the button shows a dot when a new version is waiting. Click the version line to open the Updates window with **What's new** and **Diagnostics**.
+The portable app checks for a newer version shortly after it starts and then about once a day. **Settings** in the main window header shows the installed version and the update status (for example **Last checked today at 09:12**), with **Check now**, or **Update** when a new version is available; the button shows a dot when a new version is waiting, and a banner above the bottom row says which version is available, with **Update** (or × to hide it until the next version). Click the version line to open the Updates window with **What's new** and **Diagnostics**.
 
 Nothing is installed until you click **Update**. Room AC Control then downloads the new version and checks that it is signed by this project and matches its published fingerprint. It unpacks the new version next to the current one and runs its offline checks. Only when all of that passes does the app close, swap the folders and open the new version, usually within a few seconds. If the swap fails, the previous version is put back and the app tells you on its next start. Your remembered sign-in, settings and schedules are kept because they live in your Windows profile, not in the app folder. Unapplied changes are discarded, and the app asks before discarding them.
 

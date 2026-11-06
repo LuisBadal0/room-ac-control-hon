@@ -238,3 +238,51 @@ class Toast:
         self.job = None
         if self.label.winfo_exists():
             self.label.place_forget()
+
+
+class UpdateNotice:
+    """"Version X is available" with an Update button, above the dashboard's bottom row.
+
+    It shows when a signed update is found and stays until it is installed or dismissed."""
+
+    def __init__(self, app):
+        self.app, self.dismissed = app, None
+        self.frame = tk.Frame(app.root, bd=0, highlightthickness=0)
+        self.label = tk.Label(self.frame, bd=0, anchor="w", font=font(-13, "bold"))
+        self.label.pack(side="left", padx=(16, 8), pady=10, fill="x", expand=True)
+        self.close = tk.Label(self.frame, text="×", bd=0, cursor="hand2", font=font(-18, "bold"))
+        self.close.pack(side="right", padx=(0, 12))
+        self.close.bind("<Button-1>", lambda event: self.dismiss())
+        self.button = PillButton(self.frame, "Update", self.update, kind="accent", height=36, radius=10, size=-13,
+                                 tone=app.settings_accent, bg=lambda: C.CARD)
+        self.button.pack(side="right", padx=(0, 6), pady=8)
+        refresh_on_theme(self.frame, self.refresh)
+        refresh_on_language(self.frame, self.refresh)
+
+    def release(self):
+        updater = self.app.updater
+        if updater.release and updater.state in {"available", "failed"}:
+            return updater.release.get("version")
+        return None
+
+    def refresh(self):
+        version = self.release()
+        if not version or version == self.dismissed:
+            self.frame.place_forget()
+            return
+        self.frame.configure(bg=C.CARD, highlightbackground=C.TRACK, highlightthickness=1)
+        self.label.configure(bg=C.CARD, fg=C.TEXT,
+                             text=tr(self.frame, "Version {version} is available.").format(version=version))
+        self.close.configure(bg=C.CARD, fg=C.MUTED)
+        self.button.draw()
+        self.frame.place(relx=.5, rely=1, y=-84, anchor="s", width=500)
+        raise_widget(self.frame)
+
+    def update(self):
+        from .updates_view import run_primary
+        run_primary(self.app, self.app.root)
+        self.refresh()
+
+    def dismiss(self):
+        self.dismissed = self.release()
+        self.frame.place_forget()
