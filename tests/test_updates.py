@@ -247,6 +247,26 @@ class InstallTests(unittest.TestCase):
             self.assertEqual((location / "RoomACControl.exe").read_text(), "new")
             self.assertIn("could not be installed", updates.finish(location, "9.9.9", folder / "updates"))
 
+    @unittest.skipUnless(sys.platform == "win32", "The swap helper is a Windows batch file")
+    def test_a_folder_still_in_use_keeps_the_current_version_and_says_why(self):
+        with tempfile.TemporaryDirectory() as folder:
+            folder = Path(folder)
+            location = folder / "runtime" / "RoomACControl"
+            location.mkdir(parents=True)
+            (location / "RoomACControl.exe").write_text("old")
+            new = updates.staged(location)
+            new.mkdir()
+            (new / "RoomACControl.exe").write_text("new")
+            # Another running copy keeps a file open, so Windows will not move the folder.
+            with (location / "RoomACControl.exe").open("rb"):
+                helper = updates.launch_helper(location, "9.9.9", folder=folder / "updates", pid=999999,
+                                               popen=subprocess.Popen, extra={"UPDATE_LAUNCH": "0", "UPDATE_TRIES": "1"})
+                self.assertEqual(helper.wait(timeout=60), 1)
+            self.assertEqual((location / "RoomACControl.exe").read_text(), "old")
+            message = updates.finish(location, "0.4.0", folder / "updates")
+            self.assertIn("app folder was in use", message)
+            self.assertIn(message, PORTUGUESE)
+
     def test_finish_reports_nothing_without_an_update_and_tidies_leftovers(self):
         with tempfile.TemporaryDirectory() as folder:
             folder = Path(folder)

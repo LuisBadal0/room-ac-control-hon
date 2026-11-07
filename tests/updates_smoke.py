@@ -75,6 +75,10 @@ try:
     assert app.settings_button.badge  # The dot marks a waiting update.
     texts = panel.texts()
     assert "Update" in texts and "Version 9.9.9 is available." in texts, texts
+    bar = app.update_notice_bar
+    root.update()
+    assert bar.frame.winfo_ismapped() and bar.label.cget("text") == "Version 9.9.9 is available."
+    assert bar.button.winfo_ismapped() and not bar.bar.winfo_ismapped()
     # The automatic-check switch is saved.
     panel.toggle_automatic()
     assert app.updater.enabled is False and app.storage.auto_update() is False
@@ -99,8 +103,13 @@ try:
     assert app.updater.enabled is True
 
     # Update: download, unpack and self-test (faked), then hand over and close.
+    # The bar above the bottom row shows the progress until the app restarts.
+    import threading
+    halfway, carry_on = threading.Event(), threading.Event()
     def fake_download(release, folder, progress, cancelled):
         progress(1, 2)
+        halfway.set()
+        carry_on.wait(10)
         archive = Path(temporary.name) / "u.zip"
         with zipfile.ZipFile(archive, "w") as bundle:
             bundle.writestr(updates.ZIP_RUNTIME + "RoomACControl.exe", b"exe")
@@ -110,10 +119,17 @@ try:
             patch.object(updates, "self_test"), \
             patch.object(updates, "launch_helper") as helper:
         view.primary.invoke()
+        settle(root, lambda: halfway.is_set() and app.updater.progress == .5)
+        root.update()
+        assert bar.frame.winfo_ismapped() and bar.label.cget("text") == "Downloading version 9.9.9… 50%", bar.label.cget("text")
+        assert bar.bar.winfo_ismapped() and not bar.button.winfo_ismapped() and not bar.close.winfo_ismapped()
+        carry_on.set()
+        settle(root, lambda: app.updater.state == "ready")
+        assert bar.label.cget("text") == "Restarting to finish the update…" and bar.frame.winfo_ismapped()
         settle(root, lambda: app.closing)
     helper.assert_called_once_with(location, "9.9.9")
     assert (updates.staged(location) / "RoomACControl.exe").exists()
-    print("Settings panel and Updates window, preview lock, check, header badge, Portuguese, automatic-check setting and update hand-over passed offline.")
+    print("Settings panel and Updates window, preview lock, check, header badge, update progress bar, Portuguese, automatic-check setting and update hand-over passed offline.")
 finally:
     temporary.cleanup()
     if not app.closing:

@@ -90,7 +90,7 @@ try:
     captured=[]
     app.action=lambda action,requested=None:captured.append((action,requested))
     texts=[text for item,text in canvas_texts(view.sheet["canvas"])]
-    assert "Iniciar predefinição" in texts and "Voltar aos cartões" in texts, texts
+    assert {"Iniciar predefinição", "Voltar", "Guardar"} <= set(texts), texts
     view.sheet["hits"][-1][1]()  # Start preset.
     assert captured==[("execute",{"command":"startProgram","category":"iot_cool","parameters":{"tempSel":"24.5"}})]
     assert len(callbacks)==1  # Language changes never initiate another connection or AC command.

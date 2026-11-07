@@ -93,8 +93,18 @@ def main(argv=None):
         pass
     if args.self_test:
         raise SystemExit(self_test(args.self_test))
+    instance = None
+    if not args.preview:
+        # A second start shows the running app instead of opening another copy.
+        from .single_instance import SingleInstance
+        instance = SingleInstance()
+        if not instance.first:
+            instance.show_running()
+            instance.close()
+            return
     root = tk.Tk()
     app = App(root,demo=bool(args.preview),language=args.language,theme=args.theme)
+    app.instance = instance
     if args.preview:
         root.title("Room AC Control for hOn · Offline preview")
         if args.preview == "dashboard":

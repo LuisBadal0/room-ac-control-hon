@@ -237,6 +237,8 @@ PORTUGUESE = {
     "Could not reach the update service. Check your internet connection and try again.": "Não foi possível contactar o serviço de atualizações. Verifique a ligação à internet e tente novamente.",
     "Updated to version {version}.": "Atualizado para a versão {version}.",
     "The update could not be installed. Room AC Control is still on version {version}.": "Não foi possível instalar a atualização. O Room AC Control continua na versão {version}.",
+    "The update could not be installed because the app folder was in use. Close every Room AC Control window, including the one in the notification area, then try again.":
+        "Não foi possível instalar a atualização porque a pasta da aplicação estava em uso. Feche todas as janelas do Room AC Control, incluindo a da área de notificação, e tente novamente.",
     # Ambient dashboard and Settings panel.
     "Discard": "Descartar", "Changes discarded.": "Alterações descartadas.",
     "Cooling to": "A arrefecer até", "Heating to": "A aquecer até", "Drying at": "A desumidificar a",

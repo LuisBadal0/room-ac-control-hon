@@ -241,9 +241,12 @@ class Toast:
 
 
 class UpdateNotice:
-    """"Version X is available" with an Update button, above the dashboard's bottom row.
+    """The update bar above the dashboard's bottom row.
 
-    It shows when a signed update is found and stays until it is installed or dismissed."""
+    "Version X is available" with an Update button when a signed update is found. After
+    Update is clicked it stays, with a progress bar, through the download and checks until
+    the app restarts, so it is clear the app is being updated."""
+    BUSY = {"downloading", "verifying", "ready"}
 
     def __init__(self, app):
         self.app, self.dismissed = app, None
@@ -251,13 +254,25 @@ class UpdateNotice:
         self.label = tk.Label(self.frame, bd=0, anchor="w", font=font(-13, "bold"))
         self.label.pack(side="left", padx=(16, 8), pady=10, fill="x", expand=True)
         self.close = tk.Label(self.frame, text="×", bd=0, cursor="hand2", font=font(-18, "bold"))
-        self.close.pack(side="right", padx=(0, 12))
         self.close.bind("<Button-1>", lambda event: self.dismiss())
         self.button = PillButton(self.frame, "Update", self.update, kind="accent", height=36, radius=10, size=-13,
                                  tone=app.settings_accent, bg=lambda: C.CARD)
-        self.button.pack(side="right", padx=(0, 6), pady=8)
+        self.buttons_shown = False
+        self.show_buttons(True)
+        self.bar = tk.Canvas(self.frame, height=4, bd=0, highlightthickness=0)
         refresh_on_theme(self.frame, self.refresh)
         refresh_on_language(self.frame, self.refresh)
+
+    def show_buttons(self, shown):
+        if shown == self.buttons_shown:
+            return
+        if shown:
+            self.close.pack(side="right", padx=(0, 12))
+            self.button.pack(side="right", padx=(0, 6), pady=8)
+        else:
+            self.button.pack_forget()
+            self.close.pack_forget()
+        self.buttons_shown = shown
 
     def release(self):
         updater = self.app.updater
@@ -265,16 +280,44 @@ class UpdateNotice:
             return updater.release.get("version")
         return None
 
+    def message(self):
+        """What the bar says, and how far the update has got (None: no progress bar)."""
+        updater = self.app.updater
+        version = (updater.release or {}).get("version", "")
+        if updater.state == "downloading":
+            value = int(updater.progress*100)
+            return tr(self.frame, "Downloading version {version}… {value}%").format(version=version, value=value),                 max(.02, updater.progress)
+        if updater.state == "verifying":
+            return tr(self.frame, "Checking the new version…"), 1.0
+        if updater.state == "ready":
+            return tr(self.frame, "Restarting to finish the update…"), 1.0
+        return tr(self.frame, "Version {version} is available.").format(version=version), None
+
     def refresh(self):
+        updater = self.app.updater
+        busy = bool(updater.release) and updater.state in self.BUSY
         version = self.release()
-        if not version or version == self.dismissed:
+        if not busy and (not version or version == self.dismissed):
             self.frame.place_forget()
             return
+        text, done = self.message()
         self.frame.configure(bg=C.CARD, highlightbackground=C.TRACK, highlightthickness=1)
-        self.label.configure(bg=C.CARD, fg=C.TEXT,
-                             text=tr(self.frame, "Version {version} is available.").format(version=version))
+        self.label.configure(bg=C.CARD, fg=C.TEXT, text=text)
         self.close.configure(bg=C.CARD, fg=C.MUTED)
-        self.button.draw()
+        self.show_buttons(not busy)
+        if self.buttons_shown:
+            self.button.draw()
+        # Room under the text for the progress line while an update runs.
+        self.label.pack_configure(pady=(14, 22) if done is not None else 10)
+        if done is None:
+            self.bar.place_forget()
+        else:
+            self.bar.configure(bg=C.CARD)
+            self.bar.place(x=16, rely=1, y=-12, relwidth=1, width=-32, height=4, anchor="sw")
+            self.bar.delete("all")
+            width = 500-32
+            rounded(self.bar, 0, 0, width, 4, 2, fill=C.SURFACE, outline="")
+            rounded(self.bar, 0, 0, max(4, width*done), 4, 2, fill=self.app.settings_accent(), outline="")
         self.frame.place(relx=.5, rely=1, y=-84, anchor="s", width=500)
         raise_widget(self.frame)
 
