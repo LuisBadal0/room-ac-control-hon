@@ -17,6 +17,35 @@ def _images(canvas):
     return canvas._root().__dict__.setdefault("smooth_images", {})
 
 
+# Rendered images kept for reuse. Past this, images no widget shows are dropped.
+CACHE_LIMIT = 4000
+
+
+def _keep(canvas, key, photo):
+    """Cache a rendered image for reuse.
+
+    When the cache is full, only images that no canvas or widget shows are dropped:
+    dropping one still on screen deletes it in Tk and blanks that text or shape in
+    every open window."""
+    cache = _images(canvas)
+    root = canvas._root().__dict__
+    if len(cache) >= root.get("smooth_limit", CACHE_LIMIT):
+        inuse = canvas.tk.call
+        for old in [old for old, image in cache.items() if not inuse("image", "inuse", str(image))]:
+            del cache[old]
+        # If most images are on screen, wait for another quarter before checking again.
+        root["smooth_limit"] = max(CACHE_LIMIT, len(cache) + CACHE_LIMIT//4)
+    cache[key] = photo
+    return photo
+
+
+def _key(ops, extent):
+    """The cache key for recorded shapes. Tags name canvas items (icons get a new one
+    each time) and do not change how a shape looks, so they are left out."""
+    return (repr([[kind, coords, {name: value for name, value in options.items() if name != "tags"}]
+                  for kind, coords, options in ops]),) + tuple(extent)
+
+
 def _flatten(values):
     flat = []
     for value in values:
@@ -200,14 +229,10 @@ def sprite(canvas, ops, tags=(), state=None):
     if not ops:
         return canvas.create_rectangle(0, 0, 0, 0, outline="", tags=tags)
     left, top, right, bottom = _extent(ops)
-    key = (repr(ops), left, top, right, bottom)
-    cache = _images(canvas)
-    photo = cache.get(key)
+    key = _key(ops, (left, top, right, bottom))
+    photo = _images(canvas).get(key)
     if photo is None:
-        if len(cache) > 4000:
-            cache.clear()
-        photo = ImageTk.PhotoImage(_render(ops, left, top, right, bottom), master=canvas)
-        cache[key] = photo
+        photo = _keep(canvas, key, ImageTk.PhotoImage(_render(ops, left, top, right, bottom), master=canvas))
     options = {"state": state} if state else {}
     item = canvas.create_image(left, top, image=photo, anchor="nw", tags=tags, **options)
     registry = canvas.__dict__.setdefault("smooth_items", {})
@@ -276,13 +301,11 @@ def restyle(canvas, item, **changes):
         settings = dict(label, **changes)
         face = pil_font(canvas, settings["font"])
         key = ("text", settings["text"], settings["font"], settings["fill"], settings["width"], settings["justify"])
-        cache = _images(canvas)
-        photo = cache.get(key)
+        photo = _images(canvas).get(key)
         if photo is None:
             image = _text_image(face, settings["text"], settings["fill"],
                                 float(settings["width"]) if settings["width"] else None, settings["justify"])
-            photo = ImageTk.PhotoImage(image, master=canvas)
-            cache[key] = photo
+            photo = _keep(canvas, key, ImageTk.PhotoImage(image, master=canvas))
         across, down = ANCHORS.get(settings["anchor"], (.5, .5))
         canvas.itemconfigure(item, image=photo)
         canvas.coords(item, round(settings["x"]-across*(photo.width()-2)-1), round(settings["y"]-down*(photo.height()-2)-1))
@@ -296,12 +319,10 @@ def restyle(canvas, item, **changes):
     if updated == ops:
         return
     left, top, right, bottom = _extent(updated)
-    key = (repr(updated), left, top, right, bottom)
-    cache = _images(canvas)
-    photo = cache.get(key)
+    key = _key(updated, (left, top, right, bottom))
+    photo = _images(canvas).get(key)
     if photo is None:
-        photo = ImageTk.PhotoImage(_render(updated, left, top, right, bottom), master=canvas)
-        cache[key] = photo
+        photo = _keep(canvas, key, ImageTk.PhotoImage(_render(updated, left, top, right, bottom), master=canvas))
     canvas.itemconfigure(item, image=photo)
     canvas.coords(item, left, top)
     canvas.__dict__["smooth_items"][item] = updated
@@ -390,19 +411,22 @@ def aa_text(canvas, x, y, text="", font=None, fill="#000000", anchor="center", w
     if isinstance(tags, str):
         tags = (tags,)
     key = ("text", text, font, fill, width, justify)
-    cache = _images(canvas)
-    photo = cache.get(key)
+    photo = _images(canvas).get(key)
     if photo is None:
         image = _text_image(face, text, fill, float(width) if width else None, justify)
-        photo = ImageTk.PhotoImage(image, master=canvas)
-        cache[key] = photo
+        photo = _keep(canvas, key, ImageTk.PhotoImage(image, master=canvas))
     across, down = ANCHORS.get(anchor, (.5, .5))
     left = x-across*(photo.width()-2)-1
     top = y-down*(photo.height()-2)-1
     item = canvas.create_image(round(left), round(top), image=photo, anchor="nw", tags=tags,
                                **({"state": state} if state else {}))
-    canvas.__dict__.setdefault("smooth_texts", {})[item] = {"x": x, "y": y, "text": text, "font": font, "fill": fill,
-                                                           "anchor": anchor, "width": width, "justify": justify}
+    labels = canvas.__dict__.setdefault("smooth_texts", {})
+    if len(labels) > 3000:  # Forget texts whose canvas items were deleted, as sprite() does.
+        alive = set(canvas.find_all())
+        for stale in [key for key in labels if key not in alive]:
+            del labels[stale]
+    labels[item] = {"x": x, "y": y, "text": text, "font": font, "fill": fill,
+                    "anchor": anchor, "width": width, "justify": justify}
     return item
 
 
