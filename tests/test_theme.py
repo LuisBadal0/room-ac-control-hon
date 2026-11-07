@@ -1,29 +1,30 @@
 """Palette contrast, Windows app-mode resolution and isolated theme persistence."""
-from copy import deepcopy
-from pathlib import Path
+
 import re
 import tempfile
 import unittest
+from copy import deepcopy
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 from room_ac_control import theme
-from room_ac_control.theme import PALETTES, ACCENTS, Colors, accent, resolve_theme, windows_mode
-from room_ac_control.secure_state import SecureState
-from room_ac_control.translations import PORTUGUESE
 from room_ac_control.dashboard import THEME_CHOICES
+from room_ac_control.secure_state import SecureState
+from room_ac_control.theme import ACCENTS, PALETTES, Colors, accent, resolve_theme, windows_mode
+from room_ac_control.translations import PORTUGUESE
 
 
 def luminance(color):
     channels = []
     for index in (1, 3, 5):
-        value = int(color[index:index+2], 16) / 255
-        channels.append(value/12.92 if value <= .04045 else ((value+.055)/1.055)**2.4)
-    return .2126*channels[0] + .7152*channels[1] + .0722*channels[2]
+        value = int(color[index : index + 2], 16) / 255
+        channels.append(value / 12.92 if value <= 0.04045 else ((value + 0.055) / 1.055) ** 2.4)
+    return 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2]
 
 
 def contrast(foreground, background):
     high, low = sorted((luminance(foreground), luminance(background)), reverse=True)
-    return (high+.05) / (low+.05)
+    return (high + 0.05) / (low + 0.05)
 
 
 class PaletteTests(unittest.TestCase):
@@ -34,15 +35,28 @@ class PaletteTests(unittest.TestCase):
                 self.assertRegex(value, re.compile(r"^#[0-9A-F]{6}$"))
 
     def test_text_pairs_meet_wcag_contrast_in_light_and_dark(self):
-        text_pairs = [("TEXT","BG"),("TEXT","CARD"),("TEXT","SURFACE"),("MUTED","BG"),("MUTED","CARD"),
-                      ("ON_BRAND","BRAND"),("ON_SOFT","SOFT"),("OK_TEXT","OK_BG"),("WARN_TEXT","WARN_BG"),("DANGER_TEXT","DANGER_BG"),
-                      ("BRAND","CARD"),("BRAND","BG"),("TEXT","SEGMENT"),("TEXT","RAISED")]
+        text_pairs = [
+            ("TEXT", "BG"),
+            ("TEXT", "CARD"),
+            ("TEXT", "SURFACE"),
+            ("MUTED", "BG"),
+            ("MUTED", "CARD"),
+            ("ON_BRAND", "BRAND"),
+            ("ON_SOFT", "SOFT"),
+            ("OK_TEXT", "OK_BG"),
+            ("WARN_TEXT", "WARN_BG"),
+            ("DANGER_TEXT", "DANGER_BG"),
+            ("BRAND", "CARD"),
+            ("BRAND", "BG"),
+            ("TEXT", "SEGMENT"),
+            ("TEXT", "RAISED"),
+        ]
         for mode, palette in PALETTES.items():
             for foreground, background in text_pairs:
                 with self.subTest(mode=mode, pair=(foreground, background)):
                     self.assertGreaterEqual(contrast(palette[foreground], palette[background]), 4.5)
             # Field borders, toggles and the slider fill are non-text UI (3:1).
-            for foreground, background in (("FIELD","CARD"),("BRAND","TRACK"),("OK","BG")):
+            for foreground, background in (("FIELD", "CARD"), ("BRAND", "TRACK"), ("OK", "BG")):
                 with self.subTest(mode=mode, pair=(foreground, background)):
                     self.assertGreaterEqual(contrast(palette[foreground], palette[background]), 3)
 
@@ -114,7 +128,7 @@ class WindowsModeTests(unittest.TestCase):
 class ThemePreferenceTests(unittest.TestCase):
     def test_preference_survives_restart_and_sign_out(self):
         with tempfile.TemporaryDirectory() as folder:
-            path = Path(folder)/"state.dpapi"
+            path = Path(folder) / "state.dpapi"
             state = SecureState(path)
             self.assertEqual(state.theme(), "system")
             state.save_credentials("fixture@example.test", "fake-theme-test-password")
@@ -143,15 +157,19 @@ class ThemePreferenceTests(unittest.TestCase):
         for option in THEME_CHOICES:
             self.assertIn(option["label"], PORTUGUESE)
             self.assertIn(option["description"], PORTUGUESE)
-        for text in ("Appearance", "Search functions", "Changed",
-                     "Appearance changed for this session, but the preference could not be saved."):
+        for text in (
+            "Appearance",
+            "Search functions",
+            "Changed",
+            "Appearance changed for this session, but the preference could not be saved.",
+        ):
             self.assertIn(text, PORTUGUESE)
-
 
 
 class UnitArtworkTests(unittest.TestCase):
     def test_artwork_has_no_hard_outline_and_scales_smoothly(self):
         from PIL import Image
+
         with Image.open(theme.ASSETS / "unit.png") as image:
             image = image.convert("RGBA")
             # Shaded like hOn's unit: no grey outline ring around the body edge.
@@ -159,6 +177,7 @@ class UnitArtworkTests(unittest.TestCase):
             edge = next(x for x in range(image.width) if image.getpixel((x, middle))[3] == 255)
             self.assertGreater(sum(image.getpixel((edge, middle))[:3]) / 3, 200)
         import tkinter as tk
+
         try:
             root = tk.Tk()
         except tk.TclError as error:

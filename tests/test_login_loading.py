@@ -1,7 +1,8 @@
 """Animation lifecycle checks without an account, network, or GUI session."""
+
+import unittest
 from types import SimpleNamespace
 from unittest.mock import patch
-import unittest
 
 from room_ac_control.login_loading import LoginLoadingAnimation
 
@@ -12,25 +13,45 @@ class Canvas:
         self.serial = 0
         self.mapped, self.window_state, self.width = True, "normal", 500
         self.destroyed = False
-    def bind(self, *args, **kwargs): pass
-    def winfo_width(self): return self.width
-    def winfo_ismapped(self): return self.mapped
-    def winfo_toplevel(self): return SimpleNamespace(state=lambda: self.window_state)
+
+    def bind(self, *args, **kwargs):
+        pass
+
+    def winfo_width(self):
+        return self.width
+
+    def winfo_ismapped(self):
+        return self.mapped
+
+    def winfo_toplevel(self):
+        return SimpleNamespace(state=lambda: self.window_state)
+
     def create(self, *args, **kwargs):
         self.serial += 1
         self.items[self.serial] = kwargs
         return self.serial
+
     create_arc = create_oval = create_rectangle = create_line = create_text = create
-    def itemconfigure(self, item, **kwargs): self.items[item].update(kwargs)
-    def move(self, *args): pass
+
+    def itemconfigure(self, item, **kwargs):
+        self.items[item].update(kwargs)
+
+    def move(self, *args):
+        pass
+
     def delete(self, tag):
-        if self.destroyed: raise RuntimeError("Canvas commands are unavailable during destruction")
+        if self.destroyed:
+            raise RuntimeError("Canvas commands are unavailable during destruction")
         self.items = {i: v for i, v in self.items.items() if v.get("tags") != tag}
+
     def after(self, delay, callback):
         self.serial += 1
         self.jobs[self.serial] = (delay, callback)
         return self.serial
-    def after_cancel(self, job): self.jobs.pop(job, None)
+
+    def after_cancel(self, job):
+        self.jobs.pop(job, None)
+
     def advance(self, animation):
         _, callback = self.jobs.pop(animation.job)
         callback()
@@ -47,7 +68,7 @@ class LoginAnimationTests(unittest.TestCase):
         first_angles = [self.canvas.items[i]["start"] for i in self.animation.segments]
         self.animation.start()
         self.assertEqual(len(self.canvas.jobs), 1)
-        with patch("room_ac_control.login_loading.time.monotonic", return_value=self.animation.started+.5):
+        with patch("room_ac_control.login_loading.time.monotonic", return_value=self.animation.started + 0.5):
             self.canvas.advance(self.animation)
         self.assertEqual(set(self.canvas.items), items)
         self.assertNotEqual(first_angles, [self.canvas.items[i]["start"] for i in self.animation.segments])

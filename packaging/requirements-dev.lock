@@ -1,0 +1,31 @@
+# Developer checks (lint, format, type checks); includes the full runtime lock.
+-r ../requirements.lock
+
+ruff==0.17.2 \
+    --hash=sha256:1b59d447f197bef9ef48a22ba1a6016137753c6099e9bac9c36eb566e422424c
+
+mypy==2.4.0 \
+    --hash=sha256:2106b55105ba5ea9be4f53a24517fc5fa927ff1585edc9bc1a975abb72caef89 \
+    --hash=sha256:236e0d68f6941992b0811128e652590f590db444ab29ad8f1324765b9298b946 \
+    --hash=sha256:295ecf2e57542cd836ca537486951289678c8c7d1ee6ad74ebe29b2168a003cf \
+    --hash=sha256:a6e851b82c0661f69f1630fc16172c68787a6a9cf0991e7c6437d60976cdcd76 \
+    --hash=sha256:ba05652540bf12828e52abae807b024b09ca144ff4f75e2450a81d69c376425b \
+    --hash=sha256:d01c5d26a352acc6d5cf3128225477e1e8465e8d3029d4c345807fbf7f3cf093
+
+mypy-extensions==1.1.0 \
+    --hash=sha256:1be4cccdb0f2482337c4743e60421de3a356cd97508abadd57d47403e94f5505
+
+pathspec==1.1.1 \
+    --hash=sha256:a00ce642f577bf7f473932318056212bc4f8bfdf53128c78bbd5af0b9b20b189
+
+librt==0.16.0 \
+    --hash=sha256:14ed6ebe3e4f85f326d7920011ad30ff49ed9334e62cf88caef9ba973d9e3a92 \
+    --hash=sha256:25a58a19ea8d83b68209f04912df765e9260635ef77646542ed4b4abe6bc7940 \
+    --hash=sha256:3f0b8114c44b2ac06ff5dacd08e07e8e807ff4f46083f2a1602685122559be41 \
+    --hash=sha256:5f49cff01bd608ef7d97104cb035c75455e79c2d70bf4a506cf773338ac1860d \
+    --hash=sha256:d46ca272b251d033dd4527b0dec5f261a28a52bd5fa0f99c117b0a1f8588cc2d
+
+ast-serialize==0.13.1 \
+    --hash=sha256:5d99910e6b9a9b9360bcca2ae99aee36cc912ce058df2a57d1c33099b6cb2593 \
+    --hash=sha256:ddf7cbc9c8abf70102c4a088efe154bb86bfb825b0a10e556d2b15972cf99bd7
+

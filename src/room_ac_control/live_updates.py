@@ -1,9 +1,11 @@
 """Cloud status notifications. MQTT callbacks only signal; REST fetches actual state."""
+
 import secrets
 
 from awscrt import mqtt5
 from awsiot import mqtt5_client_builder
 from pyhon import const
+
 from .diagnostics import diagnostics
 
 

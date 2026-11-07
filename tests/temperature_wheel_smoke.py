@@ -1,13 +1,14 @@
 """Temperature editors and preset drafts exercised without real commands."""
-from pathlib import Path
+
 import sys
 import tkinter as tk
+from pathlib import Path
 from types import SimpleNamespace
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
-from room_ac_control.smooth import texts as canvas_texts
 from room_ac_control.dashboard import App
+from room_ac_control.smooth import texts as canvas_texts
 from room_ac_control.temperature_wheel import TemperatureWheel
 from tests.ui_smoke import demo_device
 
@@ -19,10 +20,10 @@ def descendants(widget):
 
 
 root = tk.Tk()
-app = App(root, demo=True, enable_tray=False,language="en")
+app = App(root, demo=True, enable_tray=False, language="en")
 try:
     snapshot = demo_device()
-    snapshot["controls"]["tempSel"]["step"] = .5
+    snapshot["controls"]["tempSel"]["step"] = 0.5
     app.connected([snapshot])
     requests = []
     app.action = lambda action, values=None: requests.append((action, values))
@@ -32,18 +33,27 @@ try:
     root.update()
     popup = next(child for child in view.window.winfo_children() if isinstance(child, tk.Toplevel))
     wheel = next(child for child in descendants(popup) if isinstance(child, TemperatureWheel))
-    assert not any(child.winfo_class() == "TLabel" and child.cget("text") == "Target temperature" for child in descendants(popup))
+    assert not any(
+        child.winfo_class() == "TLabel" and child.cget("text") == "Target temperature" for child in descendants(popup)
+    )
     assert wheel.get() == "23"
     wheel.event_generate("<MouseWheel>", delta=120)
     root.update()
     assert wheel.get() == "23.5"
     assert not app.dirty and not requests
-    next(child for child in descendants(popup) if child.winfo_class() == "TButton" and child.cget("text") == "Set value").invoke()
+    next(
+        child for child in descendants(popup) if child.winfo_class() == "TButton" and child.cget("text") == "Set value"
+    ).invoke()
     assert app.dirty["tempSel"] == "23.5" and not requests  # Staged on the dashboard, not sent.
     app.discard()
 
-    preset = {"kind":"function", "command":"startProgram", "label":"Offline cool",
-              "section":"everyday", "form":{"category":"iot_cool", "parameters":[snapshot["controls"]["tempSel"]]}}
+    preset = {
+        "kind": "function",
+        "command": "startProgram",
+        "label": "Offline cool",
+        "section": "everyday",
+        "form": {"category": "iot_cool", "parameters": [snapshot["controls"]["tempSel"]]},
+    }
     view.configure_function(preset)
     root.update()
     wheel = next(widget for widget in view.sheet["widgets"] if isinstance(widget, TemperatureWheel))
@@ -57,7 +67,9 @@ try:
     wheel.release(SimpleNamespace(y=-60, y_root=180))
     assert wheel.get() == "25.5" and not requests
     view.sheet["hits"][-1][1]()  # Start preset, the sheet's last button.
-    assert requests == [("execute", {"command":"startProgram", "category":"iot_cool", "parameters":{"tempSel":"25.5"}})]
+    assert requests == [
+        ("execute", {"command": "startProgram", "category": "iot_cool", "parameters": {"tempSel": "25.5"}})
+    ]
     assert not app.dirty  # The main dashboard value is not changed by scrolling.
     print("Temperature setting confirmation, decimal preset drafts and wheel/page-scroll isolation passed offline.")
 finally:

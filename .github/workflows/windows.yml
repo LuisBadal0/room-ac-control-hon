@@ -23,7 +23,13 @@ jobs:
       - name: Install
         run: |
           python -m venv .venv
-          .\.venv\Scripts\python.exe tools/install_dependencies.py --build
+          .\.venv\Scripts\python.exe tools/install_dependencies.py --build --dev
+      - name: Lint and formatting
+        run: |
+          .\.venv\Scripts\python.exe -m ruff check src tests tools
+          .\.venv\Scripts\python.exe -m ruff format --check src tests tools
+      - name: Type checks
+        run: .\.venv\Scripts\python.exe -m mypy
       - name: Offline tests
         run: .\.venv\Scripts\python.exe -m unittest discover -s tests -v
       - name: UI smoke checks

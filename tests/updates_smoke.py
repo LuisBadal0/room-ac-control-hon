@@ -1,6 +1,6 @@
 """Updates window and header badge, offline: no network request, no helper,
 no real install. Fixture runtimes live in a temporary folder."""
-import json
+
 import sys
 import tempfile
 import time
@@ -9,14 +9,22 @@ import zipfile
 from pathlib import Path
 from unittest.mock import patch
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1])); sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from room_ac_control import updates
-from room_ac_control.smooth import texts as canvas_texts
 from room_ac_control.dashboard import App
 from room_ac_control.demo import devices
+from room_ac_control.smooth import texts as canvas_texts
 
-RELEASE = {"version": "9.9.9", "tag": "v9.9.9", "archive": "Room-AC-Control-for-hOn-9.9.9-Windows-x64.zip",
-           "sha256": "0"*64, "size": 1, "url": "https://example.test/u.zip", "notes": "https://example.test/notes"}
+RELEASE = {
+    "version": "9.9.9",
+    "tag": "v9.9.9",
+    "archive": "Room-AC-Control-for-hOn-9.9.9-Windows-x64.zip",
+    "sha256": "0" * 64,
+    "size": 1,
+    "url": "https://example.test/u.zip",
+    "notes": "https://example.test/notes",
+}
 
 
 def settle(root, until, seconds=10):
@@ -105,7 +113,9 @@ try:
     # Update: download, unpack and self-test (faked), then hand over and close.
     # The bar above the bottom row shows the progress until the app restarts.
     import threading
+
     halfway, carry_on = threading.Event(), threading.Event()
+
     def fake_download(release, folder, progress, cancelled):
         progress(1, 2)
         halfway.set()
@@ -114,14 +124,19 @@ try:
         with zipfile.ZipFile(archive, "w") as bundle:
             bundle.writestr(updates.ZIP_RUNTIME + "RoomACControl.exe", b"exe")
         return archive
-    with patch.object(updates, "updates_folder", return_value=Path(temporary.name) / "updates"), \
-            patch.object(updates, "download", side_effect=fake_download), \
-            patch.object(updates, "self_test"), \
-            patch.object(updates, "launch_helper") as helper:
+
+    with (
+        patch.object(updates, "updates_folder", return_value=Path(temporary.name) / "updates"),
+        patch.object(updates, "download", side_effect=fake_download),
+        patch.object(updates, "self_test"),
+        patch.object(updates, "launch_helper") as helper,
+    ):
         view.primary.invoke()
-        settle(root, lambda: halfway.is_set() and app.updater.progress == .5)
+        settle(root, lambda: halfway.is_set() and app.updater.progress == 0.5)
         root.update()
-        assert bar.frame.winfo_ismapped() and bar.label.cget("text") == "Downloading version 9.9.9… 50%", bar.label.cget("text")
+        assert bar.frame.winfo_ismapped() and bar.label.cget("text") == "Downloading version 9.9.9… 50%", (
+            bar.label.cget("text")
+        )
         assert bar.bar.winfo_ismapped() and not bar.button.winfo_ismapped() and not bar.close.winfo_ismapped()
         carry_on.set()
         settle(root, lambda: app.updater.state == "ready")
@@ -129,7 +144,9 @@ try:
         settle(root, lambda: app.closing)
     helper.assert_called_once_with(location, "9.9.9")
     assert (updates.staged(location) / "RoomACControl.exe").exists()
-    print("Settings panel and Updates window, preview lock, check, header badge, update progress bar, Portuguese, automatic-check setting and update hand-over passed offline.")
+    print(
+        "Settings panel and Updates window, preview lock, check, header badge, update progress bar, Portuguese, automatic-check setting and update hand-over passed offline."
+    )
 finally:
     temporary.cleanup()
     if not app.closing:

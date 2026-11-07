@@ -1,11 +1,12 @@
 """Display-only translations; cloud keys, values and saved program names stay stable."""
+
 import ctypes
-from ctypes import wintypes
 import locale
 import re
-from string import Formatter
 import tkinter as tk
 import unicodedata
+from ctypes import wintypes
+from string import Formatter
 
 from .translations import PORTUGUESE
 
@@ -46,16 +47,26 @@ class Translator:
         for pattern, fields, target in TEMPLATES:
             if match := pattern.fullmatch(message):
                 values = dict(zip(fields, match.groups()))
-                return "".join(literal + ((self.number(values[field]) if field in {"min","max","step","count","value"}
-                                           else self.translate(values[field])) if field else "")
-                               for literal, field, _, _ in Formatter().parse(target))
+                return "".join(
+                    literal
+                    + (
+                        (
+                            self.number(values[field])
+                            if field in {"min", "max", "step", "count", "value"}
+                            else self.translate(values[field])
+                        )
+                        if field
+                        else ""
+                    )
+                    for literal, field, _, _ in Formatter().parse(target)
+                )
         # These separators combine independent application labels, not wire values.
         for separator in (" · ", " — "):
             if separator in message:
                 return separator.join(self.translate(part) for part in message.split(separator))
         for prefix in ("●  ", "◇ ", "♧  ", "↻ "):
             if message.startswith(prefix):
-                return prefix + self.translate(message[len(prefix):])
+                return prefix + self.translate(message[len(prefix) :])
         return message
 
     def number(self, value):
@@ -66,10 +77,10 @@ class Translator:
         if self.language == "en":
             days = ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
             months = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
-            return f"{days[value.weekday()]} {value.day:02d} {months[value.month-1]}"
+            return f"{days[value.weekday()]} {value.day:02d} {months[value.month - 1]}"
         days = ("seg.", "ter.", "qua.", "qui.", "sex.", "sáb.", "dom.")
         months = ("jan.", "fev.", "mar.", "abr.", "mai.", "jun.", "jul.", "ago.", "set.", "out.", "nov.", "dez.")
-        return f"{days[value.weekday()]} {value.day:02d} {months[value.month-1]}"
+        return f"{days[value.weekday()]} {value.day:02d} {months[value.month - 1]}"
 
 
 def _templates():
@@ -142,6 +153,7 @@ def broadcast_language(root):
         for child in children:
             if child.winfo_exists():
                 visit(child)
+
     visit(root)
 
 
@@ -149,5 +161,8 @@ def search_text(parts):
     portuguese = Translator("pt-PT")
     text = " ".join(str(part) for part in parts)
     text += " " + " ".join(portuguese.translate(part) for part in parts)
-    return "".join(character for character in unicodedata.normalize("NFKD", text.casefold())
-                   if not unicodedata.combining(character))
+    return "".join(
+        character
+        for character in unicodedata.normalize("NFKD", text.casefold())
+        if not unicodedata.combining(character)
+    )

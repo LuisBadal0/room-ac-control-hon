@@ -1,8 +1,9 @@
 """Version bumps must agree everywhere, since merging one publishes a release."""
-from pathlib import Path
+
 import re
 import tomllib
 import unittest
+from pathlib import Path
 
 from room_ac_control import __version__
 

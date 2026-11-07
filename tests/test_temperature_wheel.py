@@ -1,7 +1,8 @@
 """Offline range and drag checks for the bounded temperature wheel."""
-from types import SimpleNamespace
+
 import tkinter as tk
 import unittest
+from types import SimpleNamespace
 
 from room_ac_control.temperature_wheel import TemperatureWheel
 
@@ -10,14 +11,14 @@ class TemperatureWheelTests(unittest.TestCase):
     def setUp(self):
         self.root = tk.Tk()
         self.root.withdraw()
-        self.spec = {"min": 16, "max": 30, "step": .5}
+        self.spec = {"min": 16, "max": 30, "step": 0.5}
         self.wheel = TemperatureWheel(self.root, self.spec, 23)
 
     def tearDown(self):
         self.root.destroy()
 
     def pointer(self, y):
-        return SimpleNamespace(y=y, y_root=200+y)
+        return SimpleNamespace(y=y, y_root=200 + y)
 
     def test_drag_and_fast_release_snap_to_decimal_steps_and_stop_at_limits(self):
         self.wheel.press(self.pointer(54))
@@ -36,8 +37,9 @@ class TemperatureWheelTests(unittest.TestCase):
         self.assertEqual(self.wheel.get(), "16")
 
     def test_wheel_accumulates_small_deltas_without_float_drift(self):
-        wheel = TemperatureWheel(self.root, {"min": 16, "max": 16.3, "step": .1}, "16")
-        for _ in range(4): wheel.wheel(SimpleNamespace(delta=30))
+        wheel = TemperatureWheel(self.root, {"min": 16, "max": 16.3, "step": 0.1}, "16")
+        for _ in range(4):
+            wheel.wheel(SimpleNamespace(delta=30))
         self.assertEqual(wheel.get(), "16.1")
         wheel.step(2)
         self.assertEqual(wheel.get(), "16.3")
@@ -63,9 +65,13 @@ class TemperatureWheelTests(unittest.TestCase):
         self.assertEqual(self.wheel.get(), "23")
 
     def test_invalid_ranges_are_rejected_and_unaligned_maximum_is_not_offered(self):
-        for spec in ({"min":16,"max":30,"step":0}, {"min":30,"max":16,"step":1},
-                     {"min":16,"max":"Infinity","step":1}):
-            with self.assertRaises(ValueError): TemperatureWheel(self.root, spec, 23)
-        wheel = TemperatureWheel(self.root, {"min":16,"max":16.25,"step":.1}, 16)
+        for spec in (
+            {"min": 16, "max": 30, "step": 0},
+            {"min": 30, "max": 16, "step": 1},
+            {"min": 16, "max": "Infinity", "step": 1},
+        ):
+            with self.assertRaises(ValueError):
+                TemperatureWheel(self.root, spec, 23)
+        wheel = TemperatureWheel(self.root, {"min": 16, "max": 16.25, "step": 0.1}, 16)
         wheel.step(100)
         self.assertEqual(wheel.get(), "16.2")

@@ -1,15 +1,16 @@
 """Repeating schedules in the offline preview, plus cloud wiring through a fake worker."""
-from pathlib import Path
+
 import sys
 import tkinter as tk
+from pathlib import Path
 from tkinter import messagebox
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
-from room_ac_control.smooth import texts as canvas_texts
-from room_ac_control.dashboard import App, WINDOW_SIZE
+from room_ac_control.dashboard import WINDOW_SIZE, App
 from room_ac_control.demo import devices
-from room_ac_control.schedules import EVERY_DAY, WEEKDAYS, WEEKEND, preview_record
-from room_ac_control.schedules_view import DayPicker, ScheduleRow, SIZE
+from room_ac_control.schedules import EVERY_DAY, WEEKEND
+from room_ac_control.schedules_view import SIZE, DayPicker, ScheduleRow
+from room_ac_control.smooth import texts as canvas_texts
 
 answers = []
 messagebox.askyesno = lambda *args, **kwargs: answers.pop(0)
@@ -34,7 +35,10 @@ try:
         if root.winfo_screenheight() < WINDOW_SIZE[1] + 80:
             continue
         for button in (app.apply_button, app.discard_button, app.refresh_button, app.all_button):
-            assert button.winfo_ismapped() and button.winfo_reqwidth() <= button.winfo_width() + 2, (language, button.label())
+            assert button.winfo_ismapped() and button.winfo_reqwidth() <= button.winfo_width() + 2, (
+                language,
+                button.label(),
+            )
     app.set_language("en")
     app.discard()
     assert not app.dirty and not app.discard_button.winfo_manager()
@@ -82,7 +86,11 @@ try:
                 assert isinstance(row, ScheduleRow)
                 for item in row.find_all():
                     left, top, right, bottom = row.bbox(item)
-                    assert left >= -2 and right <= row.winfo_width() + 2, (theme, language, dict(canvas_texts(row)).get(item, item))
+                    assert left >= -2 and right <= row.winfo_width() + 2, (
+                        theme,
+                        language,
+                        dict(canvas_texts(row)).get(item, item),
+                    )
                 # Texts on the left never run into the actions on the right.
                 actions = [row.bbox(item)[0] for tag in ("edit", "delete", "toggle") for item in row.find_withtag(tag)]
                 for item in row.find_all():
@@ -136,15 +144,21 @@ try:
     # Cloud wiring: an overlap is confirmed before a second request allows it.
     app.demo = False
     calls, results = [], []
+
     def fake_submit(coroutine, callback, operation, on_error=None):
         coroutine.close()
         calls.append(operation)
         callback(results.pop(0))
+
     app.worker.submit = fake_submit
     snapshot = dict(app.selected, power="Off")
     conflict = {"row": {"id": "x"}, "time": (7, 0), "days": (0,)}
-    results.extend([{"saved": False, "rows": [], "conflicts": [conflict]},
-                    {"saved": True, "rows": ["saved"], "conflicts": [], "snapshot": snapshot}])
+    results.extend(
+        [
+            {"saved": False, "rows": [], "conflicts": [conflict]},
+            {"saved": True, "rows": ["saved"], "conflicts": [], "snapshot": snapshot},
+        ]
+    )
     answers.append(True)
     done = []
     app.save_schedule(None, (7, 0), None, (0,), {}, done.append, done.append)
@@ -158,6 +172,8 @@ try:
     app.demo = True
     app.worker.submit = real_submit
     assert answers == []
-    print("Repeat chips, day picker, schedule list, pause, edit, overlap warning, delete and cloud wiring passed offline.")
+    print(
+        "Repeat chips, day picker, schedule list, pause, edit, overlap warning, delete and cloud wiring passed offline."
+    )
 finally:
     app.close()

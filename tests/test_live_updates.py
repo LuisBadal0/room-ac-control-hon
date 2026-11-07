@@ -1,4 +1,5 @@
 """Cloud events trigger refresh signals without mutating or commanding the AC."""
+
 import unittest
 from types import SimpleNamespace
 
@@ -11,16 +12,23 @@ class FakeClient:
         self.stopped = False
         self.subscriptions = []
 
-    def start(self): self.started = True
-    def stop(self): self.stopped = True
-    def subscribe(self, packet): self.subscriptions.append(packet)
+    def start(self):
+        self.started = True
+
+    def stop(self):
+        self.stopped = True
+
+    def subscribe(self, packet):
+        self.subscriptions.append(packet)
 
 
 class NotificationTests(unittest.TestCase):
     def make_listener(self):
         client, events = FakeClient(), []
-        devices = [SimpleNamespace(unique_id="office", info={"topics": {"subscribe": ["office/status", "office/connected"]}}),
-                   SimpleNamespace(unique_id="bedroom", info={"topics": {"subscribe": ["bedroom/status"]}})]
+        devices = [
+            SimpleNamespace(unique_id="office", info={"topics": {"subscribe": ["office/status", "office/connected"]}}),
+            SimpleNamespace(unique_id="bedroom", info={"topics": {"subscribe": ["bedroom/status"]}}),
+        ]
         listener = CloudUpdates("test-token", "test-signature", devices, events.append, factory=lambda **kwargs: client)
         return listener, client, events
 

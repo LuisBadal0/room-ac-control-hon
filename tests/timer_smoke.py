@@ -1,8 +1,9 @@
 """Inline timer controls with offline preview and cloud-result fixtures."""
-from datetime import datetime, timedelta
-from pathlib import Path
+
 import sys
 import tkinter as tk
+from datetime import datetime, timedelta
+from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from room_ac_control.dashboard import App
@@ -11,7 +12,7 @@ from room_ac_control.theme import C
 
 root = tk.Tk()
 root.withdraw()
-app = App(root, demo=True, enable_tray=False,language="en")
+app = App(root, demo=True, enable_tray=False, language="en")
 app.connected(devices())
 root.update_idletasks()
 assert not hasattr(app, "timer_button")
@@ -29,7 +30,12 @@ assert card.minute.value == 59
 # Pointer dragging stages a time without saving a schedule. Background status
 # repainting keeps the pointer gesture intact; device changes cancel it.
 from types import SimpleNamespace
-def pointer(y): return SimpleNamespace(y=y, y_root=300+y)
+
+
+def pointer(y):
+    return SimpleNamespace(y=y, y_root=300 + y)
+
+
 card.hour.press(pointer(34))
 card.hour.drag(pointer(4))  # One 26 px row up.
 assert card.hour.value == 1
@@ -68,9 +74,13 @@ assert card.hour.value == before
 app.set_busy(False)
 # Unsupported native scheduling cannot fall back to a PC timer or send commands.
 submissions = []
+
+
 def submit(coroutine, callback, operation, on_error=None):
     coroutine.close()
     submissions.append(operation)
+
+
 app.worker.submit = submit
 app.demo = False
 app.draw()
@@ -82,19 +92,28 @@ assert not app.dialog
 # Cloud fixtures show the saved timer, preserve edits, and route failures to a
 # status refresh. Coroutine recording guarantees no real request is executed.
 from copy import deepcopy
+
 new = deepcopy(app.selected)
 due = datetime.now() + timedelta(hours=2)
-new["timers"] = {"available": True, "values": {
-    "on": {"supported": True, "due": None, "expected": None, "count": 0},
-    "off": {"supported": True, "due": due, "expected": ["fixture-1", "fixture-date"], "count": 1}}}
+new["timers"] = {
+    "available": True,
+    "values": {
+        "on": {"supported": True, "due": None, "expected": None, "count": 0},
+        "off": {"supported": True, "due": due, "expected": ["fixture-1", "fixture-date"], "count": 1},
+    },
+}
 app.show_device(new, preserve_edits=True)
 assert card.active
 assert card.supported
 assert card.hour.surface not in {C.CARD, C.BG}
 callbacks = []
+
+
 def native_submit(coroutine, callback, operation, on_error=None):
     coroutine.close()
     callbacks.append((callback, operation, on_error))
+
+
 app.worker.submit = native_submit
 app.staged("tempSel", "26")
 app.change_timer("off", None)

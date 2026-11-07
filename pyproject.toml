@@ -24,3 +24,50 @@ room_ac_control = ["assets/*.png", "assets/*.ico"]
 
 [tool.setuptools.dynamic]
 dependencies = {file = ["requirements.txt"]}
+
+[tool.ruff]
+# Python 3.11 is the oldest supported version; the portable build uses 3.13.
+target-version = "py311"
+line-length = 120
+src = ["src", "tools", "tests"]
+
+[tool.ruff.lint]
+select = [
+    "E4", "E7", "E9", # pycodestyle errors that formatting does not fix
+    "F",              # pyflakes: unused names, undefined names
+    "W6",             # deprecated escape sequences
+    "I",              # import order
+    "UP",             # syntax for the supported Python versions
+    "B",              # likely bugs
+]
+ignore = [
+    "E731", # small lambdas assigned to names are used deliberately in the Tk code
+    "B905", # zip() over deliberately unequal sequences, such as a list and its tail
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Smoke scripts drive one Tk session top to bottom and import views where they use them.
+"tests/*_smoke.py" = ["E402"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["room_ac_control"]
+
+[tool.mypy]
+python_version = "3.11"
+# The cloud-facing modules are checked strictly first; widen this list as code gains types.
+files = [
+    "src/room_ac_control/controller.py",
+    "src/room_ac_control/schedules.py",
+    "src/room_ac_control/cloud_timers.py",
+]
+mypy_path = "src"
+check_untyped_defs = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+no_implicit_optional = true
+strict_equality = true
+follow_imports = "silent"
+
+[[tool.mypy.overrides]]
+module = ["pyhon", "pyhon.*", "pystray", "awscrt", "awscrt.*", "awsiot", "awsiot.*"]
+ignore_missing_imports = true

@@ -3,6 +3,7 @@
 A second start asks the running app to show its window, then exits. Two running
 copies would also lock the app folder against each other, so an update could not
 replace it."""
+
 import ctypes
 import os
 
@@ -18,6 +19,7 @@ class SingleInstance:
         if os.name != "nt":
             return
         from ctypes import wintypes
+
         kernel = ctypes.WinDLL("kernel32", use_last_error=True)
         kernel.CreateMutexW.argtypes = [ctypes.c_void_p, wintypes.BOOL, wintypes.LPCWSTR]
         kernel.CreateMutexW.restype = wintypes.HANDLE

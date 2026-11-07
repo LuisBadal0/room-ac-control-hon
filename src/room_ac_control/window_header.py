@@ -1,17 +1,19 @@
 """An in-app title bar with ordinary Windows taskbar and resizing behavior."""
-from .i18n import localized, tr, refresh_on_language
+
 import ctypes
-from ctypes import wintypes
-from pathlib import Path
 import sys
 import tkinter as tk
+from ctypes import wintypes
+from pathlib import Path
 
-from .theme import C, font, icon, paint, refresh_on_theme, rounded, measure
+from .i18n import localized, refresh_on_language, tr
 from .smooth import aa_oval, aa_text
+from .theme import C, font, icon, measure, paint, refresh_on_theme, rounded
 
 
 class WindowsFrame:
     """Remove the caption while preserving the existing Tk window and frame."""
+
     CAPTION = 0x00C00000
     # Tk gives transient dialogs a modal-dialog frame; Windows paints these
     # extended edges as a classic white and grey 3D border around the page.
@@ -23,13 +25,25 @@ class WindowsFrame:
         self.user = ctypes.WinDLL("user32", use_last_error=True)
         self.user.GetParent.argtypes = [wintypes.HWND]
         self.user.GetParent.restype = wintypes.HWND
-        self.get_style = self.user.GetWindowLongPtrW if ctypes.sizeof(ctypes.c_void_p) == 8 else self.user.GetWindowLongW
-        self.set_style = self.user.SetWindowLongPtrW if ctypes.sizeof(ctypes.c_void_p) == 8 else self.user.SetWindowLongW
+        self.get_style = (
+            self.user.GetWindowLongPtrW if ctypes.sizeof(ctypes.c_void_p) == 8 else self.user.GetWindowLongW
+        )
+        self.set_style = (
+            self.user.SetWindowLongPtrW if ctypes.sizeof(ctypes.c_void_p) == 8 else self.user.SetWindowLongW
+        )
         self.get_style.argtypes = [wintypes.HWND, ctypes.c_int]
         self.get_style.restype = ctypes.c_ssize_t
         self.set_style.argtypes = [wintypes.HWND, ctypes.c_int, ctypes.c_ssize_t]
         self.set_style.restype = ctypes.c_ssize_t
-        self.user.SetWindowPos.argtypes = [wintypes.HWND, wintypes.HWND, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int, wintypes.UINT]
+        self.user.SetWindowPos.argtypes = [
+            wintypes.HWND,
+            wintypes.HWND,
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_int,
+            wintypes.UINT,
+        ]
         self.user.SetWindowPos.restype = wintypes.BOOL
         self.user.GetWindowRect.argtypes = [wintypes.HWND, ctypes.POINTER(wintypes.RECT)]
         self.user.GetWindowRect.restype = wintypes.BOOL
@@ -65,7 +79,7 @@ class WindowsFrame:
             dark = ctypes.c_int(1 if C.mode == "dark" else 0)
             dwm.DwmSetWindowAttribute(self.hwnd, 20, ctypes.byref(dark), ctypes.sizeof(dark))
             # COLORREF (0x00BBGGRR) of the page background, including resize edges.
-            red, green, blue = (int(C.BG[index:index+2], 16) for index in (1, 3, 5))
+            red, green, blue = (int(C.BG[index : index + 2], 16) for index in (1, 3, 5))
             border = ctypes.c_uint(blue << 16 | green << 8 | red)
             dwm.DwmSetWindowAttribute(self.hwnd, 34, ctypes.byref(border), ctypes.sizeof(border))
         except OSError:
@@ -89,6 +103,7 @@ class WindowsFrame:
         # Queue a complete repaint, including children and the resize border.
         # Do not start a synchronous nested Tk/Windows event loop.
         self.user.RedrawWindow(self.hwnd, None, None, 0x0001 | 0x0004 | 0x0080 | 0x0400)
+
 
 class WindowHeader:
     hidden = False
@@ -153,8 +168,17 @@ class WindowHeader:
             self.window.attributes("-alpha", 1.0)
 
     def button(self, text, command, hover="SURFACE"):
-        button = tk.Button(self.frame, text=text, command=command, bd=0, relief="flat",
-                           font=("Segoe UI", 14), width=3, takefocus=True, cursor="hand2")
+        button = tk.Button(
+            self.frame,
+            text=text,
+            command=command,
+            bd=0,
+            relief="flat",
+            font=("Segoe UI", 14),
+            width=3,
+            takefocus=True,
+            cursor="hand2",
+        )
         foreground = "ON_DANGER" if hover == "CLOSE_HOVER" else "TEXT"
         paint(button, bg="BG", fg="TEXT", activebackground=hover, activeforeground=foreground)
         button.pack(side="right", fill="y")
@@ -193,14 +217,14 @@ class WindowHeader:
         if not self.window.winfo_exists():
             return
         width, height = self.size
-        error = (self.window.winfo_width()-width, self.window.winfo_height()-height)
+        error = (self.window.winfo_width() - width, self.window.winfo_height() - height)
         if error == (0, 0) or attempts == 0:
             # Let Windows deliver the paint events for the final size first.
             self.fit_job = self.window.after(40, self.reveal)
             return
-        request = (request[0]-error[0], request[1]-error[1])
+        request = (request[0] - error[0], request[1] - error[1])
         self.window.geometry(f"{request[0]}x{request[1]}")
-        self.fit_job = self.window.after(15, lambda: self.fit(request, attempts-1))
+        self.fit_job = self.window.after(15, lambda: self.fit(request, attempts - 1))
 
     def mapped(self, event):
         if event.widget is self.window:
@@ -215,31 +239,35 @@ class WindowHeader:
 
     def drag(self, event):
         self.end_drag()
-        x,y = self.native.position() if self.native and self.native.hwnd else (self.window.winfo_x(),self.window.winfo_y())
-        self.drag_origin = (event.x_root,event.y_root,x,y)
+        x, y = (
+            self.native.position()
+            if self.native and self.native.hwnd
+            else (self.window.winfo_x(), self.window.winfo_y())
+        )
+        self.drag_origin = (event.x_root, event.y_root, x, y)
 
     def drag_motion(self, event):
         if self.drag_origin is None:
             return
-        sx,sy,x,y = self.drag_origin
+        sx, sy, x, y = self.drag_origin
         if self.window.state() == "zoomed":
-            fraction = (sx-x)/max(1,self.window.winfo_width())
+            fraction = (sx - x) / max(1, self.window.winfo_width())
             self.window.state("normal")
             self.window.update_idletasks()
-            x = round(event.x_root-self.window.winfo_width()*fraction)
-            y = event.y_root-20
-            self.drag_origin = (event.x_root,event.y_root,x,y)
+            x = round(event.x_root - self.window.winfo_width() * fraction)
+            y = event.y_root - 20
+            self.drag_origin = (event.x_root, event.y_root, x, y)
         else:
-            x += event.x_root-sx
-            y += event.y_root-sy
-        self.drag_pending = (x,y)
+            x += event.x_root - sx
+            y += event.y_root - sy
+        self.drag_pending = (x, y)
         # Coalesce fast pointer events to at most one move per display frame.
         if self.drag_job is None:
-            self.drag_job = self.window.after(16,self.flush_drag)
+            self.drag_job = self.window.after(16, self.flush_drag)
 
     def flush_drag(self):
         self.drag_job = None
-        position,self.drag_pending = self.drag_pending,None
+        position, self.drag_pending = self.drag_pending, None
         if position is not None:
             if self.native and self.native.hwnd:
                 self.native.move_to(*position)
@@ -274,6 +302,7 @@ class WindowHeader:
 
 class HeaderIconButton(tk.Canvas):
     """A 40 px title-bar control drawn with the shared stroke icons."""
+
     def __init__(self, parent, glyph, command, color="TEXT", badge=False):
         super().__init__(parent, width=40, height=40, highlightthickness=0, takefocus=True, cursor="hand2")
         self.glyph, self.command, self.hover = glyph, command, False
@@ -299,13 +328,14 @@ class HeaderIconButton(tk.Canvas):
         self.delete("all")
         background = C.SURFACE if self.hover else C.BG
         self.configure(bg=background)
-        icon(self, self.glyph, 20, 20, getattr(C, self.color), scale=.75, bg=background)
+        icon(self, self.glyph, 20, 20, getattr(C, self.color), scale=0.75, bg=background)
         if self.badge:
             aa_oval(self, 25, 9, 33, 17, fill=C.BRAND, outline=background, width=2)
 
 
 class HeaderPillButton(tk.Canvas):
     """A labelled title-bar control, such as ⚙ Settings, with an optional dot."""
+
     def __init__(self, parent, glyph, text, command):
         super().__init__(parent, height=40, highlightthickness=0, takefocus=True, cursor="hand2")
         self.glyph, self.text, self.command = glyph, text, command
@@ -340,12 +370,12 @@ class HeaderPillButton(tk.Canvas):
         self.configure(bg=C.BG)
         label = tr(self, self.text)
         width = measure(self, label, 9, "bold") + 44
-        self.configure(width=width+6)
+        self.configure(width=width + 6)
         active = self.hover or self.pressed or self.focus_get() is self
         fill = C.SOFT if self.pressed else (C.SURFACE if self.hover else C.CARD)
-        rounded(self, 2, 5, width+2, 35, 10, fill=fill, outline=C.BRAND if active else C.EDGE, width=1.2)
+        rounded(self, 2, 5, width + 2, 35, 10, fill=fill, outline=C.BRAND if active else C.EDGE, width=1.2)
         ink = C.ON_SOFT if self.pressed else C.TEXT
-        icon(self, self.glyph, 18, 20, ink, scale=.62, bg=fill)
+        icon(self, self.glyph, 18, 20, ink, scale=0.62, bg=fill)
         aa_text(self, 31, 20, text=label, anchor="w", fill=ink, font=font(9, "bold"))
         if self.badge:
-            aa_oval(self, width-6, 3, width+4, 13, fill=C.BRAND, outline=C.BG, width=2)
+            aa_oval(self, width - 6, 3, width + 4, 13, fill=C.BRAND, outline=C.BG, width=2)

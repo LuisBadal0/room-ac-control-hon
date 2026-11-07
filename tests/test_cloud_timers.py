@@ -1,20 +1,25 @@
 """Native timer protocol exercised only against fictional offline fixtures."""
-from copy import deepcopy
-from datetime import datetime, timedelta, timezone
-from types import SimpleNamespace
+
 import unittest
+from copy import deepcopy
+from datetime import UTC, datetime, timedelta
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 from pyhon.commands import HonCommand
-from room_ac_control.cloud_timers import CloudTimers, BASE, iso, select_timers
+
+from room_ac_control.cloud_timers import BASE, CloudTimers, iso, select_timers
 from room_ac_control.controller import ControlError, Controller
 from tests.test_controller import make_device
 
 
 def fixture_device():
     device, api = make_device()
-    variant = HonCommand("startProgram", {"parameters": deepcopy({
-        k: p._attributes for k, p in device.commands["settings"].settings.items()})}, device)
+    variant = HonCommand(
+        "startProgram",
+        {"parameters": deepcopy({k: p._attributes for k, p in device.commands["settings"].settings.items()})},
+        device,
+    )
     variant.settings["onOffStatus"].value = "1"
     base = HonCommand("startProgram", {}, device, categories={"iot_simple_start": variant})
     device.commands["startProgram"] = base
@@ -24,16 +29,28 @@ def fixture_device():
 def record(action="off", ident="fixture-1", paired=False):
     result = {"id": ident, "frequency": "once", "isActive": True, "scheduledProgram": None}
     for a in ("on", "off") if paired else (action,):
-        result["dateISOstart" if a == "on" else "dateISOend"] = iso(datetime.now(timezone.utc) + timedelta(hours=3 if a == "on" else 4))
-        result["setupStart" if a == "on" else "setupEnd"] = {"commandName": "startProgram" if a == "on" else "stopProgram", "parameters": {"onOffStatus": "1" if a == "on" else "0"}}
+        result["dateISOstart" if a == "on" else "dateISOend"] = iso(
+            datetime.now(UTC) + timedelta(hours=3 if a == "on" else 4)
+        )
+        result["setupStart" if a == "on" else "setupEnd"] = {
+            "commandName": "startProgram" if a == "on" else "stopProgram",
+            "parameters": {"onOffStatus": "1" if a == "on" else "0"},
+        }
     return result
 
 
 class Response:
-    def __init__(self, data, status=200): self.data, self.status = data, status
-    async def __aenter__(self): return self
-    async def __aexit__(self, *args): pass
-    async def json(self): return deepcopy(self.data)
+    def __init__(self, data, status=200):
+        self.data, self.status = data, status
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *args):
+        pass
+
+    async def json(self):
+        return deepcopy(self.data)
 
 
 class FixtureHandler:
@@ -44,9 +61,11 @@ class FixtureHandler:
         self.device = SimpleNamespace(get=lambda mobile: {"mobileId": "fictional-mobile"})
         self.session = SimpleNamespace(put=self.put, delete=self.delete)
         self.status, self.stale = 200, False
+
     def get(self, url):
         self.calls.append(("GET", url, None))
         return Response({"payload": self.payload}, self.status)
+
     def write(self, method, url, json):
         self.calls.append((method, url, deepcopy(json)))
         self.writes.append(self.calls[-1])
@@ -59,13 +78,23 @@ class FixtureHandler:
                 for bucket in ("scheduledPrograms", "scheduleRunningProgramEnd"):
                     for index, item in enumerate(list(self.payload[bucket])):
                         if item["id"] == ident:
-                            if method == "DELETE": self.payload[bucket].remove(item)
-                            else: self.payload[bucket][index] = {**deepcopy(json), "id": ident}
+                            if method == "DELETE":
+                                self.payload[bucket].remove(item)
+                            else:
+                                self.payload[bucket][index] = {**deepcopy(json), "id": ident}
         return Response({"payload": {"resultCode": "0"}}, self.status)
-    def post(self, url, json): return self.write("POST", url, json)
-    def put(self, url, json): return self.write("PUT", url, json)
-    def delete(self, url, json): return self.write("DELETE", url, json)
-    def _intercept(self, method, url, **kwargs): return method(url, **kwargs)
+
+    def post(self, url, json):
+        return self.write("POST", url, json)
+
+    def put(self, url, json):
+        return self.write("PUT", url, json)
+
+    def delete(self, url, json):
+        return self.write("DELETE", url, json)
+
+    def _intercept(self, method, url, **kwargs):
+        return method(url, **kwargs)
 
 
 class NativeTimerTests(unittest.IsolatedAsyncioTestCase):
@@ -78,7 +107,9 @@ class NativeTimerTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_start_persists_settings_without_immediate_ac_command(self):
         before = self.device.commands["startProgram"].categories["iot_simple_start"].parameter_groups
-        result = await self.service.change(self.device, "on", self.due, None, {"tempSel": "26", "machMode": "4", "silentSleepStatus": "1"})
+        result = await self.service.change(
+            self.device, "on", self.due, None, {"tempSel": "26", "machMode": "4", "silentSleepStatus": "1"}
+        )
         self.assertEqual(self.api.sent, [])
         method, url, body = self.handler.writes[0]
         self.assertEqual((method, url), ("POST", BASE))
@@ -141,7 +172,7 @@ class NativeTimerTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_updating_an_end_timer_drops_its_already_executed_start(self):
         original = record(paired=True)
-        original["dateISOstart"] = iso(datetime.now(timezone.utc) - timedelta(hours=1))
+        original["dateISOstart"] = iso(datetime.now(UTC) - timedelta(hours=1))
         self.handler.payload["scheduledPrograms"] = [original]
         state, _ = await self.service.read(self.device)
         await self.service.change(self.device, "off", self.due, state["off"]["expected"])
@@ -160,7 +191,7 @@ class NativeTimerTests(unittest.IsolatedAsyncioTestCase):
     async def test_recurring_maintenance_expired_and_inactive_records_are_untouched(self):
         rows = [record("on", "recurring"), record("on", "expired"), record("on", "inactive")]
         rows[0]["frequency"] = "daily"
-        rows[1]["dateISOstart"] = iso(datetime.now(timezone.utc) - timedelta(days=1))
+        rows[1]["dateISOstart"] = iso(datetime.now(UTC) - timedelta(days=1))
         rows[2]["isActive"] = False
         self.handler.payload["scheduledPrograms"] = deepcopy(rows)
         self.handler.payload["scheduledProgramsMaintenance"] = [record("on", "maintenance")]
@@ -182,7 +213,7 @@ class NativeTimerTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(ControlError):
             await self.service.change(self.device, "on", self.due, None, {"tempSel": "70"})
         with self.assertRaises(ControlError):
-            await self.service.change(self.device, "off", datetime.now()-timedelta(minutes=1), None)
+            await self.service.change(self.device, "off", datetime.now() - timedelta(minutes=1), None)
         self.assertEqual(self.handler.writes, [])
         self.assertEqual(self.api.sent, [])
 
@@ -193,7 +224,8 @@ class NativeTimerTests(unittest.IsolatedAsyncioTestCase):
         status = await controller.timer_status(self.device)
         self.assertFalse(status["available"])
         self.handler.payload = {"scheduledPrograms": {"id": "unfamiliar"}}
-        with self.assertRaises(ControlError): await self.service.read(self.device)
+        with self.assertRaises(ControlError):
+            await self.service.read(self.device)
 
 
 class TimerStatusTests(unittest.TestCase):
