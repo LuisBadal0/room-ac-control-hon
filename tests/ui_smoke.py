@@ -10,7 +10,7 @@ from room_ac_control.dashboard import App
 from room_ac_control.controller import describe
 from tests.test_controller import make_device
 from pyhon.commands import HonCommand
-from room_ac_control.functions_view import section_items
+from room_ac_control.functions_view import section_items, preset_key
 from room_ac_control.choice_widgets import matches
 
 
@@ -177,9 +177,46 @@ if __name__ == "__main__":
     root.update_idletasks()
     assert view.selected_function["form"]["category"] == "iot_cool"
     view.close_sheet()
-    view.navigate(2)
+    # Top presets: up to four chosen in a sheet, in the order picked; the rest go in More.
+    content=[text for item,text in canvas_texts(view.content)]
+    assert "TOP PRESETS" in content and "4 of 4" in content and "Choose up to 4" in content, content
+    view.open_top_presets()
     root.update_idletasks()
+    sheet_texts=lambda:[text for item,text in canvas_texts(view.sheet["canvas"])]
+    assert "4 of 4 chosen" in sheet_texts() and any("Remove a chosen preset" in text for text in sheet_texts())
+    tiles=[action for box,action in view.sheet["hits"]][:4]
+    tiles[0]()  # Cool off
+    assert view.top_choice==["coolnight","heat","heatnight"] and "3 of 4 chosen" in sheet_texts()
+    tiles=[action for box,action in view.sheet["hits"]][:4]
+    tiles[0](); tiles[1]()  # Cool back on, last; Cool Night off
+    assert view.top_choice==["heat","heatnight","cool"]
+    view.sheet["hits"][-1][1]()  # Save
+    assert view.sheet is None and app.memory.top_presets(app.selected["id"])==["heat","heatnight","cool"]
+    items,choices,top,more=view.everyday_presets()
+    assert [preset_key(item) for item in top]==["heat","heatnight","cool"]
+    assert [preset_key(item) for item in more]==["coolnight"]
+    assert "3 of 4" in [text for item,text in canvas_texts(view.content)]
+    view.open_top_presets()
+    view.sheet["hits"][-2][1]()  # Cancel keeps the saved choice
+    assert view.sheet is None and app.memory.top_presets(app.selected["id"])==["heat","heatnight","cool"]
+    # Heat presets show their target temperature in the settings grid, like Cool, not 10°C heating.
+    toggle=lambda key,label,value="0":{"key":key,"label":label,"kind":"enum","value":value,"options":{"Off":"0","On":"1"}}
+    temperature={"key":"tempSel","label":"Target temperature","kind":"range","value":22,"min":16,"max":30,"step":1}
+    heat_form=[toggle("10degreeHeatingStatus","10°C heating"),toggle("echoStatus","Buzzer (Echo)"),toggle("muteStatus","Silent mode"),
+               toggle("rapidMode","Turbo / rapid mode"),toggle("screenDisplayStatus","Unit display","1"),
+               toggle("silentSleepStatus","Sleep"),temperature]
+    heat={"kind":"function","command":"startProgram","label":"Heat","section":"everyday",
+          "form":{"category":"iot_heat","group":"everyday","parameters":heat_form}}
+    labels=[label for label,*rest in view.preset_details(heat)[3]]
+    assert "Target temperature" in labels and "10°C heating" not in labels and len(labels)==6, labels
+    crowded=dict(heat,form=dict(heat["form"],parameters=heat_form[:-1]+[toggle("healthMode","Health / purification"),temperature]))
+    labels=[label for label,*rest in view.preset_details(crowded)[3]]
+    assert labels[-1]=="Target temperature" and len(labels)==6, labels
+    view.navigate(2)
+    root.update()  # The routine history loads after the first draw.
     assert len(view.visible_items) == 1
+    texts=[text for item,text in canvas_texts(view.content)]
+    assert "Last run 12 days ago" in texts, texts
     assert app.unit_image.width() == 270
     view.close()
     app.set_busy(True)

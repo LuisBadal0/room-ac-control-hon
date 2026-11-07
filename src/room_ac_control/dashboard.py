@@ -1035,6 +1035,15 @@ class App:
         from .schedules import schedule_rows
         return schedule_rows({"scheduledPrograms": self.preview_records.get(self.selected["id"], [])})
 
+    def load_routine_history(self, done, failed):
+        """Maintenance routine starts from hOn's recent command history ({routine: datetime})."""
+        if self.demo:
+            from datetime import datetime, timedelta, timezone
+            done({"selfCleaningStatus": datetime.now(timezone.utc)-timedelta(days=12, hours=3)})
+            return
+        device_id = self.selected["id"]
+        self.worker.submit(self.worker.controller.routine_history(device_id), done, "routine-history", on_error=failed)
+
     def load_schedules(self, done, failed):
         if self.demo:
             done(self.preview_rows())
