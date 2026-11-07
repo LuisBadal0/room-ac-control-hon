@@ -3,7 +3,7 @@ import asyncio
 import re
 import time
 from contextlib import suppress
-from datetime import datetime
+from datetime import datetime, timezone
 
 import aiohttp
 from pyhon.appliance import HonAppliance
@@ -356,6 +356,35 @@ class Controller:
             except OSError as error:
                 from .diagnostics import diagnostics
                 diagnostics.record("state_save_failed", error)
+            self.note_running_routines(snapshot)
+
+    def note_running_routines(self, snapshot):
+        """Keep the time a self-clean switch is reported on, so remote-started runs count too."""
+        from .routine_history import switched_on
+        controls = snapshot.get("controls", {})
+        running = switched_on({key: spec.get("value") for key, spec in controls.items() if spec.get("reported")})
+        if running:
+            now = datetime.now(timezone.utc)
+            self.memory.record_routine_runs(snapshot["id"], {routine: now for routine in running})
+
+    def record_started_routine(self, device_id, action, requested, group=None):
+        """Keep the time this app started a maintenance routine."""
+        from .routine_history import routine_for, switched_on
+        if not self.memory or not requested:
+            return
+        if action == "execute":
+            routines = [routine_for(requested["command"], requested.get("category", "_"))] if group == "maintenance" else []
+        else:
+            routines = switched_on(requested) if action in {"configure", "apply", "on"} else []
+        if routines:
+            now = datetime.now(timezone.utc)
+            self.memory.record_routine_runs(device_id, {routine: now for routine in routines})
+
+    async def routine_history(self, device_id):
+        """Read (never change) hOn's recent command history for maintenance routine starts."""
+        from .routine_history import runs_from_history
+        device = self.devices[device_id]
+        return runs_from_history(await self.api.load_command_history(device))
 
     async def connect(self, email, password):
         await self.close()
@@ -488,6 +517,8 @@ class Controller:
         await send_action(device, action, requested)
         snapshot = describe(device)
         self.remember(snapshot,requested if action in {"on","apply","configure"} else None)
+        if action != "execute":
+            self.record_started_routine(device_id, action, requested)
         if action in {"on","apply","configure"} and requested:
             previous = self.pending_changes.get(device_id,{}).get("values",{})
             self.pending_changes[device_id] = {"values":{**previous,**{key:str(value) for key,value in requested.items() if key in snapshot["controls"]}},
@@ -504,6 +535,7 @@ class Controller:
             from .program_memory import mode_key
             self.active_functions[device_id]={"command":command,"category":category,"mode":mode_key(snapshot),"confirmed":False,
                                              "group":function_group(command,category,parameters=variant.settings)}
+            self.record_started_routine(device_id, action, requested, self.active_functions[device_id]["group"])
         message="Command accepted by the cloud service. Wait a few seconds, then refresh to check the AC."
         if self.memory and self.memory.save_error:
             message+=" Program settings could not be saved locally."

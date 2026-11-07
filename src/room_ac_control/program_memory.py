@@ -69,6 +69,21 @@ class ProgramMemory:
         restored.update(patch)  # The selected mode/night identity always wins.
         return restored
 
+    def routine_runs(self, device_id):
+        """When each maintenance routine last ran on this AC, as {routine: aware datetime}."""
+        from .routine_history import parse_time
+        runs = {routine: parse_time(value) for routine, value in self.state.routine_runs(self.account, device_id).items()}
+        return {routine: when for routine, when in runs.items() if when is not None}
+
+    def record_routine_runs(self, device_id, runs):
+        """Keep newly seen routine runs ({routine: aware datetime}); a failed write is only reported."""
+        try:
+            self.state.record_routine_runs(self.account, device_id, runs)
+            self.save_error = False
+        except OSError as error:
+            diagnostics.record("state_save_failed", error)
+            self.save_error = True
+
     def remember_function(self, device_id, command, category, values):
         self.save(device_id,f"function:{command}:{category}",
                   {key: normalized(value) for key,value in values.items() if key!="onOffStatus"})

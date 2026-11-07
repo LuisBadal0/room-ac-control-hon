@@ -177,9 +177,24 @@ if __name__ == "__main__":
     root.update_idletasks()
     assert view.selected_function["form"]["category"] == "iot_cool"
     view.close_sheet()
+    # Heat presets show their target temperature in the settings grid, like Cool, not 10°C heating.
+    toggle=lambda key,label,value="0":{"key":key,"label":label,"kind":"enum","value":value,"options":{"Off":"0","On":"1"}}
+    temperature={"key":"tempSel","label":"Target temperature","kind":"range","value":22,"min":16,"max":30,"step":1}
+    heat_form=[toggle("10degreeHeatingStatus","10°C heating"),toggle("echoStatus","Buzzer (Echo)"),toggle("muteStatus","Silent mode"),
+               toggle("rapidMode","Turbo / rapid mode"),toggle("screenDisplayStatus","Unit display","1"),
+               toggle("silentSleepStatus","Sleep"),temperature]
+    heat={"kind":"function","command":"startProgram","label":"Heat","section":"everyday",
+          "form":{"category":"iot_heat","group":"everyday","parameters":heat_form}}
+    labels=[label for label,*rest in view.preset_details(heat)[3]]
+    assert "Target temperature" in labels and "10°C heating" not in labels and len(labels)==6, labels
+    crowded=dict(heat,form=dict(heat["form"],parameters=heat_form[:-1]+[toggle("healthMode","Health / purification"),temperature]))
+    labels=[label for label,*rest in view.preset_details(crowded)[3]]
+    assert labels[-1]=="Target temperature" and len(labels)==6, labels
     view.navigate(2)
-    root.update_idletasks()
+    root.update()  # The routine history loads after the first draw.
     assert len(view.visible_items) == 1
+    texts=[text for item,text in canvas_texts(view.content)]
+    assert "Last run 12 days ago" in texts, texts
     assert app.unit_image.width() == 270
     view.close()
     app.set_busy(True)
