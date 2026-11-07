@@ -81,6 +81,7 @@ class App:
         self.updates_view = None
         self.update_job = None
         self.update_notice = None
+        self.instance = None  # The single-instance lock, set by main().
         self.worker = Worker(memory=self.memory)
         self.tray = None
         self.closing = False
@@ -268,6 +269,8 @@ class App:
                         return
             except queue.Empty:
                 pass
+        if self.instance and self.instance.show_requested():
+            self.restore_window()
         self.updater.poll()
         # Follow Windows: notice an app-mode switch within about two seconds.
         self.theme_checks += 1
@@ -1263,6 +1266,8 @@ class App:
             try:self.tray.close()
             except Exception as error:diagnostics.record("tray_close_failed",error)
         self.worker.close()
+        if self.instance:
+            self.instance.close()
         self.root.destroy()
 
     def on_minimize(self,event):

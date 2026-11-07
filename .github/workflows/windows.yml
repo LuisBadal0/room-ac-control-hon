@@ -27,11 +27,8 @@ jobs:
       - name: Offline tests
         run: .\.venv\Scripts\python.exe -m unittest discover -s tests -v
       - name: UI smoke checks
-        run: |
-          .\.venv\Scripts\python.exe tests/ui_smoke.py
-          .\.venv\Scripts\python.exe tests/refresh_smoke.py
-          .\.venv\Scripts\python.exe tests/desktop_smoke.py
-          .\.venv\Scripts\python.exe tests/window_header_smoke.py
+        # One command, so any failing check fails the step.
+        run: .\.venv\Scripts\python.exe tests/run_smoke.py
       - name: Build portable release
         run: .\.venv\Scripts\python.exe tools/build_windows.py
       - name: Build installers (MSI and Setup.exe)

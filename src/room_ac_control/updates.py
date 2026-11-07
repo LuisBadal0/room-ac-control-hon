@@ -270,11 +270,11 @@ goto failed
 if not "%UPDATE_LAUNCH%"=="0" start "" "%UPDATE_CURRENT%\RoomACControl.exe"
 exit /b 0
 :failed
-> "%UPDATE_RESULT%" echo {"ok": false, "version": "%UPDATE_VERSION%"}
+> "%UPDATE_RESULT%" echo {"ok": false, "version": "%UPDATE_VERSION%", "reason": "busy"}
 if not "%UPDATE_LAUNCH%"=="0" start "" "%UPDATE_CURRENT%\RoomACControl.exe"
 exit /b 1
 :gave_up
-> "%UPDATE_RESULT%" echo {"ok": false, "version": "%UPDATE_VERSION%"}
+> "%UPDATE_RESULT%" echo {"ok": false, "version": "%UPDATE_VERSION%", "reason": "timeout"}
 exit /b 1
 """
 
@@ -308,6 +308,10 @@ def finish(location, current, folder=None):
         outcome = json.loads(result.read_text(encoding="utf-8"))
         if outcome.get("ok") and outcome.get("version") == current:
             message = "Updated to version {version}.".format(version=current)
+        elif outcome.get("reason") == "busy":
+            # Windows would not move the app folder: another copy or window still had it open.
+            message = ("The update could not be installed because the app folder was in use. Close every "
+                       "Room AC Control window, including the one in the notification area, then try again.")
         else:
             message = "The update could not be installed. Room AC Control is still on version {version}.".format(version=current)
     except (OSError, ValueError, AttributeError):

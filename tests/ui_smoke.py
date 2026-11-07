@@ -28,7 +28,7 @@ def demo_device():
 
 if __name__ == "__main__":
     root=tk.Tk()
-    if "--preview" not in sys.argv:root.withdraw()
+    root.withdraw()
     app=App(root,demo=True,language="en")
     from room_ac_control.demo import devices as preview_devices
     app.connected(preview_devices())
@@ -238,20 +238,4 @@ if __name__ == "__main__":
     assert app.mode.get()=="Cool"
     assert "silentSleepStatus" not in app.dirty
     print("Dashboard, temperature staging, Eco, all-functions view and busy states passed.")
-    if "--preview" in sys.argv:
-        app.show_device(demo_device())
-        app.status.set("Offline design preview. No AC commands are sent.")
-        root.mainloop()
-    else:
-        app.close()
-        # Keep timer UI coverage in the existing CI UI entry point.
-        import subprocess
-        subprocess.run([sys.executable, str(Path(__file__).with_name("timer_smoke.py"))], check=True)
-        subprocess.run([sys.executable, str(Path(__file__).with_name("functions_scroll_smoke.py"))], check=True)
-        subprocess.run([sys.executable, str(Path(__file__).with_name("dashboard_layout_smoke.py"))], check=True)
-        subprocess.run([sys.executable, str(Path(__file__).with_name("temperature_wheel_smoke.py"))], check=True)
-        subprocess.run([sys.executable, str(Path(__file__).with_name("i18n_smoke.py"))], check=True)
-        subprocess.run([sys.executable, str(Path(__file__).with_name("theme_smoke.py"))], check=True)
-        subprocess.run([sys.executable, str(Path(__file__).with_name("schedules_smoke.py"))], check=True)
-        subprocess.run([sys.executable, str(Path(__file__).with_name("window_header_smoke.py"))], check=True)
-        subprocess.run([sys.executable, str(Path(__file__).with_name("updates_smoke.py"))], check=True)
+    app.close()
