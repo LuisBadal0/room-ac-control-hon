@@ -9,6 +9,7 @@ from .i18n import tr, localized_title, refresh_on_language, translator, search_t
 from .controller import function_group, mode_choices, code
 from .choice_widgets import ChoicePanel
 from .control_choices import mode_icon
+from .routine_history import item_routine, last_run_text
 from .schedules import clock_text, day_labels, DAY_NAMES
 from .secure_state import TOP_PRESET_LIMIT
 from .temperature_wheel import TemperatureWheel
@@ -25,6 +26,12 @@ NEUTRAL = {"Off", "Unknown", "Unavailable"}
 # The everyday presets shown ahead of the "More" section until the user picks their own
 # (at most TOP_PRESET_LIMIT).
 PRESETS_UP_FRONT = ("cool", "coolnight", "heat", "heatnight")
+# A preset card's settings grid shows this many tiles. 10°C heating is a separate preset,
+# not a setting of Heat, so Heat presets show their target temperature there instead, like Cool.
+GRID_TILES = 6
+HIDDEN_IN_GRID = {"10degreeHeatingStatus"}
+# Maintenance cards: height plus the gap below.
+ROUTINE_STEP = 236
 # Starting values for presets that have not been saved yet.
 PRESET_DEFAULTS = {"heat": {"tempSel": "24"}, "heatnight": {"tempSel": "24", "muteStatus": "1"}}
 
@@ -335,6 +342,8 @@ class FunctionsView(SheetHost):
         # Preset settings start closed; "More" starts closed too.
         self.expanded_presets, self.more_open = set(), False
         self.started = {}  # Maintenance routines started from this window, by label.
+        # hOn's recent command history, read once per window for each routine's last run.
+        self.history_state = None  # None, "queued", "loading", "loaded" or "failed"
         self.sheet = None
         self.selected_function = None
         self.scrollable = False
@@ -743,6 +752,8 @@ class FunctionsView(SheetHost):
         color, glyph = C.BRAND, glyph_for(item["label"])
         for spec in form.get("parameters", []):
             key = spec["key"]
+            if key in HIDDEN_IN_GRID:
+                continue
             value = saved.get(key, spec.get("value"))
             label = option_label(spec, value)
             if key == "machMode":
@@ -753,9 +764,13 @@ class FunctionsView(SheetHost):
                 features.append((spec["label"], "On" if on else "Off", FEATURES.get(key, (glyph_for(spec["label"]),))[0], on))
             else:
                 features.append((spec["label"], label, "thermo" if key == "tempSel" else glyph_for(spec["label"]), True))
+        # Target temperature always shows: if a long list would push it past the sixth tile, it takes that tile.
+        temperature = next((index for index, feature in enumerate(features) if feature[2] == "thermo"), None)
+        if temperature is not None and temperature >= GRID_TILES:
+            features.insert(GRID_TILES-1, features.pop(temperature))
         maintenance = item.get("section") == "maintenance" or form.get("group") == "maintenance"
         description = "Cleaning / service routine" if maintenance else "Everyday comfort preset"
-        return color, glyph, description, features[:6]
+        return color, glyph, description, features[:GRID_TILES]
 
     def draw_everyday(self, c, y):
         self.text(c, 4, y+9, "Presets for normal use. Open one to review it, then start it.", -13, C.MUTED, width=WIDTH-8)
@@ -1001,13 +1016,18 @@ class FunctionsView(SheetHost):
             return y+60
         section_label(c, 4, y+7, "Cleaning routines")
         y += 24
+        if self.history_state is None:
+            # After this draw: a preview answers at once and redraws.
+            self.history_state = "queued"
+            self.window.after_idle(self.load_routine_history)
+        runs = self.app.memory.routine_runs(self.app.selected["id"])
         width = (WIDTH-10)/2
         palette = ("cool", "heat", "dry", "fan", "auto")
         for index, item in enumerate(items):
-            bx, by = (index % 2)*(width+10), y+(index//2)*210
+            bx, by = (index % 2)*(width+10), y+(index//2)*ROUTINE_STEP
             color = accent(palette[index % len(palette)])
             tint = self.app.soft(color)
-            rounded(c, bx, by, bx+width, by+200, 20, fill=C.CARD, outline="")
+            rounded(c, bx, by, bx+width, by+ROUTINE_STEP-10, 20, fill=C.CARD, outline="")
             rounded(c, bx+16, by+16, bx+72, by+72, 16, fill=tint, outline="")
             icon(c, glyph_for(item["label"]), bx+44, by+44, color, scale=1.1, bg=tint)
             self.text(c, bx+16, by+92, item["label"], -15, weight="black", width=width-32)
@@ -1016,20 +1036,52 @@ class FunctionsView(SheetHost):
             else:
                 detail = "Cleaning / service routine"
             self.text(c, bx+16, by+108, detail, -12, C.MUTED, "nw", width=width-32)
+            # How long since the routine last ran: hOn's history, runs started here, or seen running.
+            when = runs.get(item_routine(item))
+            if when is None and self.history_state in {"queued", "loading"}:
+                elapsed = tr(c, "Checking the last run…")
+            else:
+                text, count = last_run_text(when)
+                elapsed = tr(c, text).format(count=translator(c).number(count)) if count is not None else tr(c, text)
+            icon(c, "clock", bx+24, by+154, color if when else C.MUTED, scale=.5, bg=C.CARD)
+            self.text(c, bx+36, by+154, elapsed, -11, C.TEXT if when else C.MUTED, weight="bold",
+                      width=width-52, translate=False)
             state = self.started.get(item["label"])
+            top = by+170
             if state:
                 fill = blend(C.OK, C.CARD, .14)
-                rounded(c, bx+16, by+144, bx+width-16, by+184, 12, fill=fill, outline="")
+                rounded(c, bx+16, top, bx+width-16, top+40, 12, fill=fill, outline="")
                 shown = tr(c, state)
                 left = bx+width/2-(measure(c, shown, -13, "black")+20)/2
-                icon(c, "check", left+7, by+164, C.OK, scale=.5, bg=fill)
-                self.text(c, left+20, by+164, shown, -13, C.OK, "w", "black", translate=False)
+                icon(c, "check", left+7, top+20, C.OK, scale=.5, bg=fill)
+                self.text(c, left+20, top+20, shown, -13, C.OK, "w", "black", translate=False)
             else:
                 label = "Turn on" if item["kind"] == "setting" else "Start"
-                rounded(c, bx+16, by+144, bx+width-16, by+184, 12, fill=color, outline="")
-                self.text(c, bx+width/2, by+164, label, -13, C.ON_BRAND, "center", "black")
-                self.hit((bx+16, by+144, bx+width-16, by+184), lambda item=item: self.start_routine(item))
-        return y+((len(items)+1)//2)*210
+                rounded(c, bx+16, top, bx+width-16, top+40, 12, fill=color, outline="")
+                self.text(c, bx+width/2, top+20, label, -13, C.ON_BRAND, "center", "black")
+                self.hit((bx+16, top, bx+width-16, top+40), lambda item=item: self.start_routine(item))
+        return y+((len(items)+1)//2)*ROUTINE_STEP
+
+    def load_routine_history(self):
+        """Read hOn's recent command history once; runs found are kept on this computer."""
+        if self.history_state == "loading":
+            return
+        self.history_state = "loading"
+        device_id = self.app.selected["id"]
+
+        def done(runs):
+            self.history_state = "loaded"
+            self.app.memory.record_routine_runs(device_id, runs)
+            if self.window.winfo_exists():
+                self.render(keep_scroll=True)
+
+        def failed(error):
+            from .diagnostics import diagnostics
+            diagnostics.record("routine_history_failed", error)
+            self.history_state = "failed"
+            if self.window.winfo_exists():
+                self.render(keep_scroll=True)
+        self.app.load_routine_history(done, failed)
 
     def start_routine(self, item):
         """Ask in a bottom sheet, in the app's own style, before starting a maintenance routine."""

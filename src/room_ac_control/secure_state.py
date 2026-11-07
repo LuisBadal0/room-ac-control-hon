@@ -179,6 +179,42 @@ class SecureState:
             self.dirty = True
             self.write()
 
+    def routine_runs(self, account, device):
+        """When each maintenance routine last ran on one AC, as {routine: ISO time}."""
+        with self.lock:
+            accounts = self.data.get("routine_runs", {})
+            devices = accounts.get(account, {}) if isinstance(accounts, dict) else {}
+            runs = devices.get(device, {}) if isinstance(devices, dict) else {}
+            if not isinstance(runs, dict):
+                return {}
+            return {key: value for key, value in runs.items() if isinstance(key, str) and isinstance(value, str)}
+
+    def record_routine_runs(self, account, device, runs):
+        """Keep the later of the saved and new times for each routine; write only on a change."""
+        if not account or not runs:
+            return
+        from datetime import datetime
+        def parsed(value):
+            try:return datetime.fromisoformat(value)
+            except (TypeError, ValueError):return None
+        with self.lock:
+            accounts = self.data.get("routine_runs")
+            if not isinstance(accounts, dict):
+                accounts = self.data["routine_runs"] = {}
+            devices = accounts.get(account)
+            if not isinstance(devices, dict):
+                devices = accounts[account] = {}
+            saved = devices.get(device)
+            if not isinstance(saved, dict):
+                saved = devices[device] = {}
+            for routine, when in runs.items():
+                previous = parsed(saved.get(routine))
+                if previous is None or (previous.tzinfo is not None) != (when.tzinfo is not None) or when > previous:
+                    saved[routine] = when.isoformat()
+                    self.dirty = True
+            if self.dirty:
+                self.write()
+
     def schedules(self, account):
         with self.lock:
             accounts = self.data.get("schedules", {})

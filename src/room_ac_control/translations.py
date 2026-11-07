@@ -296,4 +296,8 @@ PORTUGUESE = {
     "Top presets saved.": "Predefinições principais guardadas.",
     "Top presets changed for this session, but could not be saved on this computer.":
         "As predefinições principais foram alteradas nesta sessão, mas não foi possível guardá-las neste computador.",
+    "Checking the last run…": "A verificar a última execução…", "No run recorded yet": "Ainda sem execuções registadas",
+    "Last run just now": "Última execução agora mesmo", "Last run {count} min ago": "Última execução há {count} min",
+    "Last run 1 hour ago": "Última execução há 1 hora", "Last run {count} hours ago": "Última execução há {count} horas",
+    "Last run yesterday": "Última execução ontem", "Last run {count} days ago": "Última execução há {count} dias",
 }
