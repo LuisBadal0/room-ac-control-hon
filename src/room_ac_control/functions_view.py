@@ -155,6 +155,20 @@ def option_label(spec, value):
     return number + ("°" if spec.get("key") == "tempSel" else "")
 
 
+def last_run_label(c, when):
+    """A Maintenance card's last-run line, translated, with numbers and dates in the app's language."""
+    text, fields = last_run_text(when)
+    language = translator(c)
+    shown = {}
+    if "count" in fields:
+        shown["count"] = language.number(fields["count"])
+    if "date" in fields:
+        local = fields["date"].astimezone()
+        # "06 Dec 2025": the day and month as the app writes them, then the year.
+        shown["date"] = language.date(local).split(" ", 1)[1]+f" {local.year}"
+    return tr(c, text).format(**shown)
+
+
 def louver_position(label):
     return int(label[-1]) if label.startswith("Position ") and label[-1].isdigit() else 0
 
@@ -192,6 +206,10 @@ class SheetHost:
     """Bottom sheets over a dimmed window, shared by All functions and the dashboard.
 
     A host provides `window`, `app` and `sheet` (None while closed)."""
+
+    def tone(self):
+        """The accent for this host: the dashboard's dial colour (grey while the AC is off)."""
+        return self.app.dial_accent()
 
     def text(self, c, x, y, value, size, color=None, anchor="w", weight="normal", width=None, translate=True):
         options = {"width": width} if width else {}
@@ -245,7 +263,7 @@ class SheetHost:
         self.sheet_closed()
 
     def sheet_buttons(self, c, y, width, back, primary, run, primary_flex=2):
-        tone = self.app.dial_accent()
+        tone = self.tone()
         gap = 10
         left_width = (width-48-gap)/(1+primary_flex)
         x1, x2 = 24, 24+left_width
@@ -278,7 +296,7 @@ class SheetHost:
 
         def draw(c, width):
             from .dashboard import equal
-            tone = self.app.dial_accent()
+            tone = self.tone()
             y = 30
             self.text(c, 24, y+12, "Airflow", -22, weight="black")
             self.text(c, 24, y+38, "Vertical louver. Position 1 is the most closed, 5 the most open.", -13, C.MUTED,
@@ -370,7 +388,7 @@ class FunctionsView(SheetHost):
         self.tabs.pack(fill="x", pady=(0, 16))
         self.tabs.bind("<Button-1>", lambda event: self.navigate(int(event.x // (max(self.tabs.winfo_width(), WIDTH)/len(TABS)))))
         self.footer = paint(tk.Frame(self.body), bg="BG")
-        self.apply_button = PillButton(self.footer, "Apply", self.apply, kind="accent", size=-14, tone=app.dial_accent)
+        self.apply_button = PillButton(self.footer, "Apply", self.apply, kind="accent", size=-14, tone=app.settings_accent)
         self.discard_button = PillButton(self.footer, "Discard", self.discard, kind="ghost")
         self.content = tk.Canvas(self.body, highlightthickness=0, yscrollincrement=1)
         self.content.pack(fill="both", expand=True)
@@ -382,6 +400,10 @@ class FunctionsView(SheetHost):
         refresh_on_theme(self.top, self.repaint)
         refresh_on_language(self.top, self.repaint)
         self.repaint()
+
+    def tone(self):
+        """All functions keeps the mode's colour while the AC is off, like Settings."""
+        return self.app.settings_accent()
 
     # Frame
 
@@ -436,7 +458,7 @@ class FunctionsView(SheetHost):
         rounded(c, 0, 0, width, 48, 16, fill=C.CARD, outline="")
         segment = (width-8-4*(len(TABS)-1))/len(TABS)
         query = self.search.get().strip()
-        tone = self.app.dial_accent()
+        tone = self.tone()
         for index, (key, label) in enumerate(TABS):
             x = 4+index*(segment+4)
             on = key == self.section and not query
@@ -510,7 +532,7 @@ class FunctionsView(SheetHost):
     def draw_settings(self, c, y):
         selected = self.app.selected
         controls = selected.get("controls", {})
-        tone = self.app.dial_accent()
+        tone = self.tone()
         x0, x1 = 16, WIDTH-16
         section_label(c, 4, y+7, "Comfort")
         y += 24
@@ -903,7 +925,7 @@ class FunctionsView(SheetHost):
         used = tr(c, "{count} of {limit}").format(count=number(count), limit=number(TOP_PRESET_LIMIT))
         left = 4+measure(c, tr(c, "Top presets").upper(), -11, "black")+10
         self.text(c, left, y+7, used, -11, C.MUTED, weight="semibold", translate=False)
-        tone = self.app.dial_accent()
+        tone = self.tone()
         tint = self.app.soft(tone)
         caption = tr(c, "Choose up to {limit}").format(limit=number(TOP_PRESET_LIMIT))
         chip = measure(c, caption, -12, "black")+42
@@ -927,7 +949,7 @@ class FunctionsView(SheetHost):
 
         def draw(c, width):
             number = translator(c).number
-            tone = self.app.dial_accent()
+            tone = self.tone()
             full = len(self.top_choice) >= TOP_PRESET_LIMIT
             y = 30
             self.text(c, 24, y+14, "Top presets", -22, weight="black")
@@ -1036,16 +1058,18 @@ class FunctionsView(SheetHost):
             else:
                 detail = "Cleaning / service routine"
             self.text(c, bx+16, by+108, detail, -12, C.MUTED, "nw", width=width-32)
-            # How long since the routine last ran: hOn's history, runs started here, or seen running.
+            # How long since the routine last ran: hOn's history, runs started or seen here, or a
+            # date the person set. Selecting the line sets the date.
             when = runs.get(item_routine(item))
             if when is None and self.history_state in {"queued", "loading"}:
                 elapsed = tr(c, "Checking the last run…")
             else:
-                text, count = last_run_text(when)
-                elapsed = tr(c, text).format(count=translator(c).number(count)) if count is not None else tr(c, text)
+                elapsed = last_run_label(c, when)
             icon(c, "clock", bx+24, by+154, color if when else C.MUTED, scale=.5, bg=C.CARD)
             self.text(c, bx+36, by+154, elapsed, -11, C.TEXT if when else C.MUTED, weight="bold",
-                      width=width-52, translate=False)
+                      width=width-66, translate=False)
+            icon(c, "next", bx+width-22, by+154, C.MUTED, scale=.45, bg=C.CARD)
+            self.hit((bx, by+140, bx+width, by+168), lambda item=item, color=color: self.edit_last_run(item, color))
             state = self.started.get(item["label"])
             top = by+170
             if state:
@@ -1061,6 +1085,71 @@ class FunctionsView(SheetHost):
                 self.text(c, bx+width/2, top+20, label, -13, C.ON_BRAND, "center", "black")
                 self.hit((bx+16, top, bx+width-16, top+40), lambda item=item: self.start_routine(item))
         return y+((len(items)+1)//2)*ROUTINE_STEP
+
+    def edit_last_run(self, item, color):
+        """Set when a routine last ran, for runs this app could not see (hOn does not keep them)."""
+        from datetime import date
+        from .routine_history import day_to_time, parse_day
+        routine = item_routine(item)
+        known = self.app.memory.routine_runs(self.app.selected["id"]).get(routine)
+        field = tk.StringVar(value=known.astimezone().strftime("%d/%m/%Y") if known else "")
+        self.date_error = False
+
+        def pick(days_ago):
+            field.set((date.today()-timedelta(days=days_ago)).strftime("%d/%m/%Y"))
+            self.date_error = False
+            self.sheet["draw"]()
+
+        def save():
+            day = parse_day(field.get(), date.today())
+            if day is None:
+                self.date_error = True
+                self.sheet["draw"]()
+                return
+            self.app.memory.set_routine_run(self.app.selected["id"], routine, day_to_time(day))
+            failed = self.app.memory.save_error
+            self.app.status.set("The last run could not be saved on this computer." if failed else "Last run saved.")
+            self.close_sheet()
+            self.render(keep_scroll=True)
+
+        def draw(c, width):
+            y = 34
+            tint = self.app.soft(color)
+            rounded(c, 24, y, 92, y+68, 20, fill=tint, outline="")
+            icon(c, "calendar", 58, y+34, color, scale=1.1, bg=tint)
+            self.text(c, 108, y+12, tr(c, "Last run").upper(), -11, color, weight="black", translate=False)
+            self.text(c, 108, y+40, item["label"], -22, weight="black", width=width-132)
+            y += 68+18
+            self.text(c, 24, y+10, "hOn does not keep past cleaning runs. Set when this one last ran.", -13, C.MUTED,
+                      "w", width=width-48)
+            y += 36
+            # Quick picks, then the date itself (day/month/year).
+            x = 24
+            for label, days_ago in (("Today", 0), ("Yesterday", 1)):
+                caption = tr(c, label)
+                chip = measure(c, caption, -13, "bold")+32
+                rounded(c, x, y, x+chip, y+40, 12, fill=C.SURFACE, outline="")
+                self.text(c, x+chip/2, y+20, caption, -13, C.TEXT, "center", "bold", translate=False)
+                self.sheet_hit((x, y, x+chip, y+40), lambda days_ago=days_ago: pick(days_ago))
+                x += chip+8
+            entry = getattr(self, "date_entry", None)
+            if entry is None or not entry.winfo_exists():
+                entry = tk.Entry(c, textvariable=field, relief="flat", bd=0, font=font(-15, "bold"), justify="center")
+                entry.bind("<Return>", lambda event: save())
+                self.date_entry = entry
+                self.sheet["widgets"].append(entry)
+            outline = C.DANGER_TEXT if self.date_error else C.STRONG
+            rounded(c, x, y, width-24, y+40, 12, fill=C.SURFACE, outline=outline, width=1.2)
+            entry.configure(bg=C.SURFACE, fg=C.TEXT, insertbackground=C.TEXT)
+            c.create_window((x+width-24)/2, y+20, window=entry, width=width-24-x-24, height=28)
+            y += 40+10
+            hint = "Enter a past date as day/month/year, for example 06/12/2025." if self.date_error else                 "Day/month/year, for example 06/12/2025."
+            self.text(c, 24, y+8, hint, -12, C.DANGER_TEXT if self.date_error else C.MUTED, "w", width=width-48)
+            y += 34
+            return self.sheet_buttons(c, y, width, "Cancel", "Save", save, 1.4)
+        self.date_entry = None
+        self.open_sheet(draw)
+        self.date_entry.focus_set()
 
     def load_routine_history(self):
         """Read hOn's recent command history once; runs found are kept on this computer."""

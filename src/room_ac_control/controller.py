@@ -359,10 +359,12 @@ class Controller:
             self.note_running_routines(snapshot)
 
     def note_running_routines(self, snapshot):
-        """Keep the time a self-clean switch is reported on, so remote-started runs count too."""
-        from .routine_history import switched_on
+        """Keep the time the AC reports a self-clean (switch on, or its program running), so runs
+        started in the hOn app or with the remote count too while this app is open."""
+        from .routine_history import running_programs, switched_on
         controls = snapshot.get("controls", {})
         running = switched_on({key: spec.get("value") for key, spec in controls.items() if spec.get("reported")})
+        running += [routine for routine in running_programs(snapshot) if routine not in running]
         if running:
             now = datetime.now(timezone.utc)
             self.memory.record_routine_runs(snapshot["id"], {routine: now for routine in running})

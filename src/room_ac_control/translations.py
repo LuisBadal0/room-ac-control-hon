@@ -302,4 +302,14 @@ PORTUGUESE = {
     "Last run just now": "Última execução agora mesmo", "Last run {count} min ago": "Última execução há {count} min",
     "Last run 1 hour ago": "Última execução há 1 hora", "Last run {count} hours ago": "Última execução há {count} horas",
     "Last run yesterday": "Última execução ontem", "Last run {count} days ago": "Última execução há {count} dias",
+    "Last run on {date}": "Última execução em {date}", "Last run": "Última execução",
+    "hOn does not keep past cleaning runs. Set when this one last ran.":
+        "O hOn não guarda as limpezas anteriores. Indique quando esta foi feita pela última vez.",
+    "Enter a past date as day/month/year, for example 06/12/2025.":
+        "Introduza uma data passada no formato dia/mês/ano, por exemplo 06/12/2025.",
+    "Day/month/year, for example 06/12/2025.": "Dia/mês/ano, por exemplo 06/12/2025.",
+    "Last run saved.": "Última execução guardada.",
+    "The last run could not be saved on this computer.": "Não foi possível guardar a última execução neste computador.",
+    "Today": "Hoje",
+    "Yesterday": "Ontem",
 }

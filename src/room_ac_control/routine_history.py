@@ -10,6 +10,8 @@ from .controller import code, function_group
 # Self-clean programs and the switches that start the same cycles share one history.
 PROGRAM_ROUTINES = {"iot_self_clean": "selfCleaningStatus", "iot_self_clean_56": "selfCleaning56Status"}
 SWITCH_ROUTINES = ("selfCleaning56Status", "selfCleaningStatus")
+# Older runs read better as a date than as "Last run 336 days ago".
+OLD_AFTER_DAYS = 60
 
 
 def routine_for(command, category):
@@ -60,18 +62,53 @@ def runs_from_history(history):
     return runs
 
 
+def running_programs(snapshot):
+    """Self-clean programs the AC reports as running, as routines."""
+    program = str(snapshot.get("program") or "").lower().split(".")[-1]
+    return [PROGRAM_ROUTINES[program]] if snapshot.get("power") == "On" and program in PROGRAM_ROUTINES else []
+
+
 def last_run_text(when, now=None):
-    """("Last run {count} days ago", count) and similar, ready for translation."""
+    """("Last run {count} days ago", {"count": 12}) and similar, ready for translation.
+
+    Runs more than OLD_AFTER_DAYS ago give their date instead: ("Last run on {date}", {"date": when})."""
     if when is None:
-        return "No run recorded yet", None
+        return "No run recorded yet", {}
     now = now or datetime.now(timezone.utc)
     seconds = max(0, (now-when).total_seconds())
     if seconds < 60:
-        return "Last run just now", None
+        return "Last run just now", {}
     if seconds < 3600:
-        return "Last run {count} min ago", int(seconds//60)
+        return "Last run {count} min ago", {"count": int(seconds//60)}
     if seconds < 86400:
         hours = int(seconds//3600)
-        return ("Last run 1 hour ago", None) if hours == 1 else ("Last run {count} hours ago", hours)
+        return ("Last run 1 hour ago", {}) if hours == 1 else ("Last run {count} hours ago", {"count": hours})
     days = int(seconds//86400)
-    return ("Last run yesterday", None) if days == 1 else ("Last run {count} days ago", days)
+    if days == 1:
+        return "Last run yesterday", {}
+    if days < OLD_AFTER_DAYS:
+        return "Last run {count} days ago", {"count": days}
+    return "Last run on {date}", {"date": when}
+
+
+def parse_day(text, today):
+    """A typed date such as 06/12/2025 (day first; / - . or spaces) as a date, or None.
+
+    Dates in the future or before 2000 are refused."""
+    from datetime import date
+    parts = [part for part in str(text).replace("-", "/").replace(".", "/").replace(" ", "/").split("/") if part]
+    if len(parts) != 3 or not all(part.isdigit() for part in parts):
+        return None
+    day, month, year = (int(part) for part in parts)
+    if year < 100:
+        year += 2000
+    try:
+        value = date(year, month, day)
+    except ValueError:
+        return None
+    return value if date(2000, 1, 1) <= value <= today else None
+
+
+def day_to_time(day):
+    """A chosen day as midday local time, in UTC, so it never shifts to another day."""
+    return datetime(day.year, day.month, day.day, 12).astimezone().astimezone(timezone.utc)

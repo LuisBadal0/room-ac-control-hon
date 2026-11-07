@@ -215,6 +215,22 @@ class SecureState:
             if self.dirty:
                 self.write()
 
+    def set_routine_run(self, account, device, routine, when):
+        """Replace one routine's last run with a date the person entered (it may be earlier)."""
+        if not account:
+            return
+        with self.lock:
+            accounts = self.data.get("routine_runs")
+            if not isinstance(accounts, dict):
+                accounts = self.data["routine_runs"] = {}
+            if not isinstance(accounts.get(account), dict):
+                accounts[account] = {}
+            if not isinstance(accounts[account].get(device), dict):
+                accounts[account][device] = {}
+            accounts[account][device][routine] = when.isoformat()
+            self.dirty = True
+            self.write()
+
     def schedules(self, account):
         with self.lock:
             accounts = self.data.get("schedules", {})

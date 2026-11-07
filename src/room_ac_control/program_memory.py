@@ -96,6 +96,15 @@ class ProgramMemory:
             diagnostics.record("state_save_failed", error)
             self.save_error = True
 
+    def set_routine_run(self, device_id, routine, when):
+        """Keep a last run the person entered; a failed write is only reported."""
+        try:
+            self.state.set_routine_run(self.account, device_id, routine, when)
+            self.save_error = False
+        except OSError as error:
+            diagnostics.record("state_save_failed", error)
+            self.save_error = True
+
     def remember_function(self, device_id, command, category, values):
         self.save(device_id,f"function:{command}:{category}",
                   {key: normalized(value) for key,value in values.items() if key!="onOffStatus"})
