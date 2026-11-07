@@ -283,4 +283,17 @@ PORTUGUESE = {
     "Back": "Voltar", "Save": "Guardar", "Preset settings saved.": "Definições da predefinição guardadas.",
     "Preset settings could not be saved on this computer.": "Não foi possível guardar as definições da predefinição neste computador.",
     "It may interrupt what the AC is doing.": "Pode interromper o que o AC está a fazer.",
+    "Top presets": "Predefinições principais", "{count} of {limit}": "{count} de {limit}",
+    "Choose up to {limit}": "Escolher até {limit}", "{count} of {limit} chosen": "{count} de {limit} escolhidas",
+    "Choose up to {limit} presets to show first, in the order you pick them. The rest go in More.":
+        "Escolha até {limit} predefinições para mostrar primeiro, pela ordem em que as escolher. As restantes ficam em Mais.",
+    "Select a preset to add it, or select it again to remove it.":
+        "Selecione uma predefinição para a adicionar ou selecione-a de novo para a remover.",
+    "All {limit} places are taken. Remove a chosen preset to add another.":
+        "Os {limit} lugares estão ocupados. Remova uma predefinição escolhida para adicionar outra.",
+    "No top presets. Choose up to {limit} to show them here.":
+        "Sem predefinições principais. Escolha até {limit} para as mostrar aqui.",
+    "Top presets saved.": "Predefinições principais guardadas.",
+    "Top presets changed for this session, but could not be saved on this computer.":
+        "As predefinições principais foram alteradas nesta sessão, mas não foi possível guardá-las neste computador.",
 }

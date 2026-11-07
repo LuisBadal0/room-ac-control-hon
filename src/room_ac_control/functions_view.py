@@ -10,6 +10,7 @@ from .controller import function_group, mode_choices, code
 from .choice_widgets import ChoicePanel
 from .control_choices import mode_icon
 from .schedules import clock_text, day_labels, DAY_NAMES
+from .secure_state import TOP_PRESET_LIMIT
 from .temperature_wheel import TemperatureWheel
 from .theme import C, font, measure, paint, icon, rounded, blend, accent, unit_photo, refresh_on_theme
 from .widgets import PillButton, Overlay, raise_widget, section_label, switch, fan_bars, louver
@@ -21,7 +22,8 @@ SECTION_GLYPHS = {"settings": "sliders", "everyday": "sparkle", "maintenance": "
 SIZE = (540, 920)
 WIDTH = 500
 NEUTRAL = {"Off", "Unknown", "Unavailable"}
-# The everyday presets most people use, shown ahead of the "More" section.
+# The everyday presets shown ahead of the "More" section until the user picks their own
+# (at most TOP_PRESET_LIMIT).
 PRESETS_UP_FRONT = ("cool", "coolnight", "heat", "heatnight")
 # Starting values for presets that have not been saved yet.
 PRESET_DEFAULTS = {"heat": {"tempSel": "24"}, "heatnight": {"tempSel": "24", "muteStatus": "1"}}
@@ -29,6 +31,37 @@ PRESET_DEFAULTS = {"heat": {"tempSel": "24"}, "heatnight": {"tempSel": "24", "mu
 
 def preset_key(item):
     return item["label"].lower().replace(" ", "")
+
+
+def everyday_layout(items, modes, chosen=None):
+    """Split Everyday use presets into (choices, top, more), each preset once.
+
+    `chosen` lists the preset keys picked to show first, in order (None: the defaults).
+    Presets that only repeat a mode from the mode bar (Auto, Dry, Fan, a second Cool…)
+    are left out, except the default top presets; whatever is not on top goes in More."""
+    repeats = set(modes) | {mode+"night" for mode in modes}
+    choices, seen = [], set()
+    for item in items:
+        key = preset_key(item)
+        if key not in seen and (key in PRESETS_UP_FRONT or key not in repeats):
+            seen.add(key)
+            choices.append(item)
+    rank = {key: index for index, key in enumerate(PRESETS_UP_FRONT)}
+    choices.sort(key=lambda item: rank.get(preset_key(item), len(rank)))
+    by_key = {preset_key(item): item for item in choices}
+    picked = PRESETS_UP_FRONT if chosen is None else chosen
+    top = [by_key[key] for key in dict.fromkeys(picked) if key in by_key][:TOP_PRESET_LIMIT]
+    on_top = {preset_key(item) for item in top}
+    return choices, top, [item for item in choices if preset_key(item) not in on_top]
+
+
+def toggle_top_preset(chosen, key):
+    """Add or remove one top preset: (new choice, refused). Adding a fifth is refused."""
+    if key in chosen:
+        return [other for other in chosen if other != key], False
+    if len(chosen) >= TOP_PRESET_LIMIT:
+        return list(chosen), True
+    return [*chosen, key], False
 # Shown in the Comfort card rather than as feature tiles or extra rows.
 COMFORT = {"machMode", "windSpeed", "windDirectionVertical", "windDirectionHorizontal", "tempSel", "onOffStatus"}
 # Feature tiles: glyph, the accent they take, and a short explanation.
@@ -727,25 +760,20 @@ class FunctionsView(SheetHost):
     def draw_everyday(self, c, y):
         self.text(c, 4, y+9, "Presets for normal use. Open one to review it, then start it.", -13, C.MUTED, width=WIDTH-8)
         y += 32
-        items = [dict(item, section="everyday") for item in section_items(self.app.selected, "everyday")]
+        items, choices, primary, others = self.everyday_presets()
         self.visible_items = items
-        key = lambda item: item["label"].lower().replace(" ", "")
-        # The favourites first, once each. Presets that only repeat a mode from the
-        # mode bar (Auto, Dry, Fan, a second Cool…) are left out; the rest go in More.
-        primary = []
-        for name in PRESETS_UP_FRONT:
-            match = next((item for item in items if key(item) == name), None)
-            if match:
-                primary.append(match)
-        modes = {option["label"].lower().replace(" ", "") for option in self.app.mode_options()}
-        repeats = set(PRESETS_UP_FRONT) | modes | {mode+"night" for mode in modes}
-        others, seen = [], set()
-        for item in items:
-            if key(item) not in repeats and key(item) not in seen:
-                seen.add(key(item))
-                others.append(item)
+        # The presets the user chose (up to four) first, in their order; the rest go in More.
+        if choices:
+            y = self.draw_top_header(c, y, len(primary))
         for item in primary:
             y = self.draw_preset_card(c, y, item)+10
+        if choices and not primary:
+            rounded(c, 0, y, WIDTH, y+56, 18, fill=C.CARD, outline="")
+            hint = tr(c, "No top presets. Choose up to {limit} to show them here.").format(
+                limit=translator(c).number(TOP_PRESET_LIMIT))
+            self.text(c, 20, y+28, hint, -13, C.MUTED, weight="semibold", width=WIDTH-40, translate=False)
+            self.hit((0, y, WIDTH, y+56), self.open_top_presets)
+            y += 56+10
         if others:
             y += 6
             section_label(c, 4, y+7, "More")
@@ -844,6 +872,99 @@ class FunctionsView(SheetHost):
 
     def toggle_more(self):
         self.more_open = not self.more_open
+        self.render(keep_scroll=True)
+
+    def everyday_presets(self):
+        """(items, choices, top, more) for the selected AC's Everyday use tab."""
+        selected = self.app.selected
+        items = [dict(item, section="everyday") for item in section_items(selected, "everyday")]
+        modes = {preset_key(option) for option in self.app.mode_options()}
+        return (items, *everyday_layout(items, modes, self.app.memory.top_presets(selected["id"])))
+
+    def draw_top_header(self, c, y, count):
+        """TOP PRESETS, how many of the four places are used, and a button to choose them."""
+        number = translator(c).number
+        section_label(c, 4, y+7, "Top presets")
+        used = tr(c, "{count} of {limit}").format(count=number(count), limit=number(TOP_PRESET_LIMIT))
+        left = 4+measure(c, tr(c, "Top presets").upper(), -11, "black")+10
+        self.text(c, left, y+7, used, -11, C.MUTED, weight="semibold", translate=False)
+        tone = self.app.dial_accent()
+        tint = self.app.soft(tone)
+        caption = tr(c, "Choose up to {limit}").format(limit=number(TOP_PRESET_LIMIT))
+        chip = measure(c, caption, -12, "black")+42
+        rounded(c, WIDTH-chip, y-7, WIDTH, y+21, 14, fill=tint, outline="")
+        icon(c, "sliders", WIDTH-chip+17, y+7, tone, scale=.5, bg=tint)
+        self.text(c, WIDTH-chip+30, y+7, caption, -12, tone, weight="black", translate=False)
+        self.hit((WIDTH-chip, y-10, WIDTH, y+24), self.open_top_presets)
+        return y+34
+
+    def open_top_presets(self):
+        """A sheet to pick up to four presets for the top of Everyday use; the rest go in More."""
+        items, choices, top, more = self.everyday_presets()
+        if not choices:
+            return
+        self.top_choice = [preset_key(item) for item in top]
+        self.top_refused = False
+
+        def choose(key):
+            self.top_choice, self.top_refused = toggle_top_preset(self.top_choice, key)
+            self.sheet["draw"]()
+
+        def draw(c, width):
+            number = translator(c).number
+            tone = self.app.dial_accent()
+            full = len(self.top_choice) >= TOP_PRESET_LIMIT
+            y = 30
+            self.text(c, 24, y+14, "Top presets", -22, weight="black")
+            count = tr(c, "{count} of {limit} chosen").format(count=number(len(self.top_choice)),
+                                                              limit=number(TOP_PRESET_LIMIT))
+            chip = measure(c, count, -12, "black")+28
+            tint = self.app.soft(tone)
+            rounded(c, width-24-chip, y+1, width-24, y+27, 13, fill=tint, outline="")
+            self.text(c, width-24-chip/2, y+14, count, -12, tone, "center", "black", translate=False)
+            intro = tr(c, "Choose up to {limit} presets to show first, in the order you pick them. "
+                          "The rest go in More.").format(limit=number(TOP_PRESET_LIMIT))
+            self.text(c, 24, y+38, intro, -13, C.MUTED, "nw", width=width-48, translate=False)
+            y += 92
+            cell = (width-48-10)/2
+            for index, item in enumerate(choices):
+                key = preset_key(item)
+                x, top_y = 24+(index % 2)*(cell+10), y+(index//2)*74
+                color, glyph = self.preset_details(item)[:2]
+                position = self.top_choice.index(key)+1 if key in self.top_choice else 0
+                blocked = full and not position
+                fill = self.app.soft(color) if position else C.SURFACE
+                rounded(c, x, top_y, x+cell, top_y+64, 16, fill=fill, outline=color if position else fill, width=1.5)
+                rounded(c, x+12, top_y+14, x+48, top_y+50, 11, fill=C.CARD, outline="")
+                icon(c, glyph, x+30, top_y+32, C.FAINT if blocked else color, scale=.6, bg=C.CARD)
+                self.text(c, x+58, top_y+32, item["label"], -13, C.FAINT if blocked else C.TEXT, weight="bold",
+                          width=cell-58-44)
+                cx, cy = x+cell-24, top_y+32
+                if position:
+                    aa_oval(c, cx-12, cy-12, cx+12, cy+12, fill=color, outline="")
+                    self.text(c, cx, cy, number(position), -12, C.ON_BRAND, "center", "black", translate=False)
+                else:
+                    aa_oval(c, cx-11, cy-11, cx+11, cy+11, fill="", outline=C.TRACK if blocked else C.STRONG, width=1.5)
+                self.sheet_hit((x, top_y, x+cell, top_y+64), lambda key=key: choose(key))
+            y += ((len(choices)+1)//2)*74+2
+            # What a selection does; once the four places are taken, how to free one.
+            background, ink = (C.WARN_BG, C.WARN_TEXT) if self.top_refused else (C.SURFACE, C.MUTED)
+            note = ("All {limit} places are taken. Remove a chosen preset to add another." if full else
+                    "Select a preset to add it, or select it again to remove it.")
+            rounded(c, 24, y, width-24, y+46, 14, fill=background, outline="")
+            icon(c, "alert" if full else "check", 46, y+23, ink, scale=.5, bg=background)
+            self.text(c, 64, y+23, tr(c, note).format(limit=number(TOP_PRESET_LIMIT)), -12, ink, weight="semibold",
+                      width=width-100, translate=False)
+            y += 46+20
+            return self.sheet_buttons(c, y, width, "Cancel", "Save", lambda: self.save_top_presets(list(self.top_choice)))
+        self.open_sheet(draw)
+
+    def save_top_presets(self, keys):
+        self.app.memory.save_top_presets(self.app.selected["id"], keys)
+        failed = self.app.memory.save_error
+        self.app.status.set("Top presets changed for this session, but could not be saved on this computer."
+                            if failed else "Top presets saved.")
+        self.close_sheet()
         self.render(keep_scroll=True)
 
     # Maintenance

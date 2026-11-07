@@ -69,6 +69,18 @@ class ProgramMemory:
         restored.update(patch)  # The selected mode/night identity always wins.
         return restored
 
+    def top_presets(self, device_id):
+        """Preset keys chosen to show first for this account and AC, or None for the defaults."""
+        return self.state.top_presets(self.account, device_id)
+
+    def save_top_presets(self, device_id, keys):
+        try:
+            self.state.save_top_presets(self.account, device_id, keys)
+            self.save_error = False
+        except OSError as error:
+            diagnostics.record("state_save_failed", error)
+            self.save_error = True
+
     def remember_function(self, device_id, command, category, values):
         self.save(device_id,f"function:{command}:{category}",
                   {key: normalized(value) for key,value in values.items() if key!="onOffStatus"})
