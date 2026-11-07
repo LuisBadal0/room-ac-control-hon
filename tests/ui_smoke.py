@@ -217,6 +217,34 @@ if __name__ == "__main__":
     assert len(view.visible_items) == 1
     texts=[text for item,text in canvas_texts(view.content)]
     assert "Last run 12 days ago" in texts, texts
+    # hOn keeps no past cleaning runs, so a date can be set: a bad date is refused, then 06/12/2025 shows.
+    routine=view.visible_items[0]
+    view.edit_last_run(routine, "#3399ff")
+    root.update()
+    view.date_entry.delete(0, "end"); view.date_entry.insert(0, "31/02/2025")
+    view.sheet["hits"][-1][1]()  # Save
+    assert view.sheet and view.date_error
+    assert any("for example 06/12/2025" in text for item,text in canvas_texts(view.sheet["canvas"]))
+    view.date_entry.delete(0, "end"); view.date_entry.insert(0, "06/12/2025")
+    view.sheet["hits"][-1][1]()
+    assert view.sheet is None and app.status.get()=="Last run saved."
+    saved=app.memory.routine_runs(app.selected["id"])["selfCleaningStatus"].astimezone()
+    assert (saved.year, saved.month, saved.day)==(2025, 12, 6)
+    texts=[text for item,text in canvas_texts(view.content)]
+    assert "Last run on 06 Dec 2025" in texts, texts
+    # Today and Yesterday fill the date in.
+    view.edit_last_run(routine, "#3399ff")
+    root.update()
+    view.sheet["hits"][1][1]()  # Yesterday
+    from datetime import date, timedelta
+    assert view.date_entry.get()==(date.today()-timedelta(days=1)).strftime("%d/%m/%Y")
+    view.sheet["hits"][-2][1]()  # Cancel keeps 6 December
+    assert app.memory.routine_runs(app.selected["id"])["selfCleaningStatus"].astimezone().day==6
+    # All functions keeps the mode's colour while the AC is off; the dashboard dial turns grey.
+    from room_ac_control.theme import accent
+    app.selected["power"]="Off"
+    assert view.tone()==app.settings_accent()==accent(app.base_mode()) and app.dial_accent()==accent("off")
+    app.selected["power"]="On"
     assert app.unit_image.width() == 270
     view.close()
     app.set_busy(True)

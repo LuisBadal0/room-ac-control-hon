@@ -46,7 +46,7 @@ Keep the `runtime/` folder next to the launcher: it contains the application, Py
 - Automatic status refresh through cloud events, with a periodic backup check.
 - Independent last-used settings for each account, AC, mode, Night variant and native preset.
 - Your choice of top presets (at most four) in Everyday use, kept on this computer for each account and AC.
-- The last run of each cleaning routine, from hOn's recent command history, routines started in the app and the AC reporting a self-clean. hOn keeps only a few recent commands, so the app keeps each run it sees on this computer.
+- The last run of each cleaning routine, from hOn's recent command history, routines started in the app and the AC reporting a self-clean. hOn keeps only a few recent commands, so the app keeps each run it sees on this computer, and you can set the date of a run it did not see.
 - Optional encrypted sign-in that reconnects automatically on later launches.
 - Animated loading feedback while manual or remembered-account sign-in completes.
 - English and Portuguese (Portugal), following the Windows display language by default, with a saved language choice.
@@ -93,11 +93,11 @@ Runtime builds, local environments, shortcuts and account files are excluded fro
 .\tools\Build.ps1
 ```
 
-The preview uses fictional rooms and does not load saved credentials. Use `--preview login` to review the welcome screen. Add `--language pt-PT` or `--language en`, or `--theme light` or `--theme dark`, to preview a specific language or appearance without changing your saved preferences. `tools/Build.ps1` produces `releases/Room-AC-Control-for-hOn-0.4.1-Windows-x64.zip`, the matching `.msi` and `-Setup.exe` installers (when the .NET SDK is installed), and a local app-icon shortcut. The build checks bundled assets, Windows encryption, tray imports and MQTT libraries without contacting an account.
+The preview uses fictional rooms and does not load saved credentials. Use `--preview login` to review the welcome screen. Add `--language pt-PT` or `--language en`, or `--theme light` or `--theme dark`, to preview a specific language or appearance without changing your saved preferences. `tools/Build.ps1` produces `releases/Room-AC-Control-for-hOn-0.5.0-Windows-x64.zip`, the matching `.msi` and `-Setup.exe` installers (when the .NET SDK is installed), and a local app-icon shortcut. The build checks bundled assets, Windows encryption, tray imports and MQTT libraries without contacting an account.
 
 Setup and build install full hash-verified Windows dependency locks. `Setup.ps1` prepares source execution; `Build.ps1` produces the portable executable. See [build verification](docs/BUILD_VERIFICATION.md) for checksums, source manifests, optional signing and CI attestations. Binaries remain unsigned until a valid signing certificate is supplied.
 
-Windows UI checks: `tests/run_smoke.py` runs every offline smoke check (`tests/*_smoke.py`), each in its own process, and fails if any fails; CI runs it too. Active CI in `.github/workflows/windows.yml` pins actions to immutable commits, runs offline checks, and builds the portable ZIP, MSI and Setup.exe for pull requests and pushes to main. Merging a PR that bumps the app version automatically builds, attests and publishes the release (for example `v0.4.1`); merges that keep the current version only build.
+Windows UI checks: `tests/run_smoke.py` runs every offline smoke check (`tests/*_smoke.py`), each in its own process, and fails if any fails; CI runs it too. Active CI in `.github/workflows/windows.yml` pins actions to immutable commits, runs offline checks, and builds the portable ZIP, MSI and Setup.exe for pull requests and pushes to main. Merging a PR that bumps the app version automatically builds, attests and publishes the release (for example `v0.5.0`); merges that keep the current version only build.
 
 See [Contributing](CONTRIBUTING.md) and the [user guide](docs/USER_GUIDE.md) for more detail.
 

@@ -9,7 +9,8 @@ from pyhon.commands import HonCommand
 
 from room_ac_control.controller import Controller, describe
 from room_ac_control.program_memory import ProgramMemory
-from room_ac_control.routine_history import item_routine, last_run_text, runs_from_history
+from room_ac_control.routine_history import (day_to_time, item_routine, last_run_text, parse_day, running_programs,
+                                             runs_from_history)
 from room_ac_control.secure_state import SecureState
 from tests.test_controller import make_device
 
@@ -59,14 +60,35 @@ class HistoryTests(unittest.TestCase):
     def test_elapsed_time_wording(self):
         now = datetime(2026, 11, 7, 12, tzinfo=UTC)
         ago = lambda **delta: last_run_text(now-timedelta(**delta), now)
-        self.assertEqual(last_run_text(None, now), ("No run recorded yet", None))
-        self.assertEqual(ago(seconds=20), ("Last run just now", None))
-        self.assertEqual(ago(minutes=42), ("Last run {count} min ago", 42))
-        self.assertEqual(ago(hours=1, minutes=5), ("Last run 1 hour ago", None))
-        self.assertEqual(ago(hours=5), ("Last run {count} hours ago", 5))
-        self.assertEqual(ago(days=1, hours=3), ("Last run yesterday", None))
-        self.assertEqual(ago(days=12, hours=3), ("Last run {count} days ago", 12))
-        self.assertEqual(last_run_text(now+timedelta(minutes=5), now), ("Last run just now", None))
+        self.assertEqual(last_run_text(None, now), ("No run recorded yet", {}))
+        self.assertEqual(ago(seconds=20), ("Last run just now", {}))
+        self.assertEqual(ago(minutes=42), ("Last run {count} min ago", {"count": 42}))
+        self.assertEqual(ago(hours=1, minutes=5), ("Last run 1 hour ago", {}))
+        self.assertEqual(ago(hours=5), ("Last run {count} hours ago", {"count": 5}))
+        self.assertEqual(ago(days=1, hours=3), ("Last run yesterday", {}))
+        self.assertEqual(ago(days=12, hours=3), ("Last run {count} days ago", {"count": 12}))
+        self.assertEqual(last_run_text(now+timedelta(minutes=5), now), ("Last run just now", {}))
+        # Older runs show their date: 6 December 2025 is about 11 months before.
+        december = datetime(2025, 12, 6, 12, tzinfo=UTC)
+        self.assertEqual(last_run_text(december, now), ("Last run on {date}", {"date": december}))
+
+    def test_typed_dates_are_day_first_and_never_in_the_future(self):
+        from datetime import date
+        today = date(2026, 11, 7)
+        for text in ("06/12/2025", "6/12/2025", "06-12-2025", "06.12.2025", " 06 12 2025 ", "6/12/25"):
+            self.assertEqual(parse_day(text, today), date(2025, 12, 6), text)
+        self.assertEqual(parse_day("07/11/2026", today), today)
+        for text in ("", "12/31/2025", "08/11/2026", "31/02/2025", "01/01/1999", "yesterday", "06/12"):
+            self.assertIsNone(parse_day(text, today), text)
+        # A chosen day is stored as local midday, so it shows as that day in any time zone offset.
+        self.assertEqual(day_to_time(date(2025, 12, 6)).astimezone().date(), date(2025, 12, 6))
+
+    def test_a_running_self_clean_program_counts_only_while_the_ac_is_on(self):
+        snapshot = {"power": "On", "program": "PROGRAMS.AC.IOT_SELF_CLEAN_56"}
+        self.assertEqual(running_programs(snapshot), ["selfCleaning56Status"])
+        self.assertEqual(running_programs(dict(snapshot, power="Off")), [])
+        self.assertEqual(running_programs({"power": "On", "program": "PROGRAMS.AC.IOT_HEAT"}), [])
+        self.assertEqual(running_programs({"power": "On", "program": None}), [])
 
 
 class StorageTests(unittest.TestCase):
@@ -91,6 +113,16 @@ class StorageTests(unittest.TestCase):
         self.assertEqual(self.memory.routine_runs("unit"), {})
         self.memory.record_routine_runs("unit", {"selfCleaningStatus": datetime(2026, 11, 1, tzinfo=UTC)})
         self.assertIn("selfCleaningStatus", self.memory.routine_runs("unit"))
+
+    def test_a_date_set_by_hand_replaces_a_later_one(self):
+        later, entered = datetime(2026, 11, 1, tzinfo=UTC), datetime(2025, 12, 6, 12, tzinfo=UTC)
+        self.memory.record_routine_runs("unit", {"selfCleaningStatus": later})
+        self.memory.set_routine_run("unit", "selfCleaningStatus", entered)
+        self.assertEqual(self.memory.routine_runs("unit"), {"selfCleaningStatus": entered})
+        self.assertFalse(self.memory.save_error)
+        # A newer run seen later still replaces the date that was entered.
+        self.memory.record_routine_runs("unit", {"selfCleaningStatus": later})
+        self.assertEqual(self.memory.routine_runs("unit")["selfCleaningStatus"], later)
 
     def test_a_failed_write_is_reported_not_raised(self):
         def denied():
@@ -137,6 +169,12 @@ class ControllerTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.memory.routine_runs(self.unit), {})
         snapshot = describe(self.device)
         snapshot["controls"]["selfCleaningStatus"] = {"key": "selfCleaningStatus", "value": "1", "reported": True}
+        self.controller.remember(snapshot)
+        self.assertIn("selfCleaningStatus", self.memory.routine_runs(self.unit))
+
+    async def test_a_self_clean_program_reported_running_counts_as_a_run(self):
+        snapshot = describe(self.device)
+        snapshot.update(power="On", program="PROGRAMS.AC.IOT_SELF_CLEAN")
         self.controller.remember(snapshot)
         self.assertIn("selfCleaningStatus", self.memory.routine_runs(self.unit))
 
