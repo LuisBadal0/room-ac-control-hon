@@ -27,10 +27,14 @@ sys.path.insert(0, str(ROOT / "src"))
 from room_ac_control import updates  # noqa: E402
 
 NAME = "Room AC Control for hOn"
+# packaging/installer/RoomACControl.wxs
+MSI_UPGRADE_CODE = "{14F7297C-2E07-4BB0-B0DF-D7054B996DDE}"
 
 
-def program_entries():
-    """Visible Installed apps entries for the app: (key, version, uninstall command)."""
+def bundle_entries():
+    """Setup.exe registrations for the app: (key, version, quiet uninstall command).
+
+    Burn registers a per-user bundle under HKCU's Uninstall key."""
     registry = updates.WindowsRegistry()
     found = []
     for key in registry.subkeys(updates.UNINSTALL_KEY):
@@ -40,6 +44,28 @@ def program_entries():
         command = registry.value(path, "QuietUninstallString") or registry.value(path, "UninstallString")
         found.append((key, registry.value(path, "DisplayVersion"), command))
     return found
+
+
+def msi_products():
+    """Installed MSI products of this app: (product code, version).
+
+    A per-user MSI is not listed under HKCU's Uninstall key, so ask Windows Installer."""
+    import ctypes
+
+    msi = ctypes.windll.msi
+    found, index = [], 0
+    while True:
+        product = ctypes.create_unicode_buffer(39)
+        if msi.MsiEnumRelatedProductsW(MSI_UPGRADE_CODE, 0, index, product) != 0:
+            return found
+        version, size = ctypes.create_unicode_buffer(64), ctypes.c_uint(64)
+        msi.MsiGetProductInfoW(product.value, "VersionString", version, ctypes.byref(size))
+        found.append((product.value, version.value))
+        index += 1
+
+
+def installed_versions():
+    return {"setup": [v for _, v, _ in bundle_entries()], "msi": [v for _, v in msi_products()]}
 
 
 def run(command, what):
@@ -66,7 +92,7 @@ def main():
     if sys.platform != "win32":
         raise SystemExit("This check installs Windows packages.")
     registry = updates.WindowsRegistry()
-    if registry.value(updates.INSTALL_KEY, "InstallFolder") or program_entries():
+    if registry.value(updates.INSTALL_KEY, "InstallFolder") or any(installed_versions().values()):
         raise SystemExit("Room AC Control is already installed here; run this check on a clean machine only.")
 
     work = Path(tempfile.mkdtemp(prefix="installer-update-"))
@@ -74,7 +100,7 @@ def main():
     folder = Path(registry.value(updates.INSTALL_KEY, "InstallFolder"))
     location = folder / "runtime" / "RoomACControl"
     detected = updates.installed_by(location)
-    print(f"Installed {[version for _, version, _ in program_entries()]}, detected as {detected!r}.", flush=True)
+    print(f"Installed {installed_versions()}, detected as {detected!r}.", flush=True)
     if detected != args.kind:
         raise SystemExit(f"Expected the app to report a {args.kind} install, got {detected!r}.")
 
@@ -101,26 +127,28 @@ def main():
             print(log.read_text(encoding="utf-16", errors="replace")[-6000:])
         raise SystemExit("The installer update did not succeed.")
 
-    entries = program_entries()
-    print(f"Installed apps now lists: {entries}", flush=True)
-    if [version for _, version, _ in entries] != [args.version]:
-        raise SystemExit(f"Expected exactly one {NAME} entry at {args.version}.")
+    # One product at the new version; a Setup.exe install also keeps its (hidden) MSI in step.
+    found = installed_versions()
+    expected = {"msi": [args.version], "setup": [args.version] if args.kind == "setup" else []}
+    print(f"Installed now: {found}", flush=True)
+    if found != expected:
+        raise SystemExit(f"Expected {expected} after the update, found {found}.")
     report = work / "self-test.json"
     subprocess.run([str(location / updates.EXECUTABLE), "--self-test", str(report)], timeout=300)
     outcome = json.loads(report.read_text(encoding="utf-8"))
     if not (outcome.get("ok") and outcome.get("version") == args.version):
         raise SystemExit(f"The updated app failed its self-test: {outcome}")
 
-    _, _, command = entries[0]
     if args.kind == "msi":
         run(f'msiexec.exe /x "{args.new.resolve()}" /qn /norestart', "Uninstall")
     else:
-        run(f"{command} /quiet" if "/quiet" not in command.lower() else command, "Uninstall")
+        _, _, command = bundle_entries()[0]
+        run(command if "/quiet" in command.lower() else f"{command} /quiet", "Uninstall")
     for _ in range(30):
-        if not program_entries() and not folder.exists():
+        if not any(installed_versions().values()) and not folder.exists():
             break
         time.sleep(1)
-    if program_entries() or folder.exists() or registry.value(updates.INSTALL_KEY, "InstallFolder"):
+    if any(installed_versions().values()) or folder.exists() or registry.value(updates.INSTALL_KEY, "InstallFolder"):
         raise SystemExit("Uninstalling left the app, its folder or its registry record behind.")
     print(f"{args.kind}: {args.old.name} -> {args.new.name} updated in place and uninstalled cleanly.")
     return 0
