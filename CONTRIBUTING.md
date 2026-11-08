@@ -23,6 +23,16 @@ Dependency changes must update all transitive pins and approved wheel hashes in
 the official package index and test in a fresh Windows virtual environment.
 Action changes must use full upstream commit SHAs. See `docs/BUILD_VERIFICATION.md`.
 
+Dependabot (`.github/dependabot.yml`) opens weekly pull requests for GitHub
+Actions and the pins in `requirements.txt`, and monthly ones for the WiX tool.
+Each waits 14 days after a release. A Python bump from Dependabot changes only
+`requirements.txt`, so `tests/test_dependency_pins.py` fails until the locks
+match: check out its branch and run
+`.venv\Scripts\python.exe tools/update_lock.py <name>==<version>`, which writes
+the SHA-256 of every PyPI wheel for that version into each lock that pins it.
+Add any new transitive dependency by hand, then run `tools/Setup.ps1` and the
+tests.
+
 CI is active in `.github/workflows/windows.yml`. Pull requests run the offline checks and portable Windows build. Workflow changes require GitHub workflow permissions; actions must remain pinned to full upstream commit SHAs.
 
 Do not commit credentials, device serial numbers, cloud payload dumps, personal screenshots, local shortcuts, virtual environments or generated binaries. Issue reports should describe steps to reproduce and sanitize any logs or screenshots.

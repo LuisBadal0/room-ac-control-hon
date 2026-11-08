@@ -26,5 +26,10 @@ Build with `tools/Build.ps1` (portable ZIP, then the MSI and Setup.exe via
 lives in `pyproject.toml`, `src/room_ac_control/__init__.py`,
 `packaging/version_info.txt` and `README.md`; `tests/test_version.py` checks them.
 
+Update a locked Python dependency with
+`.venv\Scripts\python.exe tools/update_lock.py <name>==<version>` (it refuses
+releases newer than 14 days); `tests/test_dependency_pins.py` checks that
+`requirements.txt` matches `requirements.lock`.
+
 Keep credentials, account data, generated runtimes and local previews out of Git.
 Verify AC controls with offline fixtures; do not send real AC commands in tests.
