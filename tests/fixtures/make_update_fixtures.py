@@ -50,6 +50,17 @@ def manifest(version, **changes):
     return json.dumps(body, indent=2).encode()
 
 
+def installer(kind, **changes):
+    suffix = ".msi" if kind == "msi" else "-Setup.exe"
+    body = {
+        "name": f"Room-AC-Control-for-hOn-9.9.9-Windows-x64{suffix}",
+        "sha256": hashlib.sha256(b"fixture installer").hexdigest(),
+        "size": len(b"fixture installer"),
+    }
+    body.update(changes)
+    return body
+
+
 def main():
     with tempfile.TemporaryDirectory() as temporary:
         folder = Path(temporary)
@@ -72,6 +83,9 @@ def main():
             "tag": manifest("9.9.9", tag="v9.9.8"),
             "size": manifest("9.9.9", size=10**12),
             "version": manifest("9.9.9-beta"),
+            "installers": manifest("9.9.9", installer=installer("msi"), setup=installer("setup")),
+            "installer_name": manifest("9.9.9", installer=installer("msi", name="../../evil.msi")),
+            "installer_size": manifest("9.9.9", installer=installer("msi"), setup=installer("setup", size=10**12)),
         }
         fixtures = {
             "public_key": public.read_text(encoding="ascii"),

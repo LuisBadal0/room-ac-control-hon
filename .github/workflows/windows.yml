@@ -67,11 +67,44 @@ jobs:
             releases/RELEASE_NOTES.md
           if-no-files-found: error
 
+  installer-update:
+    # Installs the latest published release on a clean runner, updates it through the
+    # app's own installer helper with this build's installer, then uninstalls it.
+    needs: build
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        kind: [msi, setup]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: '3.13.13'
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: Room-AC-Control-for-hOn-Windows-x64
+          path: new
+      - name: Download the latest published installers
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release download --repo "$env:GITHUB_REPOSITORY" --dir old --pattern "*-Windows-x64.msi" --pattern "*-Windows-x64-Setup.exe"
+      - name: Update an installed copy with the new ${{ matrix.kind }}
+        run: |
+          $pattern = if ('${{ matrix.kind }}' -eq 'msi') { '*-Windows-x64.msi' } else { '*-Windows-x64-Setup.exe' }
+          $old = Get-ChildItem old -Filter $pattern | Select-Object -First 1
+          $new = Get-ChildItem new -Filter $pattern | Select-Object -First 1
+          $version = $new.Name -replace '^Room-AC-Control-for-hOn-(\d+\.\d+\.\d+)-Windows-x64.*$', '$1'
+          python tools/check_installer_update.py --kind ${{ matrix.kind }} --old $old.FullName --new $new.FullName --version $version
+          exit $LASTEXITCODE
+
   release:
     # Publishes a release when a merge to main carries a version that has no
     # release yet, or when a matching v* tag is pushed manually.
     if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
-    needs: build
+    needs: [build, installer-update]
     runs-on: ubuntu-latest
     concurrency:
       group: release
@@ -132,9 +165,14 @@ jobs:
           python3 - "$archive" "${TAG#v}" "$TAG" > release/update.json <<'PY'
           import hashlib, json, os, sys
           path, version, tag = sys.argv[1:]
-          digest = hashlib.sha256(open(path, "rb").read()).hexdigest()
-          print(json.dumps({"schema": 1, "version": version, "tag": tag, "archive": os.path.basename(path),
-                            "sha256": digest, "size": os.path.getsize(path)}, indent=2))
+          def signed(file):
+              return {"sha256": hashlib.sha256(open(file, "rb").read()).hexdigest(), "size": os.path.getsize(file)}
+          manifest = {"schema": 1, "version": version, "tag": tag, "archive": os.path.basename(path), **signed(path)}
+          # Installed copies update with the installer they came from; apps before 0.6.0 ignore these.
+          stem = os.path.join(os.path.dirname(path), f"Room-AC-Control-for-hOn-{version}-Windows-x64")
+          for field, file in (("installer", stem + ".msi"), ("setup", stem + "-Setup.exe")):
+              manifest[field] = {"name": os.path.basename(file), **signed(file)}
+          print(json.dumps(manifest, indent=2))
           PY
           key="$RUNNER_TEMP/update-signing-key.pem"
           (umask 077; printenv UPDATE_SIGNING_KEY > "$key")

@@ -351,6 +351,9 @@ PORTUGUESE = {
     "Updated to version {version}.": "Atualizado para a versão {version}.",
     "The update could not be installed. Room AC Control is still on version {version}.": "Não foi possível instalar a atualização. O Room AC Control continua na versão {version}.",
     "The update could not be installed because the app folder was in use. Close every Room AC Control window, including the one in the notification area, then try again.": "Não foi possível instalar a atualização porque a pasta da aplicação estava em uso. Feche todas as janelas do Room AC Control, incluindo a da área de notificação, e tente novamente.",
+    "The downloaded installer could not be opened. Nothing was changed.": "Não foi possível abrir o instalador transferido. Nada foi alterado.",
+    "The update could not be installed because another installation was running in Windows. Try again in a few minutes.": "Não foi possível instalar a atualização porque estava a decorrer outra instalação no Windows. Tente novamente dentro de alguns minutos.",
+    "Windows Installer replaces the app in the background, then opens it again. This can take a minute.": "O Windows Installer substitui a aplicação em segundo plano e volta a abri-la. Pode demorar um minuto.",
     # Ambient dashboard and Settings panel.
     "Discard": "Descartar",
     "Changes discarded.": "Alterações descartadas.",

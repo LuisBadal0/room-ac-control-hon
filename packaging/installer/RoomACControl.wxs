@@ -3,8 +3,9 @@
 
   It installs the same files as the portable ZIP into
   %LOCALAPPDATA%\Programs\Room AC Control, without administrator rights, so the
-  app keeps its usual runtime\RoomACControl layout and can still apply its own
-  signed in-app updates. tools/build_installers.py supplies the variables.
+  app keeps its usual runtime\RoomACControl layout. In-app updates of an installed
+  copy run the next signed installer (src/room_ac_control/updates.py).
+  tools/build_installers.py supplies the variables.
 -->
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
      xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui"
@@ -26,7 +27,9 @@
     <Property Id="ARPURLINFOABOUT" Value="https://github.com/LuisBadal0/room-ac-control-hon" />
     <Property Id="ARPHELPLINK" Value="https://github.com/LuisBadal0/room-ac-control-hon/blob/main/docs/USER_GUIDE.md" />
     <Property Id="ARPURLUPDATEINFO" Value="https://github.com/LuisBadal0/room-ac-control-hon/releases/latest" />
-    <!-- In-app updates replace the files in place, so a repair would roll them back.
+    <!-- Version 0.5.1 and earlier updated installed copies by replacing their files in
+         place, which a repair would roll back; copies updated that way remain. From
+         0.6.0 installed copies update by running the next installer.
          WixUI_Minimal already sets ARPNOMODIFY. -->
     <Property Id="ARPNOREPAIR" Value="1" />
 

@@ -9,6 +9,12 @@ version and date and starts a new, empty **Unreleased** section above it.
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-11-08
+
+### Changed
+
+- A copy installed with Setup.exe or the MSI now updates itself with the same signed installer. **Installed apps** in Windows shows the new version, and upgrades and uninstalling stay consistent. The new version is unpacked and checked before anything is installed, and Windows Installer keeps the previous version if the installation fails. Portable copies update as before.
+
 ## [0.5.1] - 2026-11-07
 
 ### Fixed

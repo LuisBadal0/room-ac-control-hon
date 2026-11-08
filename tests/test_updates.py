@@ -5,11 +5,13 @@ private key no longer exists. No network request is made and no real app is
 started: the helper is run against fixture folders with launching disabled."""
 
 import base64
+import hashlib
 import io
 import json
 import subprocess
 import sys
 import tempfile
+import textwrap
 import time
 import unittest
 import zipfile
@@ -405,6 +407,268 @@ class UpdaterTests(unittest.TestCase):
             self.assertFalse(updater.supported)
             self.assertFalse(updater.check())
             self.assertFalse(updater.install())
+
+
+class FakeRegistry:
+    """HKCU as a dict of key -> {name: value}; nothing touches the real registry."""
+
+    def __init__(self, keys):
+        self.keys = keys
+
+    def value(self, key, name):
+        return self.keys.get(key, {}).get(name)
+
+    def subkeys(self, key):
+        prefix = key + "\\"
+        return [name[len(prefix) :] for name in self.keys if name.startswith(prefix)]
+
+
+def registry_for(install_folder, bundle_code=None):
+    keys = {}
+    if install_folder is not None:
+        keys[updates.INSTALL_KEY] = {"InstallFolder": str(install_folder) + "\\"}
+    keys[updates.UNINSTALL_KEY + "\\{11111111-0000-0000-0000-000000000000}"] = {"DisplayName": "Other app"}
+    if bundle_code is not None:
+        keys[updates.UNINSTALL_KEY + "\\{22222222-0000-0000-0000-000000000000}"] = {"BundleUpgradeCode": bundle_code}
+    return FakeRegistry(keys)
+
+
+def installed_release():
+    data, signature = case("installers")
+    return updates.read_manifest(data, signature, TEST_KEY)
+
+
+class InstalledCopyTests(unittest.TestCase):
+    """Copies installed with Setup.exe or the MSI update with the same installer."""
+
+    def setUp(self):
+        folder = tempfile.TemporaryDirectory()
+        self.addCleanup(folder.cleanup)
+        self.root = Path(folder.name)
+        self.app_folder = self.root / "Programs" / "Room AC Control"
+        self.location = self.app_folder / "runtime" / "RoomACControl"
+        self.location.mkdir(parents=True)
+        self.updates = self.root / "updates"
+
+    def test_manifest_lists_signed_installers_with_fixed_names_and_urls(self):
+        found = installed_release()["installers"]
+        self.assertEqual(set(found), {"msi", "setup"})
+        self.assertEqual(found["msi"]["name"], "Room-AC-Control-for-hOn-9.9.9-Windows-x64.msi")
+        self.assertEqual(
+            found["setup"]["url"],
+            "https://github.com/LuisBadal0/room-ac-control-hon/releases/download/v9.9.9/"
+            "Room-AC-Control-for-hOn-9.9.9-Windows-x64-Setup.exe",
+        )
+        self.assertEqual(release()["installers"], {})  # Releases before 0.6.0 list none.
+        for name in ("installer_name", "installer_size"):
+            with self.subTest(name=name), self.assertRaises(updates.UpdateError):
+                updates.read_manifest(*case(name), TEST_KEY)
+
+    def test_release_workflow_writes_a_manifest_the_app_accepts(self):
+        workflow = (Path(__file__).resolve().parents[1] / ".github" / "workflows" / "windows.yml").read_text(
+            encoding="utf-8"
+        )
+        script = textwrap.dedent(workflow.split("<<'PY'\n", 1)[1].split("\n          PY\n", 1)[0])
+        release_folder = self.root / "release"
+        release_folder.mkdir()
+        stem = "Room-AC-Control-for-hOn-9.9.9-Windows-x64"
+        contents = {f"{stem}.zip": b"zip", f"{stem}.msi": b"msi file", f"{stem}-Setup.exe": b"setup file"}
+        for name, data in contents.items():
+            (release_folder / name).write_bytes(data)
+        output = subprocess.run(
+            [sys.executable, "-I", "-c", script, str(release_folder / f"{stem}.zip"), "9.9.9", "v9.9.9"],
+            capture_output=True,
+            check=True,
+            text=True,
+        ).stdout
+        manifest = json.loads(output)
+        self.assertEqual((manifest["schema"], manifest["archive"], manifest["size"]), (1, f"{stem}.zip", 3))
+        found = updates.signed_installers(manifest, "9.9.9")
+        self.assertEqual(found["msi"]["sha256"], hashlib.sha256(b"msi file").hexdigest())
+        self.assertEqual(found["setup"]["size"], len(b"setup file"))
+
+    def test_installation_is_read_from_the_registry(self):
+        bundle = updates.BUNDLE_UPGRADE_CODE
+        self.assertIsNone(updates.installed_by(self.location, registry_for(None)))
+        self.assertIsNone(updates.installed_by(self.location, registry_for(self.root / "elsewhere")))
+        self.assertIsNone(updates.installed_by(None, registry_for(self.app_folder)))
+        self.assertEqual(updates.installed_by(self.location, registry_for(self.app_folder)), "msi")
+        self.assertEqual(updates.installed_by(self.location, registry_for(self.app_folder, [bundle.lower()])), "setup")
+        self.assertEqual(updates.installed_by(self.location, registry_for(self.app_folder, bundle)), "setup")
+        other = "{00000000-1111-2222-3333-444444444444}"
+        self.assertEqual(updates.installed_by(self.location, registry_for(self.app_folder, [other])), "msi")
+
+    def test_plan_downloads_the_msi_to_check_and_setup_only_for_setup_installs(self):
+        signed = installed_release()
+        msi = updates.Updater("0.1.23", self.location, registry=registry_for(self.app_folder))
+        setup = updates.Updater(
+            "0.1.23", self.location, registry=registry_for(self.app_folder, [updates.BUNDLE_UPGRADE_CODE])
+        )
+        portable = updates.Updater("0.1.23", self.location, registry=registry_for(None))
+        self.assertEqual([item["name"] for item in msi.installer_plan(signed)], [signed["installers"]["msi"]["name"]])
+        self.assertEqual(
+            [item["name"] for item in setup.installer_plan(signed)],
+            [signed["installers"]["msi"]["name"], signed["installers"]["setup"]["name"]],
+        )
+        self.assertIsNone(portable.installer_plan(signed))
+        # Without signed installers (older releases) installed copies swap folders as before.
+        self.assertIsNone(msi.installer_plan(release()))
+        self.assertIsNone(setup.installer_plan({**signed, "installers": {"setup": signed["installers"]["setup"]}}))
+
+    def run_install(self, updater, check=None):
+        downloaded = []
+
+        def download_file(item, folder, progress, cancelled):
+            folder.mkdir(parents=True, exist_ok=True)
+            path = folder / item["name"]
+            path.write_bytes(b"installer")
+            progress(item["size"], item["size"])
+            downloaded.append(path)
+            return path
+
+        checked = []
+        with (
+            patch.object(updates, "updates_folder", return_value=self.updates),
+            patch.object(updates, "download_file", side_effect=download_file),
+            patch.object(updates, "check_msi", side_effect=check or (lambda msi, version: checked.append(msi))),
+        ):
+            updater.release, updater.state = installed_release(), "available"
+            self.assertTrue(updater.install())
+            state = UpdaterTests.wait(None, updater, {"ready", "failed"})
+        return state, downloaded, checked
+
+    def test_msi_install_checks_then_runs_the_msi(self):
+        updater = updates.Updater("0.1.23", self.location, registry=registry_for(self.app_folder))
+        state, downloaded, checked = self.run_install(updater)
+        self.assertEqual(state, "ready", updater.error)
+        self.assertEqual(checked, downloaded)
+        self.assertEqual(updater.installer, downloaded[0])
+        self.assertTrue(updater.installer.exists())
+        self.assertAlmostEqual(updater.progress, 1.0)
+        with patch.object(updates, "launch_installer_helper") as helper, patch.object(updates, "launch_helper") as swap:
+            self.assertTrue(updater.apply())
+            self.assertFalse(updater.apply())
+        helper.assert_called_once_with(self.location, "msi", downloaded[0], "9.9.9")
+        swap.assert_not_called()
+
+    def test_setup_install_checks_the_msi_then_runs_setup(self):
+        updater = updates.Updater(
+            "0.1.23", self.location, registry=registry_for(self.app_folder, [updates.BUNDLE_UPGRADE_CODE])
+        )
+        state, downloaded, checked = self.run_install(updater)
+        self.assertEqual(state, "ready", updater.error)
+        msi, setup = downloaded
+        self.assertEqual(checked, [msi])
+        self.assertFalse(msi.exists())  # Only needed for the check.
+        self.assertEqual(updater.installer, setup)
+        with patch.object(updates, "launch_installer_helper") as helper:
+            updater.apply()
+        helper.assert_called_once_with(self.location, "setup", setup, "9.9.9")
+
+    def test_a_failed_check_removes_the_downloads_and_installs_nothing(self):
+        updater = updates.Updater(
+            "0.1.23", self.location, registry=registry_for(self.app_folder, [updates.BUNDLE_UPGRADE_CODE])
+        )
+
+        def refuse(msi, version):
+            raise updates.UpdateError("The new version did not pass its checks. Nothing was changed.")
+
+        state, downloaded, _ = self.run_install(updater, check=refuse)
+        self.assertEqual(state, "failed")
+        self.assertIn("did not pass", updater.error)
+        self.assertFalse(any(path.exists() for path in downloaded))
+        self.assertIsNone(updater.installer)
+        self.assertFalse(updater.apply())
+
+    def test_check_msi_unpacks_without_installing_and_self_tests(self):
+        commands = []
+
+        def run(command, **options):
+            commands.append(command)
+            if isinstance(command, str):  # msiexec /a: lay the app out as Windows Installer would.
+                image = Path(command.split('TARGETDIR="')[1].rstrip('"'))
+                runtime = image / "LocalApp" / "Programs" / "Room AC Control" / "runtime" / "RoomACControl"
+                runtime.mkdir(parents=True)
+                (runtime / "RoomACControl.exe").write_bytes(b"exe")
+                return SimpleNamespace(returncode=0)
+            report = {"ok": True, "version": "9.9.9", "updates": True}
+            Path(command[-1]).write_text(json.dumps(report), encoding="utf-8")
+            return SimpleNamespace(returncode=0)
+
+        scratch = self.root / "u"
+        msi = self.root / "Room AC & Co.msi"
+        updates.check_msi(msi, "9.9.9", scratch, run=run)
+        self.assertEqual(commands[0], f'msiexec.exe /a "{msi}" /qn TARGETDIR="{scratch / "a"}"')
+        self.assertTrue(commands[1][0].endswith(str(Path("runtime") / "RoomACControl" / "RoomACControl.exe")))
+        self.assertEqual(commands[1][1], "--self-test")
+        self.assertFalse(scratch.exists())
+
+        for result in (SimpleNamespace(returncode=1603), OSError("missing")):
+
+            def failing(command, result=result, **options):
+                if isinstance(result, Exception):
+                    raise result
+                return result
+
+            with self.subTest(result=result), self.assertRaisesRegex(updates.UpdateError, "could not be opened"):
+                updates.check_msi(msi, "9.9.9", scratch, run=failing)
+            self.assertFalse(scratch.exists())
+        with self.assertRaisesRegex(updates.UpdateError, "incomplete"):
+            updates.check_msi(msi, "9.9.9", scratch, run=lambda command, **options: SimpleNamespace(returncode=0))
+
+    def test_installer_helper_environment_and_commands(self):
+        popen = unittest.mock.MagicMock()
+        installer = self.updates / "Room-AC-Control-for-hOn-9.9.9-Windows-x64.msi"
+        updates.launch_installer_helper(
+            self.location, "msi", installer, "9.9.9", folder=self.updates, pid=4242, popen=popen
+        )
+        environment = popen.call_args.kwargs["env"]
+        self.assertEqual(environment["UPDATE_KIND"], "msi")
+        self.assertEqual(environment["UPDATE_INSTALLER"], str(installer))
+        self.assertEqual(environment["UPDATE_FOLDER"], str(self.app_folder))
+        self.assertFalse(environment["UPDATE_FOLDER"].endswith("\\"))
+        self.assertEqual(environment["UPDATE_APP"], str(self.location / "RoomACControl.exe"))
+        script = (self.updates / "install-update.cmd").read_bytes()
+        self.assertIn(b'msiexec.exe /i "%UPDATE_INSTALLER%" /qn /norestart INSTALLFOLDER="%UPDATE_FOLDER%"', script)
+        self.assertIn(b'"%UPDATE_INSTALLER%" /quiet /norestart', script)
+        self.assertIn(b"\r\n", script)
+
+    @unittest.skipUnless(sys.platform == "win32", "The installer helper is a Windows batch file")
+    def test_installer_helper_waits_then_reports_each_outcome(self):
+        cases = (
+            ("0", "Updated to version 9.9.9."),
+            ("3010", "Updated to version 9.9.9."),
+            ("1618", "another installation was running"),
+            ("1603", "still on version 9.9.9"),
+        )
+        for code, expected in cases:
+            with self.subTest(code=code):
+                installer = self.updates / "Room-AC-Control-for-hOn-9.9.9-Windows-x64.msi"
+                self.updates.mkdir(exist_ok=True)
+                installer.write_bytes(b"installer")
+                (self.updates / "install.log").write_text("log")
+                app = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(1.5)"])
+                started = time.monotonic()
+                helper = updates.launch_installer_helper(
+                    self.location,
+                    "msi",
+                    installer,
+                    "9.9.9",
+                    folder=self.updates,
+                    pid=app.pid,
+                    popen=subprocess.Popen,
+                    extra={"UPDATE_LAUNCH": "0", "UPDATE_FAKE_EXIT": code},
+                )
+                self.assertEqual(helper.wait(timeout=60), 0 if code in {"0", "3010"} else 1)
+                app.wait()
+                self.assertGreaterEqual(time.monotonic() - started, 1.0)  # It waited for the app to exit.
+                message = updates.finish(self.location, "9.9.9", self.updates)
+                self.assertIn(expected, message)
+                if code == "1618":
+                    self.assertIn(message, PORTUGUESE)
+                self.assertFalse(installer.exists())  # Downloads are tidied either way.
+                # A failed installer's log is kept for troubleshooting.
+                self.assertEqual((self.updates / "install.log").exists(), code not in {"0", "3010"})
 
 
 class PreferenceAndLanguageTests(unittest.TestCase):
