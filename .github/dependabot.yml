@@ -31,7 +31,9 @@ updates:
       python:
         patterns: ["*"]
 
-  # WiX, the installer toolset, is a pinned .NET local tool.
+  # WiX, the installer toolset, is a pinned .NET local tool. It stays on 5.x:
+  # WiX 6 introduced the Open Source Maintenance Fee and WiX 7 will not build
+  # until its EULA is accepted, which the maintainer has decided not to do.
   - package-ecosystem: nuget
     directory: /
     schedule:
@@ -40,3 +42,6 @@ updates:
       default-days: 14
     commit-message:
       prefix: chore
+    ignore:
+      - dependency-name: wix
+        versions: [">= 6"]

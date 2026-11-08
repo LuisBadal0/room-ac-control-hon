@@ -49,8 +49,9 @@ the official package index and test in a fresh Windows virtual environment.
 Action changes must use full upstream commit SHAs. See `docs/BUILD_VERIFICATION.md`.
 
 Dependabot (`.github/dependabot.yml`) opens weekly pull requests for GitHub
-Actions and the pins in `requirements.txt`, and monthly ones for the WiX tool.
-Each waits 14 days after a release. A Python bump from Dependabot changes only
+Actions and the pins in `requirements.txt`, and monthly ones for the WiX tool,
+which stays on 5.x: WiX 7 requires accepting its Open Source Maintenance Fee
+EULA, which this project does not do. Each update waits 14 days after a release. A Python bump from Dependabot changes only
 `requirements.txt`, so `tests/test_dependency_pins.py` fails until the locks
 match: check out its branch and run
 `.venv\Scripts\python.exe tools/update_lock.py <name>==<version>`, which writes
