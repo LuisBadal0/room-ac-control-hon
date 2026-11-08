@@ -34,6 +34,13 @@ Many views import inside methods. `tests/test_imports.py` resolves every import,
 
 For a local build run `tools/Build.ps1` and inspect the app, the runtime self-test report, the ZIP and, when the .NET SDK is installed, the MSI and Setup.exe from `tools/build_installers.py`. Test an installer with `msiexec /i <file>.msi /qn` and remove it with `msiexec /x <file>.msi /qn`; both are per-user and leave your saved settings alone. CI publishes releases: merging a pull request that bumps the version releases `v<version>`. Bump `pyproject.toml`, `src/room_ac_control/__init__.py`, `packaging/version_info.txt` and the README together; `tests/test_version.py` checks they match.
 
+Releases are batched. Every pull request that changes what users get adds a bullet under **Unreleased** in `CHANGELOG.md`, written for people using the app, and leaves the version alone. When the maintainer decides to release, a separate pull request on `chore/release-x.y.z`, titled `Release x.y.z (vx.y.z)`, does the rest:
+
+- It bumps the version. Any breaking change makes it MAJOR, any new feature MINOR, and fixes alone PATCH.
+- It renames **Unreleased** to `[x.y.z] - YYYY-MM-DD` and adds a new empty **Unreleased** above it.
+
+Merging it publishes one release with all of those changes. CI turns the section into the GitHub release notes (`tools/release_notes.py`), followed by GitHub's list of merged pull requests. The build fails if the current version has no dated section with at least one bullet.
+
 Use the hash-verified setup/build scripts rather than unverified `pip install -e .`.
 Dependency changes must update all transitive pins and approved wheel hashes in
 `requirements.lock`, `packaging/requirements-build.lock` and, for developer tools,

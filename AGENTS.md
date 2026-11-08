@@ -25,6 +25,14 @@ Build with `tools/Build.ps1` (portable ZIP, then the MSI and Setup.exe via
 `.venv\Scripts\python.exe tests/run_smoke.py`. The app version
 lives in `pyproject.toml`, `src/room_ac_control/__init__.py`,
 `packaging/version_info.txt` and `README.md`; `tests/test_version.py` checks them.
+Releases are batched, and this overrides the global rule that every user-facing
+pull request bumps the version. A user-facing pull request adds a bullet under
+**Unreleased** in `CHANGELOG.md` and keeps the version. A separate release pull
+request (`chore/release-x.y.z`, titled `Release x.y.z (vx.y.z)`) bumps the version,
+choosing MAJOR, MINOR or PATCH from everything under **Unreleased**, and renames that
+section to `[x.y.z] - YYYY-MM-DD` with a new empty **Unreleased** above it. Release
+only when the user asks. CI publishes the section as the release notes
+(`tools/release_notes.py`, checked by `tests/test_version.py`).
 
 Update a locked Python dependency with
 `.venv\Scripts\python.exe tools/update_lock.py <name>==<version>` (it refuses
