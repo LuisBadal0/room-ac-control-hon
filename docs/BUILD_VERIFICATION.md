@@ -31,7 +31,9 @@ installs into `%LOCALAPPDATA%\Programs\Room AC Control` with no elevation, so th
 app keeps its `runtime\RoomACControl` layout and its signed in-app updates.
 The WiX Toolset is the .NET local tool pinned in `.config/dotnet-tools.json`
 (`dotnet tool restore`), and its UI, Util and BootstrapperApplications
-extensions are pinned to the same version. The recipes are in
+extensions are pinned to the same version. It stays on WiX 5.x: WiX 7 will not
+build until its Open Source Maintenance Fee EULA is accepted, which this
+project does not do, so Dependabot ignores WiX 6 and newer. The recipes are in
 `packaging/installer/`: `RoomACControl.wxs` (the MSI), `InstallerUI.wxs` (its pages, with the
 desktop-shortcut checkbox), `Setup.wxs` (the bundle) and `SetupTheme.xml`/`.wxl`
 (its window, adapted from WiX's HyperlinkTheme). The MSI's page artwork (`dialog.bmp`,
