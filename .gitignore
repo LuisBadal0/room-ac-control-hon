@@ -30,6 +30,8 @@ credentials*.json
 tokens*.json
 state*.json
 .coverage
+.coverage.*
+coverage.md
 htmlcov/
 .pytest_cache/
 .mypy_cache/

@@ -71,3 +71,17 @@ follow_imports = "silent"
 [[tool.mypy.overrides]]
 module = ["pyhon", "pyhon.*", "pystray", "awscrt", "awscrt.*", "awsiot", "awsiot.*"]
 ignore_missing_imports = true
+
+[tool.coverage.run]
+branch = true
+source = ["room_ac_control"]
+# Each smoke check runs in its own process; measure those too, then combine.
+parallel = true
+patch = ["subprocess"]
+# run_smoke.py itself imports no app code; its child processes do.
+disable_warnings = ["no-data-collected"]
+
+[tool.coverage.report]
+# Unit tests plus the UI smoke checks covered 82% when this was introduced.
+fail_under = 80
+sort = "Cover"
