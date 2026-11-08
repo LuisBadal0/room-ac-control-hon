@@ -10,6 +10,18 @@ section above it.
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-11-08
+
+### Changed
+
+- A copy installed with Setup.exe or the MSI now updates itself with the same signed installer. **Installed apps** in Windows shows the new version, and upgrades and uninstalling stay consistent. The new version is unpacked and checked before anything is installed, and Windows Installer keeps the previous version if the installation fails. Portable copies update as before.
+- GitHub release notes now describe what changed for you, from this changelog.
+
+### Fixed
+
+- All functions opens again when the app runs from source on Python 3.11.
+- After the app reconnects to cloud notifications, a late event from the old connection no longer triggers an extra status refresh.
+
 ## [0.5.1] - 2026-11-07
 
 ### Fixed

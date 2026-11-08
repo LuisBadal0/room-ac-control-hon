@@ -41,6 +41,11 @@ def update_message(updater):
     if state == "verifying":
         return "Checking the new version…", "Its signature and offline checks must pass before anything changes."
     if state == "ready":
+        if getattr(updater, "installer", None):
+            return (
+                "Restarting to finish the update…",
+                "Windows Installer replaces the app in the background, then opens it again. This can take a minute.",
+            )
         return "Restarting to finish the update…", "Room AC Control opens again in a few seconds."
     if state == "failed":
         return "The update did not finish", updater.error or ""

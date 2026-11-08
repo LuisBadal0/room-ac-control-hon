@@ -1,12 +1,21 @@
-"""Signed in-place updates for the portable Windows app.
+"""Signed in-app updates for the portable and the installed Windows app.
 
-CI signs a small manifest (version, archive name, SHA-256 and size) with the
+CI signs a small manifest (version, file names, SHA-256 and sizes) with the
 project's own RSA key. The app accepts an update only when that signature
 checks out against the public key built into it, the version is newer, and the
-downloaded ZIP matches the signed hash and size. The new version is unpacked
-next to the current one and must pass its own self-test. Only then, after the
-person clicks Update, a small helper swaps the folders once the app has
-closed, starts the new version, and puts the old one back if the swap fails.
+downloaded file matches the signed hash and size.
+
+A portable copy unpacks the new version next to the current one, which must
+pass its own self-test. Only then, after the person clicks Update, a small
+helper swaps the folders once the app has closed, starts the new version, and
+puts the old one back if the swap fails.
+
+A copy installed with Setup.exe or the MSI updates with the same kind of
+installer, so Windows' Installed apps list, upgrades and uninstall stay right.
+The app inside the downloaded installer is unpacked to a scratch folder and
+must pass the same self-test first; after the app closes, a helper runs the
+installer silently (Windows Installer rolls back on failure) and starts the
+new version.
 """
 
 import hashlib
@@ -34,7 +43,15 @@ ZIP_RUNTIME = "Room AC Control/runtime/RoomACControl/"
 MAX_MANIFEST = 16 * 1024
 MAX_SIGNATURE = 4096
 MAX_ARCHIVE = 400 * 1024 * 1024
+MAX_INSTALLER = 400 * 1024 * 1024
 MAX_UNPACKED = 1024 * 1024 * 1024
+# How this copy was installed -> the manifest field naming that installer.
+INSTALLERS = {"msi": "installer", "setup": "setup"}
+INSTALL_KEY = r"Software\RoomACControl\Installer"
+UNINSTALL_KEY = r"Software\Microsoft\Windows\CurrentVersion\Uninstall"
+# packaging/installer/Setup.wxs; a Setup.exe install registers this bundle for the user.
+BUNDLE_UPGRADE_CODE = "{3CE84886-4F75-40A5-B136-E82F9D22EA78}"
+NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 CHECK_EVERY_MS = 24 * 60 * 60 * 1000
 FIRST_CHECK_MS = 20 * 1000
 
@@ -108,9 +125,43 @@ def read_manifest(data, signature, public_key=PUBLIC_KEY):
         "archive": archive,
         "sha256": digest,
         "size": size,
-        "url": f"https://github.com/{REPOSITORY}/releases/download/{manifest['tag']}/{archive}",
+        "url": download_url(manifest["tag"], archive),
         "notes": f"https://github.com/{REPOSITORY}/releases/tag/{manifest['tag']}",
+        "installers": signed_installers(manifest, version),
     }
+
+
+def download_url(tag, name):
+    return f"https://github.com/{REPOSITORY}/releases/download/{tag}/{name}"
+
+
+def installer_name(kind, version):
+    suffix = ".msi" if kind == "msi" else "-Setup.exe"
+    return f"Room-AC-Control-for-hOn-{version}-Windows-x64{suffix}"
+
+
+def signed_installers(manifest, version):
+    """The optional signed MSI and Setup.exe entries; releases before 0.6.0 have none."""
+    found = {}
+    for kind, field in INSTALLERS.items():
+        entry = manifest.get(field)
+        if entry is None:
+            continue
+        name = installer_name(kind, version)
+        digest = entry.get("sha256") if isinstance(entry, dict) else None
+        size = entry.get("size") if isinstance(entry, dict) else None
+        if (
+            not isinstance(entry, dict)
+            or entry.get("name") != name
+            or not isinstance(digest, str)
+            or not re.fullmatch(r"[0-9a-f]{64}", digest)
+            or not isinstance(size, int)
+            or isinstance(size, bool)
+            or not 0 < size <= MAX_INSTALLER
+        ):
+            raise UpdateError("The update information is not valid.")
+        found[kind] = {"name": name, "sha256": digest, "size": size, "url": download_url(manifest["tag"], name)}
+    return found
 
 
 def is_newer(release, current):
@@ -150,8 +201,14 @@ def check(current, opener=open_url, public_key=PUBLIC_KEY):
 
 def download(release, folder, progress=lambda done, total: None, cancelled=lambda: False, opener=open_url):
     """Stream the ZIP to disk, enforcing the signed size and SHA-256."""
+    item = {"name": release["archive"], **{key: release[key] for key in ("url", "size", "sha256")}}
+    return download_file(item, folder, progress, cancelled, opener)
+
+
+def download_file(release, folder, progress=lambda done, total: None, cancelled=lambda: False, opener=open_url):
+    """Stream one signed release file (name, url, size, sha256) to disk."""
     folder.mkdir(parents=True, exist_ok=True)
-    target = folder / release["archive"]
+    target = folder / release["name"]
     partial = target.with_name(target.name + ".part")
     digest, done = hashlib.sha256(), 0
     try:
@@ -217,7 +274,7 @@ def self_test(runtime, version, run=subprocess.run):
             result = run(
                 [str(runtime / EXECUTABLE), "--self-test", str(report)],
                 timeout=120,
-                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+                creationflags=NO_WINDOW,
             )
             outcome = json.loads(report.read_text(encoding="utf-8"))
         except (OSError, ValueError, subprocess.TimeoutExpired):
@@ -236,8 +293,98 @@ def updates_folder():
     return Path(os.environ.get("LOCALAPPDATA", str(Path.home()))) / "RoomACControl" / "updates"
 
 
+class WindowsRegistry:
+    """Read-only access to the current user's registry hive."""
+
+    def value(self, key, name):
+        try:
+            import winreg
+
+            with winreg.OpenKey(winreg.HKEY_CURRENT_USER, key) as handle:
+                return winreg.QueryValueEx(handle, name)[0]
+        except (ImportError, OSError):
+            return None
+
+    def subkeys(self, key):
+        try:
+            import winreg
+
+            names = []
+            with winreg.OpenKey(winreg.HKEY_CURRENT_USER, key) as handle:
+                while True:
+                    try:
+                        names.append(winreg.EnumKey(handle, len(names)))
+                    except OSError:
+                        return names
+        except (ImportError, OSError):
+            return []
+
+
+def same_folder(left, right):
+    try:
+        return os.path.normcase(str(Path(left).resolve())) == os.path.normcase(str(Path(right).resolve()))
+    except (OSError, ValueError):
+        return False
+
+
+def installed_by(location, registry=None):
+    """ "setup" or "msi" when Windows installed this copy, None for a portable copy."""
+    if location is None:
+        return None
+    registry = registry or WindowsRegistry()
+    recorded = registry.value(INSTALL_KEY, "InstallFolder")
+    if not isinstance(recorded, str) or not recorded.strip() or not same_folder(recorded, location.parent.parent):
+        return None
+    for name in registry.subkeys(UNINSTALL_KEY):
+        codes = registry.value(f"{UNINSTALL_KEY}\\{name}", "BundleUpgradeCode")
+        codes = [codes] if isinstance(codes, str) else codes if isinstance(codes, list) else []
+        if any(str(code).upper() == BUNDLE_UPGRADE_CODE for code in codes):
+            return "setup"
+    return "msi"
+
+
+def run_installer_step(run, command):
+    """Run msiexec or Setup.exe without a window; any failure stops the update."""
+    try:
+        result = run(command, timeout=600, creationflags=NO_WINDOW)
+    except (OSError, subprocess.TimeoutExpired):
+        result = None
+    if result is None or result.returncode != 0:
+        raise UpdateError("The downloaded installer could not be opened. Nothing was changed.")
+
+
+def find_runtime(image):
+    for executable in sorted(image.rglob(EXECUTABLE)):
+        if executable.parent.name == "RoomACControl" and executable.parent.parent.name == "runtime":
+            return executable.parent
+    raise UpdateError("The update is incomplete. It was not installed.")
+
+
+def installer_scratch():
+    """A short folder for unpacking installers: Windows Installer refuses paths over 259
+    characters, and the unpacked app nests about 125 characters deep below it."""
+    return updates_folder().parent / "u"
+
+
+def check_msi(msi, version, scratch=None, run=subprocess.run):
+    """Unpack the app from a downloaded MSI without installing it, then self-test it.
+
+    msiexec /a copies the MSI's files to a folder without registering anything and
+    needs no administrator rights. Setup.exe embeds this same MSI, so a Setup.exe
+    update is checked with the signed MSI from the same release."""
+    scratch = scratch or installer_scratch()
+    shutil.rmtree(scratch, ignore_errors=True)
+    try:
+        image = scratch / "a"
+        # Built by hand: msiexec needs PROPERTY="value" quoting, which list arguments would break.
+        run_installer_step(run, f'msiexec.exe /a "{msi}" /qn TARGETDIR="{image}"')
+        self_test(find_runtime(image), version, run)
+    finally:
+        shutil.rmtree(scratch, ignore_errors=True)
+
+
 def install_location(executable=None, frozen=None):
-    """The runtime folder this portable app runs from, or None for a source checkout."""
+    """The runtime folder this app runs from (portable or installed), or None for a source checkout."""
     frozen = getattr(sys, "frozen", False) if frozen is None else frozen
     if not frozen:
         return None
@@ -339,20 +486,109 @@ def launch_helper(location, version, folder=None, pid=None, popen=subprocess.Pop
     )
 
 
+# Runs the signed installer once the app has exited. Windows Installer rolls back
+# a failed install, so the previous version stays. Exit codes: 0 done, 3010/1641
+# done but Windows wants a restart, 1618 another installation was running.
+# UPDATE_FAKE_EXIT stands in for the installer in tests, so no test installs anything.
+INSTALLER_HELPER = r"""@echo off
+setlocal DisableDelayedExpansion
+set /a WAITED=0
+:wait
+tasklist /FI "PID eq %UPDATE_PID%" /NH 2>nul | find " %UPDATE_PID% " >nul
+if not errorlevel 1 (
+    if %WAITED% geq 120 goto gave_up
+    set /a WAITED+=1
+    ping -n 2 127.0.0.1 >nul
+    goto wait
+)
+if defined UPDATE_FAKE_EXIT (
+    set UPDATE_CODE=%UPDATE_FAKE_EXIT%
+    goto installed
+)
+if "%UPDATE_KIND%"=="setup" goto setup
+start "" /wait msiexec.exe /i "%UPDATE_INSTALLER%" /qn /norestart INSTALLFOLDER="%UPDATE_FOLDER%" /l*v "%UPDATE_LOG%"
+set UPDATE_CODE=%errorlevel%
+goto installed
+:setup
+start "" /wait "%UPDATE_INSTALLER%" /quiet /norestart /log "%UPDATE_LOG%"
+set UPDATE_CODE=%errorlevel%
+:installed
+if "%UPDATE_CODE%"=="0" goto done
+if "%UPDATE_CODE%"=="3010" goto done
+if "%UPDATE_CODE%"=="1641" goto done
+set UPDATE_REASON=failed
+if "%UPDATE_CODE%"=="1618" set UPDATE_REASON=installer-busy
+> "%UPDATE_RESULT%" echo {"ok": false, "version": "%UPDATE_VERSION%", "reason": "%UPDATE_REASON%", "code": "%UPDATE_CODE%"}
+if not "%UPDATE_LAUNCH%"=="0" start "" "%UPDATE_APP%"
+exit /b 1
+:done
+> "%UPDATE_RESULT%" echo {"ok": true, "version": "%UPDATE_VERSION%"}
+if not "%UPDATE_LAUNCH%"=="0" start "" "%UPDATE_APP%"
+exit /b 0
+:gave_up
+> "%UPDATE_RESULT%" echo {"ok": false, "version": "%UPDATE_VERSION%", "reason": "timeout"}
+exit /b 1
+"""
+
+
+def launch_installer_helper(
+    location, kind, installer, version, folder=None, pid=None, popen=subprocess.Popen, extra=None
+):
+    """Start the installer helper; it waits for this process to exit before installing.
+
+    `extra` adds environment settings for tests (UPDATE_LAUNCH=0, UPDATE_FAKE_EXIT)."""
+    folder = folder or updates_folder()
+    folder.mkdir(parents=True, exist_ok=True)
+    script = folder / "install-update.cmd"
+    script.write_text(INSTALLER_HELPER.replace("\n", "\r\n"), encoding="ascii", newline="")
+    (folder / "result.json").unlink(missing_ok=True)
+    environment = {
+        **os.environ,
+        "UPDATE_PID": str(pid or os.getpid()),
+        "UPDATE_KIND": kind,
+        "UPDATE_INSTALLER": str(installer),
+        # No trailing backslash: it would escape the closing quote on msiexec's command line.
+        "UPDATE_FOLDER": str(location.parent.parent).rstrip("\\"),
+        "UPDATE_APP": str(location / EXECUTABLE),
+        "UPDATE_LOG": str(folder / "install.log"),
+        "UPDATE_RESULT": str(folder / "result.json"),
+        "UPDATE_VERSION": version,
+        **(extra or {}),
+    }
+    flags = NO_WINDOW | getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
+    comspec = os.environ.get("ComSpec", "cmd.exe")
+    return popen(
+        [comspec, "/d", "/c", ".\\" + script.name],
+        cwd=str(folder),
+        env=environment,
+        creationflags=flags,
+        close_fds=True,
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+
+
 def finish(location, current, folder=None):
     """After a start: report the last update's outcome and tidy up its files."""
     folder = folder or updates_folder()
     message = None
+    succeeded = False
     result = folder / "result.json"
     try:
         outcome = json.loads(result.read_text(encoding="utf-8"))
         if outcome.get("ok") and outcome.get("version") == current:
-            message = f"Updated to version {current}."
+            message, succeeded = f"Updated to version {current}.", True
         elif outcome.get("reason") == "busy":
             # Windows would not move the app folder: another copy or window still had it open.
             message = (
                 "The update could not be installed because the app folder was in use. Close every "
                 "Room AC Control window, including the one in the notification area, then try again."
+            )
+        elif outcome.get("reason") == "installer-busy":
+            message = (
+                "The update could not be installed because another installation was running in Windows. "
+                "Try again in a few minutes."
             )
         else:
             message = f"The update could not be installed. Room AC Control is still on version {current}."
@@ -363,8 +599,11 @@ def finish(location, current, folder=None):
         for leftover in (previous(location), staged(location)):
             shutil.rmtree(leftover, ignore_errors=True)
     if folder.exists():
-        for download in folder.glob("Room-AC-Control-for-hOn-*.zip*"):
+        for download in folder.glob("Room-AC-Control-for-hOn-*"):
             download.unlink(missing_ok=True)
+        if succeeded:
+            # A failed installer's log stays for troubleshooting until the next update.
+            (folder / "install.log").unlink(missing_ok=True)
     return message
 
 
@@ -372,8 +611,11 @@ class Updater:
     """Update state for the UI. Network and disk work runs on a background
     thread; `poll()` applies results on the Tk thread and notifies listeners."""
 
-    def __init__(self, current, location, enabled=True, demo=False):
+    def __init__(self, current, location, enabled=True, demo=False, registry=None):
         self.current, self.location, self.demo = current, location, demo
+        # "setup" or "msi" for a copy Windows installed, None for a portable one.
+        self.installed = None if demo else installed_by(location, registry)
+        self.installer = None  # The verified installer `apply` runs, once ready.
         self.enabled = enabled
         self.state = "idle"  # idle, checking, current, available, downloading, verifying, ready, failed
         self.release = None
@@ -426,8 +668,16 @@ class Updater:
         self.run(lambda: ("checked", check(self.current)))
         return True
 
+    def installer_plan(self, release):
+        """Files to download for an installed copy: the signed MSI, which is self-tested,
+        plus Setup.exe for a Setup.exe install. None means a folder swap from the ZIP."""
+        installers = release.get("installers") or {}
+        if self.installed not in INSTALLERS or "msi" not in installers or self.installed not in installers:
+            return None
+        return [installers["msi"]] + ([installers["setup"]] if self.installed == "setup" else [])
+
     def install(self):
-        """Download, verify, unpack and self-test; the swap waits for `apply`."""
+        """Download, verify, unpack and self-test; the swap or installer waits for `apply`."""
         if not self.supported or self.busy or not self.release:
             return False
         if not writable(self.location):
@@ -438,9 +688,34 @@ class Updater:
             self.notify()
             return False
         release, location = self.release, self.location
-        self.state, self.error, self.progress = "downloading", None, 0.0
+        plan, kind = self.installer_plan(release), self.installed
+        self.state, self.error, self.progress, self.installer = "downloading", None, 0.0, None
         self.cancel.clear()
         self.notify()
+
+        def work_installer():
+            folder = updates_folder()
+            total, base, files = sum(item["size"] for item in plan), 0, []
+            try:
+                for item in plan:
+                    files.append(
+                        download_file(
+                            item,
+                            folder,
+                            lambda done, _total, base=base: self.events.put(("progress", (base + done) / total)),
+                            self.cancel.is_set,
+                        )
+                    )
+                    base += item["size"]
+                self.events.put(("verifying", None))
+                check_msi(files[0], release["version"])
+            except BaseException:
+                for path in files:
+                    path.unlink(missing_ok=True)
+                raise
+            if kind == "setup":
+                files[0].unlink(missing_ok=True)  # Only needed for the check; Setup.exe embeds it.
+            return ("installed", files[-1])
 
         def work():
             folder = updates_folder()
@@ -458,14 +733,17 @@ class Updater:
                 archive.unlink(missing_ok=True)
             return ("installed", None)
 
-        self.run(work)
+        self.run(work_installer if plan else work)
         return True
 
     def apply(self):
         """Hand over to the helper; the caller closes the app straight after."""
         if self.state != "ready" or self.applied:
             return False
-        launch_helper(self.location, self.release["version"])
+        if self.installer:
+            launch_installer_helper(self.location, self.installed, self.installer, self.release["version"])
+        else:
+            launch_helper(self.location, self.release["version"])
         self.applied = True
         return True
 
@@ -494,7 +772,7 @@ class Updater:
                     self.state = "available" if payload else "current"
                     self.checked = datetime.now()
                 elif result == "installed":
-                    self.state = "ready"
+                    self.state, self.installer = "ready", payload
         if changed:
             self.notify()
         return changed
