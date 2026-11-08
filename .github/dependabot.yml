@@ -1,0 +1,42 @@
+# Weekly dependency update pull requests. Updates wait 14 days after a release
+# (cooldown), so a compromised or broken release has time to be pulled first.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    cooldown:
+      default-days: 14
+    commit-message:
+      prefix: chore
+    groups:
+      actions:
+        patterns: ["*"]
+
+  # requirements.txt holds the direct pins. A Dependabot pull request changes only
+  # that file, so tests/test_dependency_pins.py fails until the matching hashes are
+  # written with tools/update_lock.py (see CONTRIBUTING.md).
+  - package-ecosystem: pip
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    cooldown:
+      default-days: 14
+    commit-message:
+      prefix: chore
+    groups:
+      python:
+        patterns: ["*"]
+
+  # WiX, the installer toolset, is a pinned .NET local tool.
+  - package-ecosystem: nuget
+    directory: /
+    schedule:
+      interval: monthly
+    cooldown:
+      default-days: 14
+    commit-message:
+      prefix: chore

@@ -34,5 +34,10 @@ section to `[x.y.z] - YYYY-MM-DD` with a new empty **Unreleased** above it. Rele
 only when the user asks. CI publishes the section as the release notes
 (`tools/release_notes.py`, checked by `tests/test_version.py`).
 
+Update a locked Python dependency with
+`.venv\Scripts\python.exe tools/update_lock.py <name>==<version>` (it refuses
+releases newer than 14 days); `tests/test_dependency_pins.py` checks that
+`requirements.txt` matches `requirements.lock`.
+
 Keep credentials, account data, generated runtimes and local previews out of Git.
 Verify AC controls with offline fixtures; do not send real AC commands in tests.
