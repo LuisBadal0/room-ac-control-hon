@@ -53,6 +53,9 @@ jobs:
           DOTNET_CLI_TELEMETRY_OPTOUT: '1'
           DOTNET_NOLOGO: '1'
         run: .\.venv\Scripts\python.exe tools/build_installers.py
+      - name: Release notes
+        # CHANGELOG.md's section for this version; fails if it is missing or empty.
+        run: .\.venv\Scripts\python.exe tools/release_notes.py --output releases/RELEASE_NOTES.md
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: Room-AC-Control-for-hOn-Windows-x64
@@ -61,6 +64,7 @@ jobs:
             releases/*.msi
             releases/*-Setup.exe
             releases/SHA256SUMS.txt
+            releases/RELEASE_NOTES.md
           if-no-files-found: error
 
   release:
@@ -152,4 +156,5 @@ jobs:
         run: |
           gh release create "$TAG" release/*.zip release/*.msi release/*-Setup.exe release/SHA256SUMS.txt \
             release/update.json release/update.json.sig \
-            --target "$GITHUB_SHA" --title "Room AC Control for hOn $TAG" --generate-notes
+            --target "$GITHUB_SHA" --title "Room AC Control for hOn $TAG" \
+            --notes-file release/RELEASE_NOTES.md --generate-notes

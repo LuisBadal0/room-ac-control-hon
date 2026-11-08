@@ -25,6 +25,9 @@ Build with `tools/Build.ps1` (portable ZIP, then the MSI and Setup.exe via
 `.venv\Scripts\python.exe tests/run_smoke.py`. The app version
 lives in `pyproject.toml`, `src/room_ac_control/__init__.py`,
 `packaging/version_info.txt` and `README.md`; `tests/test_version.py` checks them.
+User-facing changes get a bullet under **Unreleased** in `CHANGELOG.md`; a version
+bump turns that section into `[x.y.z] - YYYY-MM-DD`, which CI publishes as the
+release notes (`tools/release_notes.py`, checked by `tests/test_version.py`).
 
 Keep credentials, account data, generated runtimes and local previews out of Git.
 Verify AC controls with offline fixtures; do not send real AC commands in tests.
