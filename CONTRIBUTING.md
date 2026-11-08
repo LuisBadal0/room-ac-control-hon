@@ -23,6 +23,15 @@ The main window lives in `src/room_ac_control/dashboard/`. `app.py` holds `App`:
 
 The fixed grid values are in `layout.py`. Put new dashboard code in the mixin for its area rather than back in `app.py`.
 
+All functions lives in `src/room_ac_control/functions_view/`:
+
+- `view.py`: the `FunctionsView` window, header, search, tabs, scrolling and footer;
+- one mixin per tab: `settings_tab.py`, `everyday_tab.py`, `maintenance_tab.py` and `schedules_tab.py`;
+- `sheets.py`: bottom sheets shared with the dashboard;
+- `model.py`: tab, preset and search logic without Tk.
+
+Many views import inside methods. `tests/test_imports.py` resolves every import, so a wrong relative path fails without opening the screen.
+
 For a local build run `tools/Build.ps1` and inspect the app, the runtime self-test report, the ZIP and, when the .NET SDK is installed, the MSI and Setup.exe from `tools/build_installers.py`. Test an installer with `msiexec /i <file>.msi /qn` and remove it with `msiexec /x <file>.msi /qn`; both are per-user and leave your saved settings alone. CI publishes releases: merging a pull request that bumps the version releases `v<version>`. Bump `pyproject.toml`, `src/room_ac_control/__init__.py`, `packaging/version_info.txt` and the README together; `tests/test_version.py` checks they match.
 
 Use the hash-verified setup/build scripts rather than unverified `pip install -e .`.
