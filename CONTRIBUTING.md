@@ -14,6 +14,15 @@ pyhOn update, the update changed something the app depends on.
 
 Keep cloud work on the worker thread and UI changes on Tk's main thread. Preserve reported state separately from pending edits. Preview mode, login and status refresh must not send AC commands. Validate saved settings against current device capabilities before applying them.
 
+The main window lives in `src/room_ac_control/dashboard/`. `app.py` holds `App`: sign-in, device state, refresh, commands and the tray. `App` inherits the rest from mixins:
+
+- `canvas.py`: drawing;
+- `controls.py`: pointer and menu input;
+- `schedule_actions.py`: timers and schedules;
+- `preferences.py`: language, appearance and updates.
+
+The fixed grid values are in `layout.py`. Put new dashboard code in the mixin for its area rather than back in `app.py`.
+
 For a local build run `tools/Build.ps1` and inspect the app, the runtime self-test report, the ZIP and, when the .NET SDK is installed, the MSI and Setup.exe from `tools/build_installers.py`. Test an installer with `msiexec /i <file>.msi /qn` and remove it with `msiexec /x <file>.msi /qn`; both are per-user and leave your saved settings alone. CI publishes releases: merging a pull request that bumps the version releases `v<version>`. Bump `pyproject.toml`, `src/room_ac_control/__init__.py`, `packaging/version_info.txt` and the README together; `tests/test_version.py` checks they match.
 
 Use the hash-verified setup/build scripts rather than unverified `pip install -e .`.
