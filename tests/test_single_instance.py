@@ -1,4 +1,5 @@
 """One running copy per Windows session; a second start shows the first instead."""
+
 import os
 import unittest
 import uuid

@@ -1,9 +1,10 @@
 """Diagnostics must remain useful without exporting untrusted sensitive text."""
+
 import json
 import logging
-from pathlib import Path
 import tempfile
 import unittest
+from pathlib import Path
 
 from room_ac_control.diagnostics import Diagnostics, quiet_library_logs
 
@@ -16,17 +17,19 @@ class DiagnosticTests(unittest.TestCase):
         error = type("secret_test_token", (Exception,), {})(secret)
         report.record("background_task_failed", error)
         with tempfile.TemporaryDirectory() as folder:
-            path = Path(folder)/"report.json"
+            path = Path(folder) / "report.json"
             report.export(path)
             text = path.read_text(encoding="utf-8")
             self.assertNotIn(secret, text)
             self.assertNotIn("secret_test_token", text)
             self.assertEqual(json.loads(text)["events"][-1]["error"], "UnexpectedError")
-        with self.assertRaises(ValueError): report.record(secret)
+        with self.assertRaises(ValueError):
+            report.record(secret)
 
     def test_reports_are_bounded_and_copied(self):
         report = Diagnostics(limit=2)
-        for _ in range(5): report.record("notification_failed", TimeoutError("secret"))
+        for _ in range(5):
+            report.record("notification_failed", TimeoutError("secret"))
         exported = report.report()
         self.assertEqual(len(exported["events"]), 2)
         exported["events"][0]["event"] = "modified"
@@ -41,4 +44,5 @@ class DiagnosticTests(unittest.TestCase):
         self.assertIn("safe application event", captured.output[0])
 
 
-if __name__ == "__main__": unittest.main()
+if __name__ == "__main__":
+    unittest.main()

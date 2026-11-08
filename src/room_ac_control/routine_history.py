@@ -3,7 +3,8 @@
 Runs come from hOn's command history, from routines this app starts, and from the AC
 reporting a self-clean switch as on. hOn keeps only the last few commands, so every run
 seen is also kept in the encrypted local state."""
-from datetime import datetime, timezone
+
+from datetime import UTC, datetime
 
 from .controller import code, function_group
 
@@ -37,7 +38,7 @@ def parse_time(text):
         when = datetime.fromisoformat(str(text).replace("Z", "+00:00"))
     except ValueError:
         return None
-    return when if when.tzinfo else when.replace(tzinfo=timezone.utc)
+    return when if when.tzinfo else when.replace(tzinfo=UTC)
 
 
 def runs_from_history(history):
@@ -74,16 +75,16 @@ def last_run_text(when, now=None):
     Runs more than OLD_AFTER_DAYS ago give their date instead: ("Last run on {date}", {"date": when})."""
     if when is None:
         return "No run recorded yet", {}
-    now = now or datetime.now(timezone.utc)
-    seconds = max(0, (now-when).total_seconds())
+    now = now or datetime.now(UTC)
+    seconds = max(0, (now - when).total_seconds())
     if seconds < 60:
         return "Last run just now", {}
     if seconds < 3600:
-        return "Last run {count} min ago", {"count": int(seconds//60)}
+        return "Last run {count} min ago", {"count": int(seconds // 60)}
     if seconds < 86400:
-        hours = int(seconds//3600)
+        hours = int(seconds // 3600)
         return ("Last run 1 hour ago", {}) if hours == 1 else ("Last run {count} hours ago", {"count": hours})
-    days = int(seconds//86400)
+    days = int(seconds // 86400)
     if days == 1:
         return "Last run yesterday", {}
     if days < OLD_AFTER_DAYS:
@@ -96,6 +97,7 @@ def parse_day(text, today):
 
     Dates in the future or before 2000 are refused."""
     from datetime import date
+
     parts = [part for part in str(text).replace("-", "/").replace(".", "/").replace(" ", "/").split("/") if part]
     if len(parts) != 3 or not all(part.isdigit() for part in parts):
         return None
@@ -111,4 +113,4 @@ def parse_day(text, today):
 
 def day_to_time(day):
     """A chosen day as midday local time, in UTC, so it never shifts to another day."""
-    return datetime(day.year, day.month, day.day, 12).astimezone().astimezone(timezone.utc)
+    return datetime(day.year, day.month, day.day, 12).astimezone().astimezone(UTC)

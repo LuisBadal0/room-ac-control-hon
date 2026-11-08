@@ -3,9 +3,10 @@
 Protocol field names were checked against hOn 2.30.7 and a read-only cloud
 response. No manufacturer code or assets are distributed with this adapter.
 """
+
 import asyncio
 from copy import deepcopy
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
 from urllib.parse import quote
 
 from .controller import ControlError, capabilities, code, validate
@@ -21,19 +22,19 @@ def utc_time(value):
         return None
     try:
         result = datetime.fromisoformat(value.replace("Z", "+00:00"))
-        return result.astimezone(timezone.utc) if result.tzinfo else None
+        return result.astimezone(UTC) if result.tzinfo else None
     except ValueError:
         return None
 
 
 def iso(value):
-    return value.astimezone(timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z")
+    return value.astimezone(UTC).isoformat(timespec="milliseconds").replace("+00:00", "Z")
 
 
 def select_timers(payload, now=None):
     """Keep maintenance/recurring schedules separate; refuse ambiguous controls."""
-    now = now or datetime.now(timezone.utc)
-    found = {"on": [], "off": []}
+    now = now or datetime.now(UTC)
+    found: dict[str, list] = {"on": [], "off": []}
     blocked = set()
     for bucket in BUCKETS:
         rows = payload.get(bucket, [])
@@ -63,7 +64,9 @@ def select_timers(payload, now=None):
         result[action] = {
             "supported": action not in blocked and len(rows) <= 1,
             "due": first["due"].astimezone().replace(tzinfo=None) if first else None,
-            "expected": [str(first["record"]["id"]), iso(first["due"])] if first and first["record"].get("id") else None,
+            "expected": [str(first["record"]["id"]), iso(first["due"])]
+            if first and first["record"].get("id")
+            else None,
             "count": len(rows),
         }
     return result, found
@@ -111,14 +114,23 @@ def command_payload(device, action, handler, requested=None):
         raise ControlError("Choose a comfort mode before scheduling a start.")
     if action == "on" and "tempSel" in params:
         params["tempSel"] = f"{float(params['tempSel']):.2f}"
-    stamp = iso(datetime.now(timezone.utc))
-    return {"macAddress": device.mac_address, "timestamp": stamp,
-            "commandName": "startProgram" if action == "on" else "stopProgram",
-            "transactionId": device.mac_address + "_" + stamp,
-            "applianceOptions": deepcopy(device.options), "device": handler.device.get(mobile=True),
-            "attributes": {"channel": "mobileApp", "origin": "standardProgram", "prStr": "Start" if action == "on" else "Stop"},
-            "ancillaryParameters": groups.get("ancillaryParameters", {}),
-            "parameters": params, "applianceType": device.appliance_type}
+    stamp = iso(datetime.now(UTC))
+    return {
+        "macAddress": device.mac_address,
+        "timestamp": stamp,
+        "commandName": "startProgram" if action == "on" else "stopProgram",
+        "transactionId": device.mac_address + "_" + stamp,
+        "applianceOptions": deepcopy(device.options),
+        "device": handler.device.get(mobile=True),
+        "attributes": {
+            "channel": "mobileApp",
+            "origin": "standardProgram",
+            "prStr": "Start" if action == "on" else "Stop",
+        },
+        "ancillaryParameters": groups.get("ancillaryParameters", {}),
+        "parameters": params,
+        "applianceType": device.appliance_type,
+    }
 
 
 def schedule_body(device, action, due, command, existing=None, end_only=False):
@@ -129,10 +141,18 @@ def schedule_body(device, action, due, command, existing=None, end_only=False):
         raise ControlError("That time does not exist after the daylight-saving clock change. Choose another time.")
     if due <= now or due > now + timedelta(days=2):
         raise ControlError("Choose a future time within the next day.")
-    body = {k: deepcopy(v) for k, v in (existing or {}).items() if k in {
-        "scheduledProgram", "setupStart", "setupEnd", "dateISOstart", "dateISOend", "days", "timezoneOffset"}}
-    body.update(macAddress=device.mac_address, frequency="once", maintenance=False, isActive=True,
-                timezoneOffset=-int(due.utcoffset().total_seconds() // 60))
+    body = {
+        k: deepcopy(v)
+        for k, v in (existing or {}).items()
+        if k in {"scheduledProgram", "setupStart", "setupEnd", "dateISOstart", "dateISOend", "days", "timezoneOffset"}
+    }
+    body.update(
+        macAddress=device.mac_address,
+        frequency="once",
+        maintenance=False,
+        isActive=True,
+        timezoneOffset=-int(due.utcoffset().total_seconds() // 60),
+    )
     if end_only:
         body["scheduleEnd"] = True
     body[DATE[action]], body[SETUP[action]] = iso(due), command
@@ -177,7 +197,10 @@ class CloudTimers:
         if not any(k in payload for k in BUCKETS):
             raise ControlError("The cloud service did not return timer status.")
         state, found = select_timers(payload)
-        if "startProgram" not in device.commands or "iot_simple_start" not in device.commands["startProgram"].categories:
+        if (
+            "startProgram" not in device.commands
+            or "iot_simple_start" not in device.commands["startProgram"].categories
+        ):
             state["on"]["supported"] = False
         if "stopProgram" not in device.commands:
             state["off"]["supported"] = False
@@ -200,7 +223,7 @@ class CloudTimers:
             if existing is None:
                 return state
             other_due = utc_time(existing.get(DATE[other]))
-            if other_due and other_due > datetime.now(timezone.utc):
+            if other_due and other_due > datetime.now(UTC):
                 if not isinstance(existing.get(SETUP[other]), dict):
                     raise ControlError("The paired timer has an unfamiliar format. Manage it in hOn.")
                 # Preserve the other half of a paired schedule.
@@ -228,4 +251,6 @@ class CloudTimers:
                 return updated
             if attempt < 2:
                 await asyncio.sleep(1)
-        raise ControlError("The timer request was sent, but its saved status is not confirmed. Check hOn before retrying.")
+        raise ControlError(
+            "The timer request was sent, but its saved status is not confirmed. Check hOn before retrying."
+        )

@@ -1,17 +1,18 @@
 """The Schedules window: every timer saved in hOn, with repeating schedules editable."""
+
 import tkinter as tk
 from tkinter import ttk
 
 from .choice_widgets import SelectField
-from .controller import mode_choices, mode_label
 from .control_choices import mode_icon
-from .i18n import localized, localized_title, refresh_on_language, tr, translator, TranslatedVariable
+from .controller import mode_choices, mode_label
+from .i18n import TranslatedVariable, localized, localized_title, refresh_on_language, tr, translator
 from .inline_timers import NumberWheel
 from .schedules import DAY_NAMES, EVERY_DAY, WEEKDAYS, WEEKEND, clock_text, day_labels
-from .temperature_wheel import TemperatureWheel
-from .theme import C, font, icon, measure, paint, rounded, refresh_on_theme
-from .worker import degrees
 from .smooth import aa_oval, aa_text
+from .temperature_wheel import TemperatureWheel
+from .theme import C, font, icon, paint, refresh_on_theme, rounded
+from .worker import degrees
 
 SIZE = (600, 720)
 
@@ -22,10 +23,13 @@ def days_text(widget, days):
 
 class DayChips(tk.Canvas):
     """Seven day toggles, Monday first as in hOn; at least one stays selected."""
+
     CHIP = 52
 
     def __init__(self, parent, days, changed=None, background="BG"):
-        super().__init__(parent, width=7*self.CHIP + 6*6, height=40, highlightthickness=0, takefocus=True, cursor="hand2")
+        super().__init__(
+            parent, width=7 * self.CHIP + 6 * 6, height=40, highlightthickness=0, takefocus=True, cursor="hand2"
+        )
         self.days, self.changed, self.background = set(days), changed, background
         self.focus_day = min(self.days) if self.days else 0
         self.bind("<Button-1>", self.click)
@@ -71,10 +75,27 @@ class DayChips(tk.Canvas):
             x = day * (self.CHIP + 6)
             selected = day in self.days
             outline = C.BRAND if focused and day == self.focus_day else (C.BRAND if selected else C.EDGE)
-            rounded(self, x + 1, 2, x + self.CHIP - 1, 38, 12, fill=C.BRAND if selected else C.CARD, outline=outline,
-                    width=2 if focused and day == self.focus_day else 1, tags=(f"day-{day}",))
-            aa_text(self, x + self.CHIP / 2, 20, text=tr(self, name), fill=C.ON_BRAND if selected else C.TEXT,
-                             font=font(9, "bold"), tags=(f"day-{day}",))
+            rounded(
+                self,
+                x + 1,
+                2,
+                x + self.CHIP - 1,
+                38,
+                12,
+                fill=C.BRAND if selected else C.CARD,
+                outline=outline,
+                width=2 if focused and day == self.focus_day else 1,
+                tags=(f"day-{day}",),
+            )
+            aa_text(
+                self,
+                x + self.CHIP / 2,
+                20,
+                text=tr(self, name),
+                fill=C.ON_BRAND if selected else C.TEXT,
+                font=font(9, "bold"),
+                tags=(f"day-{day}",),
+            )
 
 
 class DayPicker:
@@ -92,12 +113,20 @@ class DayPicker:
         self.window.protocol("WM_DELETE_WINDOW", self.close)
         self.window.bind("<Escape>", lambda event: self.close())
         from .window_header import WindowHeader
+
         self.header = WindowHeader(self.window, "Choose days", self.close, maximize=False)
         body = paint(tk.Frame(self.window, padx=22, pady=16), bg="BG")
         body.pack(fill="both", expand=True)
-        localized(paint(tk.Label(body, text="Choose days", font=font(18, "black"), anchor="w"), bg="BG", fg="TEXT")).pack(fill="x")
-        localized(paint(tk.Label(body, text="The schedule repeats on these days.", font=font(10), anchor="w"),
-                        bg="BG", fg="MUTED")).pack(fill="x", pady=(2, 16))
+        localized(
+            paint(tk.Label(body, text="Choose days", font=font(18, "black"), anchor="w"), bg="BG", fg="TEXT")
+        ).pack(fill="x")
+        localized(
+            paint(
+                tk.Label(body, text="The schedule repeats on these days.", font=font(10), anchor="w"),
+                bg="BG",
+                fg="MUTED",
+            )
+        ).pack(fill="x", pady=(2, 16))
         self.chips = DayChips(body, days or WEEKDAYS)
         self.chips.pack(anchor="w")
         buttons = ttk.Frame(body)
@@ -187,7 +216,7 @@ class ScheduleRow(tk.Canvas):
         rounded(self, 1, 1, width - 1, self.HEIGHT - 1, 12, fill=surface, outline=C.EDGE)
         circle = C.SOFT if active else C.RAISED
         aa_oval(self, 16, 16, 52, 52, fill=circle, outline="")
-        icon(self, "clock", 34, 34, C.ON_SOFT if active else C.MUTED, scale=.7, bg=circle)
+        icon(self, "clock", 34, 34, C.ON_SOFT if active else C.MUTED, scale=0.7, bg=circle)
         aa_text(self, 66, 24, text=self.title(), anchor="w", fill=ink, font=font(14, "black"))
         aa_text(self, 66, 49, text=self.when(), anchor="w", fill=C.MUTED, font=font(9), tags=("when",))
         aa_text(self, 66, 72, text=self.settings(), anchor="w", fill=ink, font=font(9, "bold"))
@@ -195,14 +224,33 @@ class ScheduleRow(tk.Canvas):
         if row["kind"] == "other":
             aa_text(self, right, 48, text=tr(self, "Manage in hOn"), anchor="e", fill=C.MUTED, font=font(9))
             return
-        delete = aa_text(self, right, 72, text=tr(self, "Delete"), anchor="e", fill=C.DANGER, font=font(9, "bold"), tags=("delete",))
+        delete = aa_text(
+            self, right, 72, text=tr(self, "Delete"), anchor="e", fill=C.DANGER, font=font(9, "bold"), tags=("delete",)
+        )
         if row["kind"] == "repeat":
             left = self.bbox(delete)[0]
-            aa_text(self, left - 18, 72, text=tr(self, "Edit"), anchor="e", fill=C.BRAND, font=font(9, "bold"), tags=("edit",))
+            aa_text(
+                self,
+                left - 18,
+                72,
+                text=tr(self, "Edit"),
+                anchor="e",
+                fill=C.BRAND,
+                font=font(9, "bold"),
+                tags=("edit",),
+            )
             on = row["active"]
             rounded(self, right - 44, 14, right, 38, 12, fill=C.BRAND if on else C.FIELD, outline="", tags=("toggle",))
-            aa_oval(self, right - 22 if on else right - 42, 16, right - 2 if on else right - 22, 36, fill=C.THUMB,
-                             outline="", tags=("toggle",))
+            aa_oval(
+                self,
+                right - 22 if on else right - 42,
+                16,
+                right - 2 if on else right - 22,
+                36,
+                fill=C.THUMB,
+                outline="",
+                tags=("toggle",),
+            )
 
 
 class SchedulesView:
@@ -226,18 +274,38 @@ class SchedulesView:
         self.window.grab_set()
         self.window.protocol("WM_DELETE_WINDOW", self.close)
         from .window_header import WindowHeader
-        self.header = WindowHeader(self.window, "Room AC Control · Schedules", self.close, maximize=False, size=SIZE,
-                                   owner=parent.winfo_toplevel())
+
+        self.header = WindowHeader(
+            self.window,
+            "Room AC Control · Schedules",
+            self.close,
+            maximize=False,
+            size=SIZE,
+            owner=parent.winfo_toplevel(),
+        )
         self.body = ttk.Frame(self.window, padding=(24, 4, 24, 20))
         self.body.pack(fill="both", expand=True)
         localized(ttk.Label(self.body, text="Schedules", font=font(21, "black"))).pack(anchor="w")
         selected = app.selected
-        ttk.Label(self.body, text=f"{selected['name']} · {selected['model']}", style="Muted.TLabel").pack(anchor="w", pady=(2, 0))
-        localized(ttk.Label(self.body, text="Saved in hOn, so they work with your PC off.", style="Muted.TLabel")).pack(anchor="w", pady=(0, 10))
+        ttk.Label(self.body, text=f"{selected['name']} · {selected['model']}", style="Muted.TLabel").pack(
+            anchor="w", pady=(2, 0)
+        )
+        localized(ttk.Label(self.body, text="Saved in hOn, so they work with your PC off.", style="Muted.TLabel")).pack(
+            anchor="w", pady=(0, 10)
+        )
         self.note = tk.StringVar()
         self.note_display = TranslatedVariable(self.window, self.note)
-        note = tk.Label(self.body, textvariable=self.note_display, font=font(9), anchor="w", justify="left",
-                        padx=12, pady=8, wraplength=520, bd=0)
+        note = tk.Label(
+            self.body,
+            textvariable=self.note_display,
+            font=font(9),
+            anchor="w",
+            justify="left",
+            padx=12,
+            pady=8,
+            wraplength=520,
+            bd=0,
+        )
         paint(note, bg="SOFT", fg="ON_SOFT")
         note.pack(fill="x", pady=(0, 12))
         area = ttk.Frame(self.body)
@@ -249,8 +317,10 @@ class SchedulesView:
         self.inner = ttk.Frame(self.scroll)
         self.inner_id = self.scroll.create_window(0, 0, window=self.inner, anchor="nw")
         self.inner.bind("<Configure>", self.update_scroll_region)
-        self.scroll.bind("<Configure>", lambda event: (self.scroll.itemconfigure(self.inner_id, width=event.width),
-                                                       self.update_scroll_region()))
+        self.scroll.bind(
+            "<Configure>",
+            lambda event: (self.scroll.itemconfigure(self.inner_id, width=event.width), self.update_scroll_region()),
+        )
         self.window.bind("<MouseWheel>", self.wheel)
         self.footer = ttk.Frame(self.body)
         self.footer.pack(fill="x", pady=(14, 0))
@@ -259,7 +329,9 @@ class SchedulesView:
         self.update_primary()
         self.new_button.pack(side="left", expand=True, fill="x", padx=(0, 10))
         localized(ttk.Button(self.footer, text="Close", command=self.close)).pack(side="right")
-        self.refresh_button = localized(ttk.Button(self.footer, text="↻ Refresh", style="Ghost.TButton", command=self.load))
+        self.refresh_button = localized(
+            ttk.Button(self.footer, text="↻ Refresh", style="Ghost.TButton", command=self.load)
+        )
         self.refresh_button.pack(side="right", padx=(0, 6))
         self.load()
 
@@ -313,8 +385,15 @@ class SchedulesView:
         self.rows = rows
         self.in_editor = False
         self.update_primary()
-        self.set_busy(False, message or ("Repeating schedules can be edited, paused or deleted. One-time timers can be deleted."
-                                         if rows else "Saved schedules appear here."))
+        self.set_busy(
+            False,
+            message
+            or (
+                "Repeating schedules can be edited, paused or deleted. One-time timers can be deleted."
+                if rows
+                else "Saved schedules appear here."
+            ),
+        )
         self.render()
 
     def failed(self, error):
@@ -329,19 +408,36 @@ class SchedulesView:
         for index, row in enumerate(self.rows):
             ScheduleRow(self, row).grid(row=index, column=0, sticky="ew", pady=(0, 10))
         if not self.rows:
-            self.empty = localized(ttk.Label(self.inner, text="No schedules yet. Create one, or choose a repeat on Start at or End at.",
-                                             style="Muted.TLabel", wraplength=480, justify="center"))
+            self.empty = localized(
+                ttk.Label(
+                    self.inner,
+                    text="No schedules yet. Create one, or choose a repeat on Start at or End at.",
+                    style="Muted.TLabel",
+                    wraplength=480,
+                    justify="center",
+                )
+            )
             self.empty.grid(row=0, column=0, pady=60)
         self.scroll.yview_moveto(0)
 
     def set_active(self, row, active):
         self.set_busy(True, "Resuming the schedule in hOn…" if active else "Pausing the schedule in hOn…")
-        self.app.change_schedule("active", row["id"], lambda rows: self.loaded(rows, "Schedule resumed." if active else "Schedule paused. It stays saved in hOn."),
-                                 self.failed, active=active)
+        self.app.change_schedule(
+            "active",
+            row["id"],
+            lambda rows: self.loaded(
+                rows, "Schedule resumed." if active else "Schedule paused. It stays saved in hOn."
+            ),
+            self.failed,
+            active=active,
+        )
 
     def delete(self, row):
         from tkinter import messagebox
-        if not messagebox.askyesno("Room AC Control", tr(self.window, "Delete this schedule from hOn?"), parent=self.window):
+
+        if not messagebox.askyesno(
+            "Room AC Control", tr(self.window, "Delete this schedule from hOn?"), parent=self.window
+        ):
             return
         self.set_busy(True, "Deleting the schedule in hOn…")
         self.app.change_schedule("delete", row["id"], lambda rows: self.loaded(rows, "Schedule deleted."), self.failed)
@@ -353,9 +449,11 @@ class SchedulesView:
         wheels = []
         for limit, start in ((24, value[0]), (60, value[1])):
             wheel = NumberWheel(frame, limit, start, lambda: None)
+
             def recolor(wheel=wheel):
                 wheel.surface, wheel.pill = C.BG, C.SURFACE
                 wheel.draw()
+
             recolor()
             refresh_on_theme(wheel, recolor)
             wheels.append(wheel)
@@ -376,8 +474,12 @@ class SchedulesView:
         selected = self.app.selected
         detail = ttk.Frame(self.inner, padding=(4, 0))
         detail.grid(row=0, column=0, sticky="ew")
-        localized(ttk.Button(detail, text="‹ Back to schedules", command=lambda: self.loaded(self.rows))).pack(anchor="w", pady=(0, 12))
-        localized(ttk.Label(detail, text="Edit schedule" if row else "New schedule", style="Heading.TLabel")).pack(anchor="w", pady=(0, 10))
+        localized(ttk.Button(detail, text="‹ Back to schedules", command=lambda: self.loaded(self.rows))).pack(
+            anchor="w", pady=(0, 12)
+        )
+        localized(ttk.Label(detail, text="Edit schedule" if row else "New schedule", style="Heading.TLabel")).pack(
+            anchor="w", pady=(0, 10)
+        )
         self.times = {}
         defaults = {"on": (row["start"] if row else (7, 0)), "off": (row["end"] if row else (22, 0))}
         enabled = {"on": bool(row["start"]) if row else True, "off": bool(row["end"]) if row else False}
@@ -396,11 +498,20 @@ class SchedulesView:
         shortcuts = ttk.Frame(detail)
         shortcuts.pack(anchor="w", pady=(6, 0))
         for label, days in (("Every day", EVERY_DAY), ("Weekdays", WEEKDAYS), ("Weekend", WEEKEND)):
-            localized(ttk.Button(shortcuts, text=label, style="Ghost.TButton",
-                                 command=lambda days=days: self.day_chips.set(days))).pack(side="left", padx=(0, 4))
+            localized(
+                ttk.Button(
+                    shortcuts, text=label, style="Ghost.TButton", command=lambda days=days: self.day_chips.set(days)
+                )
+            ).pack(side="left", padx=(0, 4))
         localized(ttk.Label(detail, text="When it turns on", font=font(10, "bold"))).pack(anchor="w", pady=(14, 2))
-        localized(ttk.Label(detail, text="Fan, airflow and other settings follow what you last used in that mode.",
-                            style="Muted.TLabel", wraplength=520)).pack(anchor="w", pady=(0, 6))
+        localized(
+            ttk.Label(
+                detail,
+                text="Fan, airflow and other settings follow what you last used in that mode.",
+                style="Muted.TLabel",
+                wraplength=520,
+            )
+        ).pack(anchor="w", pady=(0, 6))
         options = mode_choices(selected)
         self.modes = {option["label"]: option["value"] for option in options}
         current = row.get("mode") if row else mode_label(selected)
@@ -408,8 +519,13 @@ class SchedulesView:
         settings = ttk.Frame(detail)
         settings.pack(fill="x")
         if self.modes:
-            SelectField(settings, self.mode, {label: label for label in self.modes}, "Mode",
-                        choices=[{"label": label, "value": label, "glyph": mode_icon(label)} for label in self.modes]).pack(side="left", anchor="n")
+            SelectField(
+                settings,
+                self.mode,
+                {label: label for label in self.modes},
+                "Mode",
+                choices=[{"label": label, "value": label, "glyph": mode_icon(label)} for label in self.modes],
+            ).pack(side="left", anchor="n")
         self.temperature = None
         spec = selected.get("controls", {}).get("tempSel")
         if spec and spec.get("kind") == "range":
@@ -444,9 +560,17 @@ class SchedulesView:
             return
         ident = self.editing["id"] if self.editing else None
         self.set_busy(True, "Saving schedule to hOn…")
-        self.app.save_schedule(ident, start, end, days, requested,
-                               lambda rows: self.loaded(rows, "Schedule saved in hOn. It works with your PC off."),
-                               self.failed, parent=self.window, cancelled=lambda: self.set_busy(False, "Not saved. Adjust the time or days."))
+        self.app.save_schedule(
+            ident,
+            start,
+            end,
+            days,
+            requested,
+            lambda rows: self.loaded(rows, "Schedule saved in hOn. It works with your PC off."),
+            self.failed,
+            parent=self.window,
+            cancelled=lambda: self.set_busy(False, "Not saved. Adjust the time or days."),
+        )
 
     def close(self):
         self.app.schedules_view = None

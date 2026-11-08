@@ -9,6 +9,12 @@ Use lowercase names with hyphens. Keep each branch focused on its change and
 do not implement changes directly on `main`. Publish changes on their branch
 and open a pull request for review; merge only when the user requests it.
 
+Install the developer checks with
+`.venv\Scripts\python.exe tools/install_dependencies.py --dev`. Before pushing, run
+`.venv\Scripts\python.exe -m ruff format src tests tools`,
+`.venv\Scripts\python.exe -m ruff check src tests tools` and
+`.venv\Scripts\python.exe -m mypy`; CI runs all three.
+
 Build with `tools/Build.ps1` (portable ZIP, then the MSI and Setup.exe via
 `tools/build_installers.py`, which needs the .NET SDK). Run tests with
 `.venv\Scripts\python.exe -m unittest discover -s tests -v`. Run the UI smoke checks with

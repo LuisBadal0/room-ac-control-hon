@@ -1,6 +1,7 @@
 """Fast pointer events must not trigger a geometry change for every sample."""
-from types import SimpleNamespace
+
 import unittest
+from types import SimpleNamespace
 
 from room_ac_control.window_header import WindowHeader
 
@@ -9,22 +10,34 @@ class Window:
     def __init__(self):
         self.jobs = {}
         self.next_job = 0
-    def state(self): return "normal"
+
+    def state(self):
+        return "normal"
+
     def after(self, delay, callback):
         self.next_job += 1
         self.jobs[self.next_job] = callback
         return self.next_job
-    def after_cancel(self, job): self.jobs.pop(job)
+
+    def after_cancel(self, job):
+        self.jobs.pop(job)
 
 
 class Native:
     hwnd = 1
+
     def __init__(self):
         self.moves = []
         self.repaints = 0
-    def position(self): return (100, 200)
-    def move_to(self, x, y): self.moves.append((x, y))
-    def repaint(self): self.repaints += 1
+
+    def position(self):
+        return (100, 200)
+
+    def move_to(self, x, y):
+        self.moves.append((x, y))
+
+    def repaint(self):
+        self.repaints += 1
 
 
 class DragTests(unittest.TestCase):
@@ -39,7 +52,7 @@ class DragTests(unittest.TestCase):
         header = self.header()
         header.drag(SimpleNamespace(x_root=120, y_root=225))
         for sample in range(300):
-            header.drag_motion(SimpleNamespace(x_root=120+sample, y_root=225+sample))
+            header.drag_motion(SimpleNamespace(x_root=120 + sample, y_root=225 + sample))
         self.assertEqual(len(header.window.jobs), 1)
         self.assertEqual(header.native.moves, [])
         header.end_drag()

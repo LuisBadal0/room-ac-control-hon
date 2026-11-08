@@ -1,8 +1,9 @@
 """Live light/dark/Follow Windows switching with fictional rooms and no AC commands."""
-from pathlib import Path
+
 import sys
 import tempfile
 import tkinter as tk
+from pathlib import Path
 from tkinter import ttk
 from unittest.mock import patch
 
@@ -10,10 +11,17 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from room_ac_control.dashboard import App
 from room_ac_control.demo import devices
 from room_ac_control.secure_state import SecureState
-from room_ac_control.theme import C, PALETTES
+from room_ac_control.theme import PALETTES, C
 
-OPTIONS = ("background", "foreground", "highlightbackground", "insertbackground", "activebackground",
-           "disabledbackground", "selectbackground")
+OPTIONS = (
+    "background",
+    "foreground",
+    "highlightbackground",
+    "insertbackground",
+    "activebackground",
+    "disabledbackground",
+    "selectbackground",
+)
 
 
 def descendants(widget):
@@ -50,7 +58,7 @@ def stale_colours(root, previous):
             alive = set(widget.find_all())
             for item, ops in widget.__dict__.get("smooth_items", {}).items():
                 if item in alive:
-                    for kind, coords, options in ops:
+                    for kind, _coords, options in ops:
                         for option in ("fill", "outline"):
                             if str(options.get(option, "")).lower() in stale:
                                 found.append((str(widget), "smooth " + kind, option, options[option]))
@@ -84,7 +92,9 @@ with tempfile.TemporaryDirectory() as folder:
         assert SecureState(path).theme() == "dark"
         assert view.window.winfo_exists() and dict(app.dirty) == drafts
         assert app.canvas.cget("bg") == C.BG and app.status_label.cget("bg") == C.SOFT
-        assert view.search_entry.cget("bg") == C.CARD and view.top.cget("bg") == C.BG and view.content.cget("bg") == C.BG
+        assert (
+            view.search_entry.cget("bg") == C.CARD and view.top.cget("bg") == C.BG and view.content.cget("bg") == C.BG
+        )
         assert ttk.Style(root).lookup("TFrame", "background") == C.BG
         assert ttk.Style(root).lookup("Accent.TButton", "foreground") == C.ON_BRAND
         leftovers = stale_colours(root, "light")
@@ -117,6 +127,8 @@ with tempfile.TemporaryDirectory() as folder:
         app.set_language("en")
         view.close()
         assert not submissions  # Theme changes never contact the cloud or send AC commands.
-        print("Live light/dark switching, no stale colours, saved preference, Follow Windows polling and kept drafts passed offline.")
+        print(
+            "Live light/dark switching, no stale colours, saved preference, Follow Windows polling and kept drafts passed offline."
+        )
     finally:
         app.close()

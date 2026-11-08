@@ -1,6 +1,7 @@
 """Run every offline Windows UI smoke check, each in its own process, and fail if any fails.
 
 CI and contributors run this one script; it never contacts an account or an AC."""
+
 import os
 import subprocess
 import sys
@@ -23,7 +24,7 @@ def main(names=None):
         started = time.monotonic()
         result = subprocess.run([sys.executable, str(folder / name)])
         status = "passed" if result.returncode == 0 else f"FAILED (exit {result.returncode})"
-        print(f"== {name}: {status} in {time.monotonic()-started:.1f}s", flush=True)
+        print(f"== {name}: {status} in {time.monotonic() - started:.1f}s", flush=True)
         if result.returncode:
             failed.append(name)
     if failed:

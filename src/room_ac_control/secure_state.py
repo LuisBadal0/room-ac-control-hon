@@ -1,16 +1,19 @@
 """Encrypted account and program state, protected by the current Windows user."""
+
 import ctypes
-from copy import deepcopy
-from ctypes import wintypes
 import json
 import os
-from pathlib import Path
 import secrets
 import threading
+from copy import deepcopy
+from ctypes import wintypes
+from pathlib import Path
+
 from .diagnostics import diagnostics
 
 # How many presets can be chosen to show first in Everyday use.
 TOP_PRESET_LIMIT = 4
+
 
 class DataBlob(ctypes.Structure):
     _fields_ = [("size", wintypes.DWORD), ("data", ctypes.POINTER(ctypes.c_ubyte))]
@@ -25,15 +28,28 @@ def protect(data, decrypt=False):
     source = DataBlob(len(data), ctypes.cast(buffer, ctypes.POINTER(ctypes.c_ubyte)))
     result = DataBlob()
     function = crypt.CryptUnprotectData if decrypt else crypt.CryptProtectData
-    function.argtypes = [ctypes.POINTER(DataBlob), ctypes.c_void_p if decrypt else wintypes.LPCWSTR,
-                         ctypes.POINTER(DataBlob), ctypes.c_void_p, ctypes.c_void_p, wintypes.DWORD,
-                         ctypes.POINTER(DataBlob)]
+    function.argtypes = [
+        ctypes.POINTER(DataBlob),
+        ctypes.c_void_p if decrypt else wintypes.LPCWSTR,
+        ctypes.POINTER(DataBlob),
+        ctypes.c_void_p,
+        ctypes.c_void_p,
+        wintypes.DWORD,
+        ctypes.POINTER(DataBlob),
+    ]
     function.restype = wintypes.BOOL
     kernel.LocalFree.argtypes = [ctypes.c_void_p]
     kernel.LocalFree.restype = ctypes.c_void_p
     # UI_FORBIDDEN only; never LOCAL_MACHINE (which would permit other users).
-    if not function(ctypes.byref(source), None if decrypt else "Room AC Control account and programs",
-                    None, None, None, 1, ctypes.byref(result)):
+    if not function(
+        ctypes.byref(source),
+        None if decrypt else "Room AC Control account and programs",
+        None,
+        None,
+        None,
+        1,
+        ctypes.byref(result),
+    ):
         raise OSError("Windows could not decrypt saved data." if decrypt else "Windows could not encrypt saved data.")
     try:
         return ctypes.string_at(result.data, result.size)
@@ -44,7 +60,11 @@ def protect(data, decrypt=False):
 class SecureState:
     def __init__(self, path=None, persistent=True):
         self.persistent = persistent
-        self.path = Path(path) if path else Path(os.environ.get("LOCALAPPDATA", str(Path.home()))) / "RoomACControl" / "state.dpapi"
+        self.path = (
+            Path(path)
+            if path
+            else Path(os.environ.get("LOCALAPPDATA", str(Path.home()))) / "RoomACControl" / "state.dpapi"
+        )
         self.lock = threading.RLock()
         self.data = {"version": 1, "profiles": {}}
         self.load_error = False
@@ -56,13 +76,18 @@ class SecureState:
                     raise ValueError("Unsupported saved state")
                 if not isinstance(self.data.get("schedules", {}), dict):
                     raise ValueError("Invalid saved timers")
-                login=self.data.get("login")
-                if login is not None and (not isinstance(login,dict) or not all(isinstance(login.get(k),str) for k in ("email","password"))):
+                login = self.data.get("login")
+                if login is not None and (
+                    not isinstance(login, dict) or not all(isinstance(login.get(k), str) for k in ("email", "password"))
+                ):
                     raise ValueError("Invalid saved account")
                 for devices in self.data["profiles"].values():
-                    if not isinstance(devices,dict):raise ValueError("Invalid saved profiles")
+                    if not isinstance(devices, dict):
+                        raise ValueError("Invalid saved profiles")
                     for programs in devices.values():
-                        if not isinstance(programs,dict) or not all(isinstance(values,dict) for values in programs.values()):
+                        if not isinstance(programs, dict) or not all(
+                            isinstance(values, dict) for values in programs.values()
+                        ):
                             raise ValueError("Invalid saved profiles")
             except (OSError, ValueError, UnicodeError, AttributeError, TypeError) as error:
                 diagnostics.record("state_load_failed", error)
@@ -71,7 +96,7 @@ class SecureState:
 
     def write(self):
         if not self.persistent:
-            self.dirty=False
+            self.dirty = False
             return
         encrypted = protect(json.dumps(self.data, ensure_ascii=False).encode("utf-8"))
         self.path.parent.mkdir(parents=True, exist_ok=True)
@@ -82,7 +107,7 @@ class SecureState:
                 handle.flush()
                 os.fsync(handle.fileno())
             os.replace(temporary, self.path)
-            self.dirty=False
+            self.dirty = False
         finally:
             temporary.unlink(missing_ok=True)
 
@@ -107,8 +132,10 @@ class SecureState:
             try:
                 self.write()
             except OSError:
-                if previous is None:self.data.pop("language", None)
-                else:self.data["language"] = previous
+                if previous is None:
+                    self.data.pop("language", None)
+                else:
+                    self.data["language"] = previous
                 self.dirty = dirty
                 raise
 
@@ -126,8 +153,10 @@ class SecureState:
             try:
                 self.write()
             except OSError:
-                if previous is None:self.data.pop("theme", None)
-                else:self.data["theme"] = previous
+                if previous is None:
+                    self.data.pop("theme", None)
+                else:
+                    self.data["theme"] = previous
                 self.dirty = dirty
                 raise
 
@@ -146,8 +175,10 @@ class SecureState:
             try:
                 self.write()
             except OSError:
-                if previous is None:self.data.pop("auto_update", None)
-                else:self.data["auto_update"] = previous
+                if previous is None:
+                    self.data.pop("auto_update", None)
+                else:
+                    self.data["auto_update"] = previous
                 self.dirty = dirty
                 raise
 
@@ -194,9 +225,13 @@ class SecureState:
         if not account or not runs:
             return
         from datetime import datetime
+
         def parsed(value):
-            try:return datetime.fromisoformat(value)
-            except (TypeError, ValueError):return None
+            try:
+                return datetime.fromisoformat(value)
+            except (TypeError, ValueError):
+                return None
+
         with self.lock:
             accounts = self.data.get("routine_runs")
             if not isinstance(accounts, dict):
@@ -255,13 +290,13 @@ class SecureState:
     def save_credentials(self, email, password):
         with self.lock:
             self.data["login"] = {"email": email, "password": password}
-            self.dirty=True
+            self.dirty = True
             self.write()
 
     def forget_credentials(self):
         with self.lock:
             self.data.pop("login", None)
-            self.dirty=True
+            self.dirty = True
             self.write()
 
     def profile(self, account, device, program):
@@ -277,6 +312,6 @@ class SecureState:
             merged.update(values)
             if programs.get(program) != merged:
                 programs[program] = merged
-                self.dirty=True
+                self.dirty = True
             if self.dirty:
                 self.write()

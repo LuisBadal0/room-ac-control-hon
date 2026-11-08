@@ -1,11 +1,12 @@
 """Welcome screen with a product hero and a contained sign-in form."""
-from .i18n import tr, localized, refresh_on_language
+
 import tkinter as tk
 from tkinter import ttk
 
-from .theme import C, ASSETS, font, paint, rounded, unit_photo, ac_art, blend, refresh_on_theme
+from .i18n import localized, refresh_on_language, tr
 from .login_loading import LoginLoadingAnimation
 from .smooth import aa_line, aa_text
+from .theme import ASSETS, C, ac_art, blend, font, paint, refresh_on_theme, rounded, unit_photo
 
 
 class LoginView:
@@ -17,8 +18,8 @@ class LoginView:
         self.hero = tk.Canvas(self.frame, height=282, highlightthickness=0)
         self.hero.pack(fill="x")
         self.hero.bind("<Configure>", self.draw_hero)
-        refresh_on_language(self.hero,self.draw_hero)
-        refresh_on_theme(self.hero,self.draw_hero)
+        refresh_on_language(self.hero, self.draw_hero)
+        refresh_on_theme(self.hero, self.draw_hero)
         self.surface = tk.Canvas(self.frame, height=380, highlightthickness=0)
         self.surface.pack(fill="x", pady=(0, 14))
         form = paint(tk.Frame(self.surface), bg="CARD")
@@ -27,63 +28,112 @@ class LoginView:
         refresh_on_theme(self.surface, self.draw_card)
         self.loading = False
         self.animation = LoginLoadingAnimation(self.surface)
-        localized(paint(tk.Label(form, text="Welcome home", font=font(18, "black")), bg="CARD", fg="TEXT")).pack(anchor="w")
-        localized(paint(tk.Label(form, text="Sign in with your hOn account.", font=font(10)), bg="CARD", fg="MUTED")).pack(anchor="w", pady=(2, 16))
+        localized(paint(tk.Label(form, text="Welcome home", font=font(18, "black")), bg="CARD", fg="TEXT")).pack(
+            anchor="w"
+        )
+        localized(
+            paint(tk.Label(form, text="Sign in with your hOn account.", font=font(10)), bg="CARD", fg="MUTED")
+        ).pack(anchor="w", pady=(2, 16))
         app.email = self.field(form, "Email address")
         app.password = self.field(form, "Password", password=True)
-        app.login_button = localized(ttk.Button(form, text="Sign in  →", style="Login.Accent.TButton", command=app.connect))
+        app.login_button = localized(
+            ttk.Button(form, text="Sign in  →", style="Login.Accent.TButton", command=app.connect)
+        )
         app.login_button.pack(fill="x", pady=(6, 14))
         app.remember_account = tk.BooleanVar(value=False)
-        localized(ttk.Checkbutton(form, text="Remember me on this computer", style="Login.TCheckbutton", variable=app.remember_account)).pack(anchor="w")
-        localized(paint(tk.Label(self.frame, text="Remember me saves your email and password, encrypted by Windows.\nPrograms running as your Windows user can decrypt them.",
-                 font=font(9), wraplength=460, justify="center"), bg="BG", fg="MUTED")).pack()
-        diagnostic_link = localized(paint(tk.Label(self.frame, text="Export diagnostics", font=font(9, "bold"), cursor="hand2"),
-                                          bg="BG", fg="BRAND"))
-        diagnostic_link.pack(pady=(6,0))
+        localized(
+            ttk.Checkbutton(
+                form, text="Remember me on this computer", style="Login.TCheckbutton", variable=app.remember_account
+            )
+        ).pack(anchor="w")
+        localized(
+            paint(
+                tk.Label(
+                    self.frame,
+                    text="Remember me saves your email and password, encrypted by Windows.\nPrograms running as your Windows user can decrypt them.",
+                    font=font(9),
+                    wraplength=460,
+                    justify="center",
+                ),
+                bg="BG",
+                fg="MUTED",
+            )
+        ).pack()
+        diagnostic_link = localized(
+            paint(
+                tk.Label(self.frame, text="Export diagnostics", font=font(9, "bold"), cursor="hand2"),
+                bg="BG",
+                fg="BRAND",
+            )
+        )
+        diagnostic_link.pack(pady=(6, 0))
         diagnostic_link.bind("<Button-1>", lambda event: app.export_diagnostics())
         app.password.bind("<Return>", lambda event: app.connect())
         app.email.bind("<Return>", lambda event: app.password.focus_set())
 
     def field(self, parent, label, password=False):
-        localized(paint(tk.Label(parent, text=label, font=font(10, "bold")), bg="CARD", fg="TEXT")).pack(anchor="w", pady=(0, 6))
-        border = paint(tk.Frame(parent, highlightthickness=1), bg="CARD", highlightbackground="FIELD", highlightcolor="BRAND")
+        localized(paint(tk.Label(parent, text=label, font=font(10, "bold")), bg="CARD", fg="TEXT")).pack(
+            anchor="w", pady=(0, 6)
+        )
+        border = paint(
+            tk.Frame(parent, highlightthickness=1), bg="CARD", highlightbackground="FIELD", highlightcolor="BRAND"
+        )
         border.pack(fill="x", pady=(0, 14))
-        entry = tk.Entry(border, relief="flat", bd=0, highlightthickness=0, font=font(11),
-                         show="•" if password else "")
-        paint(entry, bg="CARD", fg="TEXT", insertbackground="TEXT", disabledbackground="CARD",
-              disabledforeground="MUTED", selectbackground="SOFT", selectforeground="ON_SOFT")
+        entry = tk.Entry(border, relief="flat", bd=0, highlightthickness=0, font=font(11), show="•" if password else "")
+        paint(
+            entry,
+            bg="CARD",
+            fg="TEXT",
+            insertbackground="TEXT",
+            disabledbackground="CARD",
+            disabledforeground="MUTED",
+            selectbackground="SOFT",
+            selectforeground="ON_SOFT",
+        )
         entry.pack(fill="x", padx=13, pady=11)
         # A thicker brand ring marks focus, as in hOn's text fields.
-        entry.bind("<FocusIn>", lambda event: (border.configure(highlightthickness=2, highlightbackground=C.BRAND),
-                                               entry.pack_configure(pady=10)))
-        entry.bind("<FocusOut>", lambda event: (border.configure(highlightthickness=1, highlightbackground=C.FIELD),
-                                                entry.pack_configure(pady=11)))
+        entry.bind(
+            "<FocusIn>",
+            lambda event: (
+                border.configure(highlightthickness=2, highlightbackground=C.BRAND),
+                entry.pack_configure(pady=10),
+            ),
+        )
+        entry.bind(
+            "<FocusOut>",
+            lambda event: (
+                border.configure(highlightthickness=1, highlightbackground=C.FIELD),
+                entry.pack_configure(pady=11),
+            ),
+        )
         return entry
 
     def draw_hero(self, event=None):
         c = self.hero
         c.delete("all")
         c.configure(bg=C.BG)
-        center = c.winfo_width()/2
+        center = c.winfo_width() / 2
         c.create_image(center, 42, image=self.mark)
         aa_text(c, center, 98, text=tr(c, "Room AC Control"), fill=C.TEXT, font=font(21, "black"), tags="title")
         aa_text(c, center, 126, text=tr(c, "Your room. Your comfort."), fill=C.MUTED, font=font(11), tags="tagline")
-        aa_text(c, center, 147, text=tr(c, "for hOn accounts · unofficial"), fill=C.MUTED, font=font(9), tags="unofficial")
+        aa_text(
+            c, center, 147, text=tr(c, "for hOn accounts · unofficial"), fill=C.MUTED, font=font(9), tags="unofficial"
+        )
         ac_art(c, center, 212, photo=self.photo)
-        stroke = blend(C.BRAND, C.BG, .45)
+        stroke = blend(C.BRAND, C.BG, 0.45)
         for offset in range(-3, 4):
-            x = center+offset*31
-            aa_line(c, x, 260, x-5, 265, x+5, 272, x, 279, fill=stroke, width=2, smooth=True, capstyle="round")
+            x = center + offset * 31
+            aa_line(c, x, 260, x - 5, 265, x + 5, 272, x, 279, fill=stroke, width=2, smooth=True, capstyle="round")
 
     def draw_card(self, event=None):
         c = self.surface
         width = c.winfo_width()
         c.configure(bg=C.BG)
         c.delete("surface")
-        rounded(c, 1, 1, width-1, 379, 24, fill=C.CARD, outline=C.EDGE, tags="surface")
+        rounded(c, 1, 1, width - 1, 379, 24, fill=C.CARD, outline=C.EDGE, tags="surface")
         c.tag_lower("surface")
-        c.coords(self.form_id, width/2, 24)
-        c.itemconfigure(self.form_id, width=max(200, width-48))
+        c.coords(self.form_id, width / 2, 24)
+        c.itemconfigure(self.form_id, width=max(200, width - 48))
         self.animation.resize()
 
     def set_loading(self, active, automatic=False):

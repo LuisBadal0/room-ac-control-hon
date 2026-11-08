@@ -1,17 +1,18 @@
 """Exercise refresh callbacks, retries and UI drafts without network calls."""
+
 import copy
 import sys
 import tkinter as tk
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1])); sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from room_ac_control.dashboard import App
 from tests.ui_smoke import demo_device
 
-
 root = tk.Tk()
 root.withdraw()
-app = App(root, demo=True,language="en")
+app = App(root, demo=True, language="en")
 app.connected([demo_device()])
 app.staged("tempSel", "26")
 app.staged("ecoMode", "0")
@@ -31,16 +32,24 @@ assert app.airflow.tone is None
 assert app.temp.get() == "26"
 assert app.fan.get() == "High"
 # Edits made on the dashboard and in All functions both survive the refresh.
-assert {key: app.dirty[key] for key in ("tempSel", "ecoMode", "silentSleepStatus")} == {"tempSel": "26", "ecoMode": "0", "silentSleepStatus": "1"}
+assert {key: app.dirty[key] for key in ("tempSel", "ecoMode", "silentSleepStatus")} == {
+    "tempSel": "26",
+    "ecoMode": "0",
+    "silentSleepStatus": "1",
+}
 assert app.current("healthMode") == "1"
 assert view.window.winfo_exists()
 view.close()
 
 # Replace submission with an offline recorder. Close coroutines to avoid leaks.
 submissions = []
+
+
 def submit(coroutine, callback, operation, on_error=None):
     coroutine.close()
     submissions.append((callback, operation, on_error))
+
+
 app.worker.submit = submit
 app.demo = False
 app.auto_refresh()
@@ -81,38 +90,38 @@ assert app.selected["room"] == 30
 
 # An accepted fan selection survives old refresh callbacks and delayed cloud
 # reports. It is separate from an unsent draft and never automatically resent.
-newer["fan"]="Auto"
-newer["controls"]["windSpeed"]["value"]=5
+newer["fan"] = "Auto"
+newer["controls"]["windSpeed"]["value"] = 5
 app.show_device(newer)
 app.auto_refresh()
-stale=submissions[-1][0]
-app.staged("windSpeed","3.0")
-assert app.fan.get()=="Low"
+stale = submissions[-1][0]
+app.staged("windSpeed", "3.0")
+assert app.fan.get() == "Low"
 app.action("apply")
 submissions[-1][0]("Accepted offline")
-assert app.fan.get()=="Low" and app.pending_changes=={"windSpeed":"3.0"}
+assert app.fan.get() == "Low" and app.pending_changes == {"windSpeed": "3.0"}
 assert not app.dirty and not app.apply_button.enabled
 stale(newer)
-assert app.fan.get()=="Low"
-waiting=copy.deepcopy(newer)
-waiting["pending_changes"]={"windSpeed":"3"}
-app.show_device(waiting,preserve_edits=True)
-assert app.fan.get()=="Low" and app.selected["fan"]=="Auto"
+assert app.fan.get() == "Low"
+waiting = copy.deepcopy(newer)
+waiting["pending_changes"] = {"windSpeed": "3"}
+app.show_device(waiting, preserve_edits=True)
+assert app.fan.get() == "Low" and app.selected["fan"] == "Auto"
 app.open_functions()
-assert app.current("windSpeed")=="3"
+assert app.current("windSpeed") == "3"
 app.functions_view.close()
-app.staged("windSpeed","5")
-assert app.dirty=={"windSpeed":"5"}  # The user can explicitly replace the pending request.
-app.dirty={}
-confirmed=copy.deepcopy(newer)
+app.staged("windSpeed", "5")
+assert app.dirty == {"windSpeed": "5"}  # The user can explicitly replace the pending request.
+app.dirty = {}
+confirmed = copy.deepcopy(newer)
 confirmed.update(fan="Low")
-confirmed["controls"]["windSpeed"]["value"]=3
-app.show_device(confirmed,preserve_edits=True)
-assert app.fan.get()=="Low" and not app.pending_changes
-expired=copy.deepcopy(newer)
-expired["confirmation_expired"]=True
-app.show_device(expired,preserve_edits=True)
-assert app.fan.get()=="Auto" and "not confirmed" in app.status.get()
+confirmed["controls"]["windSpeed"]["value"] = 3
+app.show_device(confirmed, preserve_edits=True)
+assert app.fan.get() == "Low" and not app.pending_changes
+expired = copy.deepcopy(newer)
+expired["confirmation_expired"] = True
+app.show_device(expired, preserve_edits=True)
+assert app.fan.get() == "Auto" and "not confirmed" in app.status.get()
 
 app.close()
 print("Automatic refresh, edit preservation, event coalescing, retry and stale-result checks passed.")
