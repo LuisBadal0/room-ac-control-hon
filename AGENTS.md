@@ -13,7 +13,11 @@ Install the developer checks with
 `.venv\Scripts\python.exe tools/install_dependencies.py --dev`. Before pushing, run
 `.venv\Scripts\python.exe -m ruff format src tests tools`,
 `.venv\Scripts\python.exe -m ruff check src tests tools` and
-`.venv\Scripts\python.exe -m mypy`; CI runs all three.
+`.venv\Scripts\python.exe -m mypy`; CI runs all three. CI also measures coverage
+over the unit tests and smoke checks together and fails below `fail_under` in
+`pyproject.toml` (see CONTRIBUTING.md for the local commands).
+`tests/test_pyhon_contract.py` checks the app against pyhOn with a public,
+anonymized archive in `tests/fixtures/pyhon/`; never add archives from a real account.
 
 Build with `tools/Build.ps1` (portable ZIP, then the MSI and Setup.exe via
 `tools/build_installers.py`, which needs the .NET SDK). Run tests with
