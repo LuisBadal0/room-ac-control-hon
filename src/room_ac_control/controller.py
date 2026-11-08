@@ -1,38 +1,74 @@
 """Cloud adapter; account persistence is handled by Windows-encrypted storage."""
+
 import asyncio
 import re
 import time
 from contextlib import suppress
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import aiohttp
 from pyhon.appliance import HonAppliance
 from pyhon.connection.api import HonAPI
+
 from .live_updates import CloudUpdates
 
 MODES = {"0": "Auto", "1": "Cool", "2": "Dry", "3": "Dry", "4": "Heat", "5": "Fan", "6": "Fan"}
 FANS = {"1": "High", "2": "Medium", "3": "Low", "4": "Auto", "5": "Auto"}
 FIELDS = {
-    "tempSel": "Target temperature", "machMode": "Mode", "windSpeed": "Fan speed",
-    "ecoMode": "Eco mode", "silentSleepStatus": "Sleep", "muteStatus": "Silent mode",
-    "rapidMode": "Turbo / rapid mode", "healthMode": "Health / purification",
-    "screenDisplayStatus": "Unit display", "echoStatus": "Buzzer (Echo)",
-    "10degreeHeatingStatus": "10°C heating", "selfCleaningStatus": "Self cleaning",
-    "selfCleaning56Status": "56°C self cleaning", "humanSensingStatus": "Eco pilot",
-    "windDirectionHorizontal": "Horizontal airflow", "windDirectionVertical": "Vertical airflow",
-    "onOffStatus": "Power", "lightStatus": "Light", "delayTime": "Start delay",
+    "tempSel": "Target temperature",
+    "machMode": "Mode",
+    "windSpeed": "Fan speed",
+    "ecoMode": "Eco mode",
+    "silentSleepStatus": "Sleep",
+    "muteStatus": "Silent mode",
+    "rapidMode": "Turbo / rapid mode",
+    "healthMode": "Health / purification",
+    "screenDisplayStatus": "Unit display",
+    "echoStatus": "Buzzer (Echo)",
+    "10degreeHeatingStatus": "10°C heating",
+    "selfCleaningStatus": "Self cleaning",
+    "selfCleaning56Status": "56°C self cleaning",
+    "humanSensingStatus": "Eco pilot",
+    "windDirectionHorizontal": "Horizontal airflow",
+    "windDirectionVertical": "Vertical airflow",
+    "onOffStatus": "Power",
+    "lightStatus": "Light",
+    "delayTime": "Start delay",
 }
 VERTICAL = {"2": "Position 1", "4": "Position 2", "5": "Position 3", "6": "Position 4", "7": "Position 5", "8": "Swing"}
-HORIZONTAL = {"0": "Position 1", "3": "Position 2", "4": "Position 3", "5": "Position 4", "6": "Position 5", "7": "Swing"}
-VALUE_LABELS = {"machMode": MODES, "windSpeed": FANS, "windDirectionVertical": VERTICAL,
-                "windDirectionHorizontal": HORIZONTAL,
-                "humanSensingStatus": {"0": "Off", "1": "Avoid direct airflow", "2": "Follow person", "3": "Other"}}
+HORIZONTAL = {
+    "0": "Position 1",
+    "3": "Position 2",
+    "4": "Position 3",
+    "5": "Position 4",
+    "6": "Position 5",
+    "7": "Swing",
+}
+VALUE_LABELS = {
+    "machMode": MODES,
+    "windSpeed": FANS,
+    "windDirectionVertical": VERTICAL,
+    "windDirectionHorizontal": HORIZONTAL,
+    "humanSensingStatus": {"0": "Off", "1": "Avoid direct airflow", "2": "Follow person", "3": "Other"},
+}
 INTERNAL = {"prStr", "prCode", "program", "category", "favourite", "zoneMap"}
 CONTROL_DESCRIPTIONS = {
     "muteStatus": "Quieter AC operation. Separate from Sleep and command sounds.",
     "echoStatus": "Unit command-feedback buzzer setting. Separate from Silent mode.",
 }
-MAINTENANCE_TERMS = ("clean", "steriliz", "sterilis", "descal", "maintenance", "service", "diagnos", "calibrat", "reset", "filter", "test")
+MAINTENANCE_TERMS = (
+    "clean",
+    "steriliz",
+    "sterilis",
+    "descal",
+    "maintenance",
+    "service",
+    "diagnos",
+    "calibrat",
+    "reset",
+    "filter",
+    "test",
+)
 
 
 def function_group(command_name, category="", label="", parameters=None):
@@ -61,9 +97,13 @@ def parameter_spec(key, parameter, device, reported=True):
     if parameter.typology not in {"enum", "range"} or key in INTERNAL:
         return None
     current = device.get(key) if reported else None
-    spec = {"key": key, "label": readable(key), "kind": parameter.typology,
-            "value": parameter.value if current is None else current,
-            "reported": current is not None}
+    spec = {
+        "key": key,
+        "label": readable(key),
+        "kind": parameter.typology,
+        "value": parameter.value if current is None else current,
+        "reported": current is not None,
+    }
     if key in CONTROL_DESCRIPTIONS:
         spec["description"] = CONTROL_DESCRIPTIONS[key]
     if parameter.typology == "range":
@@ -79,7 +119,11 @@ def parameter_spec(key, parameter, device, reported=True):
         labels = VALUE_LABELS.get(key, {})
         if set(values) == {"0", "1"} and key not in VALUE_LABELS:
             labels = {"0": "Off", "1": "On"}
-        spec.update(options=choices(parameter, labels) if labels else {readable(v) if not v.isnumeric() else v: v for v in values})
+        spec.update(
+            options=choices(parameter, labels)
+            if labels
+            else {readable(v) if not v.isnumeric() else v: v for v in values}
+        )
     return spec
 
 
@@ -110,8 +154,14 @@ def capabilities(device):
                     if spec := parameter_spec(key, parameter, device, reported=False):
                         params.append(spec)
             label = readable(category) if category != "_" else readable(name)
-            forms.append({"category": category, "label": label, "parameters": params,
-                          "group": function_group(name, category, label, variant.settings)})
+            forms.append(
+                {
+                    "category": category,
+                    "label": label,
+                    "parameters": params,
+                    "group": function_group(name, category, label, variant.settings),
+                }
+            )
         commands[name] = {"label": "Start preset" if name == "startProgram" else readable(name), "forms": forms}
     return controls, programs, commands
 
@@ -148,13 +198,26 @@ def mode_choices(snapshot):
         patch = {"machMode": value}
         if "0" in sleep_values:
             patch["silentSleepStatus"] = "0"
-        result.append({"label": label, "value": patch, "description": "Standard mode",
-                       "glyph": {"Auto":"leaf","Cool":"snow","Dry":"drop","Heat":"sun","Fan":"fan"}.get(label,"wind")})
+        result.append(
+            {
+                "label": label,
+                "value": patch,
+                "description": "Standard mode",
+                "glyph": {"Auto": "leaf", "Cool": "snow", "Dry": "drop", "Heat": "sun", "Fan": "fan"}.get(
+                    label, "wind"
+                ),
+            }
+        )
     if "1" in sleep_values:
         for label, value in snapshot.get("modes", {}).items():
             if label in {"Cool", "Heat"}:
-                result.append({"label": label + " Night", "value": {"machMode": value, "silentSleepStatus": "1"},
-                               "description": ("Cooling" if label == "Cool" else "Heating") + " with Sleep enabled"})
+                result.append(
+                    {
+                        "label": label + " Night",
+                        "value": {"machMode": value, "silentSleepStatus": "1"},
+                        "description": ("Cooling" if label == "Cool" else "Heating") + " with Sleep enabled",
+                    }
+                )
     return result
 
 
@@ -162,9 +225,11 @@ def mode_label(snapshot, pending=None):
     pending = pending or {}
     mode = snapshot.get("controls", {}).get("machMode", {})
     current = mode.get("value") if mode.get("reported") else None
-    selected = pending.get("machMode",current)
-    label = next((label for label, value in snapshot.get("modes", {}).items()
-                  if value == code(selected)), snapshot.get("mode", "Unknown"))
+    selected = pending.get("machMode", current)
+    label = next(
+        (label for label, value in snapshot.get("modes", {}).items() if value == code(selected)),
+        snapshot.get("mode", "Unknown"),
+    )
     sleep = snapshot.get("controls", {}).get("silentSleepStatus", {})
     sleep_value = pending.get("silentSleepStatus", sleep.get("value") if sleep.get("reported") else None)
     return label + " Night" if label in {"Cool", "Heat"} and code(sleep_value) == "1" else label
@@ -239,8 +304,11 @@ def describe(device):
         "can_apply": "settings" in device.commands,
         "connection": device.get("attributes.lastConnEvent.category", "Unknown"),
         "fetched": datetime.now().strftime("%H:%M:%S"),
-        "controls": controls, "programs": programs, "commands": commands,
-        "sensors": sensors(device), "alerts": alerts(device),
+        "controls": controls,
+        "programs": programs,
+        "commands": commands,
+        "sensors": sensors(device),
+        "alerts": alerts(device),
     }
 
 
@@ -285,7 +353,12 @@ async def send_action(device, action, requested=None):
             raise ControlError("A requested control is unavailable for this AC.")
         # hOn declares power as "fixed" on some ACs, then syncs its value to the
         # reported state. Only this explicit ON action may override that field.
-        if action == "on" and key == "onOffStatus" and parameter.typology == "fixed" and str(parameter.value) in {"0","1"}:
+        if (
+            action == "on"
+            and key == "onOffStatus"
+            and parameter.typology == "fixed"
+            and str(parameter.value) in {"0", "1"}
+        ):
             continue
         validate(parameter, value)
     for key, value in changes.items():
@@ -320,7 +393,13 @@ async def execute_function(device, request):
     changes = request.get("parameters", {})
     for key, value in changes.items():
         parameter = command.settings.get(key)
-        if parameter is None or key in INTERNAL or key == "onOffStatus" or parameter.typology not in {"enum", "range"} or parameter.group != "parameters":
+        if (
+            parameter is None
+            or key in INTERNAL
+            or key == "onOffStatus"
+            or parameter.typology not in {"enum", "range"}
+            or parameter.group != "parameters"
+        ):
             raise ControlError("Unsupported function parameter.")
         validate(parameter, value)
     previous = device.commands[name]
@@ -352,9 +431,10 @@ class Controller:
     def remember(self, snapshot, explicit=None):
         if self.memory:
             try:
-                self.memory.remember_mode(snapshot,explicit)
+                self.memory.remember_mode(snapshot, explicit)
             except OSError as error:
                 from .diagnostics import diagnostics
+
                 diagnostics.record("state_save_failed", error)
             self.note_running_routines(snapshot)
 
@@ -362,29 +442,36 @@ class Controller:
         """Keep the time the AC reports a self-clean (switch on, or its program running), so runs
         started in the hOn app or with the remote count too while this app is open."""
         from .routine_history import running_programs, switched_on
+
         controls = snapshot.get("controls", {})
         running = switched_on({key: spec.get("value") for key, spec in controls.items() if spec.get("reported")})
         running += [routine for routine in running_programs(snapshot) if routine not in running]
         if running:
-            now = datetime.now(timezone.utc)
+            now = datetime.now(UTC)
             self.memory.record_routine_runs(snapshot["id"], {routine: now for routine in running})
 
     def record_started_routine(self, device_id, action, requested, group=None):
         """Keep the time this app started a maintenance routine."""
         from .routine_history import routine_for, switched_on
+
         if not self.memory or not requested:
             return
         if action == "execute":
-            routines = [routine_for(requested["command"], requested.get("category", "_"))] if group == "maintenance" else []
+            routines = (
+                [routine_for(requested["command"], requested.get("category", "_"))] if group == "maintenance" else []
+            )
         else:
             routines = switched_on(requested) if action in {"configure", "apply", "on"} else []
         if routines:
-            now = datetime.now(timezone.utc)
+            now = datetime.now(UTC)
             self.memory.record_routine_runs(device_id, {routine: now for routine in routines})
 
     async def routine_history(self, device_id):
         """Read (never change) hOn's recent command history for maintenance routine starts."""
         from .routine_history import runs_from_history
+
+        if self.api is None:
+            raise ControlError("The cloud service did not accept the command. Sign in again.")
         device = self.devices[device_id]
         return runs_from_history(await self.api.load_command_history(device))
 
@@ -394,12 +481,13 @@ class Controller:
         try:
             self.api = await HonAPI(email, password, session=self.session).create()
             from .cloud_timers import CloudTimers
+
             self.cloud_timers = CloudTimers(self.api._hon)
             for info in await self.api.load_appliances():
                 if info.get("applianceTypeName") != "AC":
                     continue
                 zones = int(info.get("zone") or 0)
-                for zone in (range(1, zones + 1) if zones > 1 else [0]):
+                for zone in range(1, zones + 1) if zones > 1 else [0]:
                     device = HonAppliance(self.api, info.copy(), zone=zone)
                     await device.load_commands()
                     await device.update(force=True)
@@ -432,21 +520,28 @@ class Controller:
         if not snapshot.get("pending_changes"):
             self.remember(snapshot)
         active = self.active_functions.get(device_id)
-        if active and snapshot["power"] == "On" and self.memory and active.get("group")!="maintenance":
+        if active and snapshot["power"] == "On" and self.memory and active.get("group") != "maintenance":
             from .program_memory import mode_key
-            program=str(snapshot.get("program") or "").lower().split(".")[-1]
-            wrong_program=program.startswith("iot_") and program!=active["category"].lower()
+
+            program = str(snapshot.get("program") or "").lower().split(".")[-1]
+            wrong_program = program.startswith("iot_") and program != active["category"].lower()
             if mode_key(snapshot) == active["mode"] and not wrong_program:
-                active["confirmed"]=True
+                active["confirmed"] = True
                 command = device.commands.get(active["command"])
                 variant = command.categories.get(active["category"]) if command else None
                 if variant:
-                    values = {key:device.get(key) for key,param in variant.settings.items()
-                              if key not in INTERNAL and param.group == "parameters" and param.typology in {"range","enum"} and device.get(key) is not None}
+                    values = {
+                        key: device.get(key)
+                        for key, param in variant.settings.items()
+                        if key not in INTERNAL
+                        and param.group == "parameters"
+                        and param.typology in {"range", "enum"}
+                        and device.get(key) is not None
+                    }
                     with suppress(OSError):
-                        self.memory.remember_function(device_id,active["command"],active["category"],values)
+                        self.memory.remember_function(device_id, active["command"], active["category"], values)
             elif active.get("confirmed"):
-                self.active_functions.pop(device_id,None)
+                self.active_functions.pop(device_id, None)
         return snapshot
 
     def confirm_changes(self, snapshot):
@@ -454,16 +549,21 @@ class Controller:
         if not pending:
             return
         controls = snapshot.get("controls", {})
+
         def matches(key, value):
             spec = controls.get(key, {})
             if not spec.get("reported"):
                 return False
-            try:return float(spec["value"]) == float(value)
-            except (TypeError,ValueError):return str(spec["value"]) == str(value)
-        remaining = {key:value for key,value in pending["values"].items() if not matches(key,value)}
+            try:
+                return float(spec["value"]) == float(value)
+            except (TypeError, ValueError):
+                return str(spec["value"]) == str(value)
+
+        remaining = {key: value for key, value in pending["values"].items() if not matches(key, value)}
         if not remaining or time.monotonic() >= pending["deadline"]:
-            self.pending_changes.pop(snapshot["id"],None)
-            if remaining:snapshot["confirmation_expired"] = True
+            self.pending_changes.pop(snapshot["id"], None)
+            if remaining:
+                snapshot["confirmation_expired"] = True
         else:
             pending["values"] = remaining
             snapshot["pending_changes"] = dict(remaining)
@@ -476,6 +576,7 @@ class Controller:
             return {"available": True, "values": state}
         except Exception as error:
             from .diagnostics import diagnostics
+
             diagnostics.record("timer_status_failed", error)
             return {"available": False, "error": "Timers unavailable · Refresh"}
 
@@ -492,6 +593,7 @@ class Controller:
         if self.cloud_timers is None:
             raise ControlError("The hOn timer connection is unavailable. Sign in again.")
         from .schedules import Schedules
+
         return Schedules(self.cloud_timers)
 
     async def schedule_list(self, device_id):
@@ -504,7 +606,11 @@ class Controller:
         if operation == "save":
             result = await service.save(device, **options)
         elif operation == "active":
-            result = {"saved": True, "rows": await service.set_active(device, options["ident"], options["active"]), "conflicts": []}
+            result = {
+                "saved": True,
+                "rows": await service.set_active(device, options["ident"], options["active"]),
+                "conflicts": [],
+            }
         elif operation == "delete":
             result = {"saved": True, "rows": await service.delete(device, options["ident"]), "conflicts": []}
         else:
@@ -518,29 +624,43 @@ class Controller:
         device = self.devices[device_id]
         await send_action(device, action, requested)
         snapshot = describe(device)
-        self.remember(snapshot,requested if action in {"on","apply","configure"} else None)
+        self.remember(snapshot, requested if action in {"on", "apply", "configure"} else None)
         if action != "execute":
             self.record_started_routine(device_id, action, requested)
-        if action in {"on","apply","configure"} and requested:
-            previous = self.pending_changes.get(device_id,{}).get("values",{})
-            self.pending_changes[device_id] = {"values":{**previous,**{key:str(value) for key,value in requested.items() if key in snapshot["controls"]}},
-                                               "deadline":time.monotonic()+60}
-        elif action in {"off","execute"}:
-            self.pending_changes.pop(device_id,None)
+        if action in {"on", "apply", "configure"} and requested:
+            previous = self.pending_changes.get(device_id, {}).get("values", {})
+            self.pending_changes[device_id] = {
+                "values": {
+                    **previous,
+                    **{key: str(value) for key, value in requested.items() if key in snapshot["controls"]},
+                },
+                "deadline": time.monotonic() + 60,
+            }
+        elif action in {"off", "execute"}:
+            self.pending_changes.pop(device_id, None)
         if action == "execute" and self.memory:
-            command,category=requested["command"],requested.get("category","_")
-            variant=device.commands[command].categories[category]
-            values={key:param.value for key,param in variant.settings.items()
-                    if key not in INTERNAL and param.group=="parameters" and param.typology in {"enum","range"}}
+            command, category = requested["command"], requested.get("category", "_")
+            variant = device.commands[command].categories[category]
+            values = {
+                key: param.value
+                for key, param in variant.settings.items()
+                if key not in INTERNAL and param.group == "parameters" and param.typology in {"enum", "range"}
+            }
             with suppress(OSError):
-                self.memory.remember_function(device_id,command,category,values)
+                self.memory.remember_function(device_id, command, category, values)
             from .program_memory import mode_key
-            self.active_functions[device_id]={"command":command,"category":category,"mode":mode_key(snapshot),"confirmed":False,
-                                             "group":function_group(command,category,parameters=variant.settings)}
+
+            self.active_functions[device_id] = {
+                "command": command,
+                "category": category,
+                "mode": mode_key(snapshot),
+                "confirmed": False,
+                "group": function_group(command, category, parameters=variant.settings),
+            }
             self.record_started_routine(device_id, action, requested, self.active_functions[device_id]["group"])
-        message="Command accepted by the cloud service. Wait a few seconds, then refresh to check the AC."
+        message = "Command accepted by the cloud service. Wait a few seconds, then refresh to check the AC."
         if self.memory and self.memory.save_error:
-            message+=" Program settings could not be saved locally."
+            message += " Program settings could not be saved locally."
         return message
 
     async def watch_updates(self):
@@ -553,11 +673,17 @@ class Controller:
                     signature = await asyncio.wait_for(self.api.load_aws_token(), timeout=12)
                     token = self.api.auth.id_token
                     devices = list(self.devices.values())
-                def changed(device_id):
-                    if listener is not None and not listener.closed and not loop.is_closed():
+
+                own: list[CloudUpdates] = []
+
+                def changed(device_id, own=own):
+                    current = own[0] if own else None
+                    if current is not None and not current.closed and not loop.is_closed():
                         with suppress(RuntimeError):
                             loop.call_soon_threadsafe(self.on_change, device_id)
+
                 listener = CloudUpdates(token, signature, devices, changed)
+                own.append(listener)
                 listener.start()
                 # Rotate tokens periodically. Native MQTT handles reconnects in between.
                 await asyncio.sleep(1800)
@@ -566,12 +692,15 @@ class Controller:
                 raise
             except Exception as error:
                 from .diagnostics import diagnostics
+
                 diagnostics.record("notification_failed", error)
             finally:
                 if listener is not None:
-                    try:listener.close()
+                    try:
+                        listener.close()
                     except Exception as error:
                         from .diagnostics import diagnostics
+
                         diagnostics.record("notification_close_failed", error)
             await asyncio.sleep(retry)
 

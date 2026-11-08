@@ -1,4 +1,5 @@
 """Background event loop that runs hOn cloud operations off the Tk main thread."""
+
 import asyncio
 import queue
 import threading
@@ -6,7 +7,7 @@ import threading
 import aiohttp
 from pyhon.exceptions import HonAuthenticationError, NoAuthenticationException
 
-from .controller import Controller, ControlError
+from .controller import ControlError, Controller
 from .diagnostics import diagnostics, quiet_library_logs
 
 # Third-party authentication errors can include token-bearing URLs. Do not log them.
@@ -16,10 +17,12 @@ quiet_library_logs()
 class Worker:
     def __init__(self, memory=None):
         self.loop = asyncio.new_event_loop()
-        self.loop.set_exception_handler(lambda loop, context: diagnostics.record("background_task_failed", context.get("exception")))
+        self.loop.set_exception_handler(
+            lambda loop, context: diagnostics.record("background_task_failed", context.get("exception"))
+        )
         self.results = queue.Queue()
         self.changes = queue.Queue()
-        self.controller = Controller(on_change=self.changes.put,memory=memory)
+        self.controller = Controller(on_change=self.changes.put, memory=memory)
         self.thread = threading.Thread(target=self.run, daemon=True)
         self.thread.start()
 
@@ -46,6 +49,7 @@ class Worker:
                     if operation in {"command", "timer", "schedule"} and not isinstance(error, ControlError):
                         text += " The request outcome is unknown. Refresh and check hOn before retrying."
                     self.results.put((on_error or callback, None, text, operation))
+
         asyncio.run_coroutine_threadsafe(perform(), self.loop)
 
     def close(self):
@@ -54,6 +58,7 @@ class Worker:
                 if task is not asyncio.current_task():
                     task.cancel()
             await self.controller.close()
+
         try:
             asyncio.run_coroutine_threadsafe(finish(), self.loop).result(timeout=3)
         except Exception as error:

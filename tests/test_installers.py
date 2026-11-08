@@ -1,5 +1,5 @@
 """Offline checks for the MSI and Setup.exe recipe; nothing is installed."""
-from pathlib import Path
+
 import json
 import re
 import sys
@@ -7,6 +7,7 @@ import tempfile
 import unittest
 import xml.etree.ElementTree as ElementTree
 import zipfile
+from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
@@ -18,9 +19,14 @@ WXS = "{http://wixtoolset.org/schemas/v4/wxs}"
 class InstallerTests(unittest.TestCase):
     def test_release_names_sit_beside_the_portable_zip(self):
         names = build_installers.release_names("1.2.3")
-        self.assertEqual(names, {"zip": "Room-AC-Control-for-hOn-1.2.3-Windows-x64.zip",
-                                 "msi": "Room-AC-Control-for-hOn-1.2.3-Windows-x64.msi",
-                                 "setup": "Room-AC-Control-for-hOn-1.2.3-Windows-x64-Setup.exe"})
+        self.assertEqual(
+            names,
+            {
+                "zip": "Room-AC-Control-for-hOn-1.2.3-Windows-x64.zip",
+                "msi": "Room-AC-Control-for-hOn-1.2.3-Windows-x64.msi",
+                "setup": "Room-AC-Control-for-hOn-1.2.3-Windows-x64-Setup.exe",
+            },
+        )
 
     def test_stage_unpacks_only_the_app_folder(self):
         with tempfile.TemporaryDirectory() as folder:
@@ -70,8 +76,9 @@ class InstallerTests(unittest.TestCase):
         package = ElementTree.parse(ROOT / "packaging" / "installer" / "RoomACControl.wxs").find(f"{WXS}Package")
         components = {component.get("Id"): component for component in package.iter(f"{WXS}Component")}
         self.assertIsNone(components["StartMenuShortcut"].get("Condition"))
-        self.assertEqual(components["DesktopShortcut"].get("Condition"),
-                         'INSTALLDESKTOPSHORTCUT AND INSTALLDESKTOPSHORTCUT <> "0"')
+        self.assertEqual(
+            components["DesktopShortcut"].get("Condition"), 'INSTALLDESKTOPSHORTCUT AND INSTALLDESKTOPSHORTCUT <> "0"'
+        )
         self.assertEqual(components["DesktopShortcut"].find(f"{WXS}Shortcut").get("Directory"), "DesktopFolder")
         secure = {prop.get("Id") for prop in package.iter(f"{WXS}Property") if prop.get("Secure") == "yes"}
         self.assertEqual(secure, {"INSTALLDESKTOPSHORTCUT", "DESKTOPCHOICEMADE"})
@@ -82,8 +89,11 @@ class InstallerTests(unittest.TestCase):
         dialog = ui.find(f"{WXS}Dialog[@Id='ShortcutsDlg']")
         checkbox = dialog.find(f"{WXS}Control[@Type='CheckBox']")
         self.assertEqual((checkbox.get("Property"), checkbox.get("CheckBoxValue")), ("INSTALLDESKTOPSHORTCUT", "1"))
-        steps = {(p.get("Dialog"), p.get("Control")): p.get("Value") for p in ui.iter(f"{WXS}Publish")
-                 if p.get("Event") == "NewDialog" and p.get("Condition") in (None, "NOT Installed", 'LicenseAccepted = "1"')}
+        steps = {
+            (p.get("Dialog"), p.get("Control")): p.get("Value")
+            for p in ui.iter(f"{WXS}Publish")
+            if p.get("Event") == "NewDialog" and p.get("Condition") in (None, "NOT Installed", 'LicenseAccepted = "1"')
+        }
         self.assertEqual(steps[("LicenseAgreementDlg", "Next")], "ShortcutsDlg")
         self.assertEqual(steps[("ShortcutsDlg", "Next")], "VerifyReadyDlg")
         self.assertEqual(steps[("VerifyReadyDlg", "Back")], "ShortcutsDlg")
@@ -99,8 +109,10 @@ class InstallerTests(unittest.TestCase):
         names = [box.get("Name") for box in theme.iter("{http://wixtoolset.org/schemas/v4/thmutil}Checkbox")]
         self.assertIn("InstallDesktopShortcut", names)
         strings = ElementTree.parse(folder / "SetupTheme.wxl").getroot()
-        self.assertIn("InstallDesktopShortcutCheckbox",
-                      {s.get("Id") for s in strings.iter("{http://wixtoolset.org/schemas/v4/wxl}String")})
+        self.assertIn(
+            "InstallDesktopShortcutCheckbox",
+            {s.get("Id") for s in strings.iter("{http://wixtoolset.org/schemas/v4/wxl}String")},
+        )
 
     def test_msi_page_artwork_is_drawn_from_the_app_icon(self):
         dialog, banner = build_installers.dialog_artwork(), build_installers.banner_artwork()

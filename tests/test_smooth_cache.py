@@ -1,4 +1,5 @@
 """The shared image cache never deletes an image that is still on screen."""
+
 import tkinter as tk
 import unittest
 from unittest.mock import patch

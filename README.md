@@ -88,7 +88,10 @@ Runtime builds, local environments, shortcuts and account files are excluded fro
 
 ```powershell
 .\tools\Setup.ps1
+.\.venv\Scripts\python.exe tools/install_dependencies.py --dev
 .\.venv\Scripts\python.exe -m room_ac_control --preview dashboard
+.\.venv\Scripts\python.exe -m ruff check src tests tools
+.\.venv\Scripts\python.exe -m mypy
 .\.venv\Scripts\python.exe -m unittest discover -s tests -v
 .\tools\Build.ps1
 ```

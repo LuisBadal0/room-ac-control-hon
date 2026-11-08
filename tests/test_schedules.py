@@ -1,23 +1,45 @@
 """Repeating schedules in hOn 2.30.7's record format, against fictional offline fixtures."""
-from datetime import datetime, timedelta, timezone
-import unittest
 
-from room_ac_control.cloud_timers import iso, select_timers, utc_time
+import unittest
+from datetime import UTC, datetime, timedelta
+
+from room_ac_control.cloud_timers import CloudTimers, iso, select_timers, utc_time
 from room_ac_control.controller import ControlError
-from room_ac_control.schedules import (EVERY_DAY, Schedules, clock, conflicts, day_labels, next_occurrence,
-                                       preview_record, record_days, schedule_dates, schedule_rows)
+from room_ac_control.schedules import (
+    EVERY_DAY,
+    Schedules,
+    clock,
+    conflicts,
+    day_labels,
+    next_occurrence,
+    preview_record,
+    record_days,
+    schedule_dates,
+    schedule_rows,
+)
 from tests.test_cloud_timers import FixtureHandler, fixture_device
-from room_ac_control.cloud_timers import CloudTimers
 
 
 def stamp(**delta):
-    return iso(datetime.now(timezone.utc) + timedelta(**delta))
+    return iso(datetime.now(UTC) + timedelta(**delta))
 
 
-def repeating(ident="repeat-1", days=(0, 1, 2, 3, 4), start="2026-01-05T06:00:00.000Z", end=None, active=True, offset=-60):
-    record = {"id": ident, "frequency": "weekly", "days": list(days), "isActive": active, "maintenance": False,
-              "timezoneOffset": offset, "dateISOstart": start,
-              "setupStart": {"commandName": "startProgram", "parameters": {"machMode": "4", "tempSel": "22.00", "onOffStatus": "1"}}}
+def repeating(
+    ident="repeat-1", days=(0, 1, 2, 3, 4), start="2026-01-05T06:00:00.000Z", end=None, active=True, offset=-60
+):
+    record = {
+        "id": ident,
+        "frequency": "weekly",
+        "days": list(days),
+        "isActive": active,
+        "maintenance": False,
+        "timezoneOffset": offset,
+        "dateISOstart": start,
+        "setupStart": {
+            "commandName": "startProgram",
+            "parameters": {"machMode": "4", "tempSel": "22.00", "onOffStatus": "1"},
+        },
+    }
     if end:
         record.update(dateISOend=end, setupEnd={"commandName": "stopProgram", "parameters": {"onOffStatus": "0"}})
     return record
@@ -42,8 +64,12 @@ class RecordTests(unittest.TestCase):
 
     def test_clock_uses_the_record_offset(self):
         # Lisbon summer time: JavaScript offset -60, so 06:00Z is 07:00 local.
-        self.assertEqual(clock({"dateISOstart": "2026-07-06T06:00:00.000Z", "timezoneOffset": -60}, "dateISOstart"), (7, 0))
-        self.assertEqual(clock({"dateISOstart": "2026-01-05T06:30:00.000Z", "timezoneOffset": 0}, "dateISOstart"), (6, 30))
+        self.assertEqual(
+            clock({"dateISOstart": "2026-07-06T06:00:00.000Z", "timezoneOffset": -60}, "dateISOstart"), (7, 0)
+        )
+        self.assertEqual(
+            clock({"dateISOstart": "2026-01-05T06:30:00.000Z", "timezoneOffset": 0}, "dateISOstart"), (6, 30)
+        )
         self.assertIsNone(clock({"dateISOstart": "not a date"}, "dateISOstart"))
 
     def test_rows_list_upcoming_and_repeating_schedules_only(self):
@@ -51,17 +77,40 @@ class RecordTests(unittest.TestCase):
             "scheduledPrograms": [
                 repeating(end="2026-01-05T07:30:00.000Z"),
                 repeating("paused", days=EVERY_DAY, active=False),
-                {"id": "past-once", "frequency": "once", "isActive": True, "dateISOstart": stamp(hours=-2),
-                 "setupStart": {"parameters": {}}},
-                {"id": "soon", "frequency": "once", "isActive": True, "dateISOstart": stamp(hours=3),
-                 "setupStart": {"parameters": {"machMode": "1", "silentSleepStatus": "1", "tempSel": "25.00"}}},
-                {"id": "monthly", "frequency": "monthly", "isActive": True, "dateISOstart": stamp(hours=3),
-                 "setupStart": {"parameters": {}}},
+                {
+                    "id": "past-once",
+                    "frequency": "once",
+                    "isActive": True,
+                    "dateISOstart": stamp(hours=-2),
+                    "setupStart": {"parameters": {}},
+                },
+                {
+                    "id": "soon",
+                    "frequency": "once",
+                    "isActive": True,
+                    "dateISOstart": stamp(hours=3),
+                    "setupStart": {"parameters": {"machMode": "1", "silentSleepStatus": "1", "tempSel": "25.00"}},
+                },
+                {
+                    "id": "monthly",
+                    "frequency": "monthly",
+                    "isActive": True,
+                    "dateISOstart": stamp(hours=3),
+                    "setupStart": {"parameters": {}},
+                },
                 {"id": "no-time", "frequency": "weekly", "days": [1], "isActive": True},
             ],
             "scheduleRunningProgramEnd": [],
-            "scheduledProgramsMaintenance": [{"id": "clean", "maintenance": True, "frequency": "weekly", "days": [1],
-                                              "dateISOstart": stamp(hours=1), "setupStart": {}}],
+            "scheduledProgramsMaintenance": [
+                {
+                    "id": "clean",
+                    "maintenance": True,
+                    "frequency": "weekly",
+                    "days": [1],
+                    "dateISOstart": stamp(hours=1),
+                    "setupStart": {},
+                }
+            ],
         }
         rows = {row["id"]: row for row in schedule_rows(payload)}
         self.assertEqual(set(rows), {"repeat-1", "paused", "soon", "monthly"})
@@ -75,10 +124,18 @@ class RecordTests(unittest.TestCase):
             schedule_rows({"scheduledPrograms": {}})
 
     def test_conflicts_need_a_shared_day_and_the_same_time(self):
-        rows = schedule_rows({"scheduledPrograms": [repeating(end="2026-01-05T21:00:00.000Z"),
-                                                    repeating("paused", days=EVERY_DAY, active=False)]})
+        rows = schedule_rows(
+            {
+                "scheduledPrograms": [
+                    repeating(end="2026-01-05T21:00:00.000Z"),
+                    repeating("paused", days=EVERY_DAY, active=False),
+                ]
+            }
+        )
         found = conflicts(rows, (7, 0), None, (0, 6))
-        self.assertEqual([(item["row"]["id"], item["time"], item["days"]) for item in found], [("repeat-1", (7, 0), (0,))])
+        self.assertEqual(
+            [(item["row"]["id"], item["time"], item["days"]) for item in found], [("repeat-1", (7, 0), (0,))]
+        )
         self.assertEqual(len(conflicts(rows, None, (22, 0), (0,))), 1)  # 21:00Z is 22:00 local.
         self.assertEqual(conflicts(rows, None, (21, 0), (0,)), [])
         self.assertEqual(len(conflicts(rows, (9, 0), (22, 0), (1,))), 1)
@@ -108,8 +165,10 @@ class RecordTests(unittest.TestCase):
     def test_preview_records_round_trip_through_the_list(self):
         record = preview_record("preview-1", (7, 0), (8, 30), (0, 1, 2, 3, 4), {"machMode": "4", "tempSel": "22"})
         row = schedule_rows({"scheduledPrograms": [record]})[0]
-        self.assertEqual((row["kind"], row["days"], row["start"], row["end"], row["mode"]),
-                         ("repeat", (0, 1, 2, 3, 4), (7, 0), (8, 30), "Heat"))
+        self.assertEqual(
+            (row["kind"], row["days"], row["start"], row["end"], row["mode"]),
+            ("repeat", (0, 1, 2, 3, 4), (7, 0), (8, 30), "Heat"),
+        )
 
 
 class ServiceTests(unittest.IsolatedAsyncioTestCase):
@@ -120,12 +179,16 @@ class ServiceTests(unittest.IsolatedAsyncioTestCase):
         self.service = Schedules(CloudTimers(self.handler))
 
     async def test_create_weekly_schedule_in_hon_format_without_an_ac_command(self):
-        result = await self.service.save(self.device, None, (7, 0), (8, 30), (0, 1, 2, 3, 4),
-                                         {"machMode": "4", "tempSel": "22"})
+        result = await self.service.save(
+            self.device, None, (7, 0), (8, 30), (0, 1, 2, 3, 4), {"machMode": "4", "tempSel": "22"}
+        )
         self.assertTrue(result["saved"])
         method, url, body = self.handler.writes[-1]
         self.assertEqual(method, "POST")
-        self.assertEqual((body["frequency"], body["days"], body["isActive"], body["maintenance"]), ("weekly", [0, 1, 2, 3, 4], True, False))
+        self.assertEqual(
+            (body["frequency"], body["days"], body["isActive"], body["maintenance"]),
+            ("weekly", [0, 1, 2, 3, 4], True, False),
+        )
         self.assertNotIn("scheduleEnd", body)
         self.assertEqual(body["setupStart"]["commandName"], "startProgram")
         self.assertEqual(body["setupStart"]["parameters"]["machMode"], "4")
@@ -176,19 +239,35 @@ class ServiceTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.api.sent, [])
 
     async def test_end_timer_bucket_delete_keeps_scheduleEnd(self):
-        self.handler.payload["scheduleRunningProgramEnd"] = [{
-            "id": "end-1", "frequency": "once", "isActive": True, "scheduleEnd": True, "dateISOend": stamp(hours=2),
-            "setupEnd": {"commandName": "stopProgram", "parameters": {"onOffStatus": "0"}}}]
+        self.handler.payload["scheduleRunningProgramEnd"] = [
+            {
+                "id": "end-1",
+                "frequency": "once",
+                "isActive": True,
+                "scheduleEnd": True,
+                "dateISOend": stamp(hours=2),
+                "setupEnd": {"commandName": "stopProgram", "parameters": {"onOffStatus": "0"}},
+            }
+        ]
         await self.service.delete(self.device, "end-1")
         self.assertTrue(self.handler.writes[-1][2]["scheduleEnd"])
 
     async def test_missing_or_unsupported_schedules_and_unconfirmed_writes_are_reported(self):
         self.handler.payload["scheduledPrograms"] = [
-            {"id": "monthly", "frequency": "monthly", "isActive": True, "dateISOstart": stamp(hours=3), "setupStart": {"parameters": {}}}]
-        for call in (self.service.save(self.device, "gone", (7, 0), None, (0,)),
-                     self.service.save(self.device, "monthly", (7, 0), None, (0,)),
-                     self.service.set_active(self.device, "monthly", False),
-                     self.service.delete(self.device, "gone")):
+            {
+                "id": "monthly",
+                "frequency": "monthly",
+                "isActive": True,
+                "dateISOstart": stamp(hours=3),
+                "setupStart": {"parameters": {}},
+            }
+        ]
+        for call in (
+            self.service.save(self.device, "gone", (7, 0), None, (0,)),
+            self.service.save(self.device, "monthly", (7, 0), None, (0,)),
+            self.service.set_active(self.device, "monthly", False),
+            self.service.delete(self.device, "gone"),
+        ):
             with self.assertRaisesRegex(ControlError, "changed in hOn"):
                 await call
         for bad in (((7, 0), None, ()), (None, None, (0,)), ((7, 0), (7, 0), (0,)), ((24, 0), None, (0,))):

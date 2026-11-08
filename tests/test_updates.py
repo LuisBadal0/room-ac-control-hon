@@ -3,10 +3,10 @@
 Manifests are pre-signed with a throwaway test key (tests/fixtures); the
 private key no longer exists. No network request is made and no real app is
 started: the helper is run against fixture folders with launching disabled."""
+
 import base64
 import io
 import json
-import os
 import subprocess
 import sys
 import tempfile
@@ -45,6 +45,7 @@ def opener_for(responses, seen=None):
         if seen is not None:
             seen.append(url)
         return Response(responses[url])
+
     return opener
 
 
@@ -69,6 +70,7 @@ def runtime_zip(path, files=None, extra=()):
 class ManifestTests(unittest.TestCase):
     def test_built_in_key_loads_and_matches_the_release_workflow_copy(self):
         from awscrt.crypto import RSA
+
         self.assertIsNotNone(RSA.new_public_key_from_pem_data(updates.PUBLIC_KEY))
         committed = (Path(__file__).resolve().parents[1] / "packaging" / "update-signing-key.pub").read_bytes()
         self.assertEqual(committed.replace(b"\r\n", b"\n"), updates.PUBLIC_KEY)
@@ -76,8 +78,11 @@ class ManifestTests(unittest.TestCase):
     def test_valid_manifest_gives_fixed_github_urls(self):
         value = release()
         self.assertEqual(value["version"], "9.9.9")
-        self.assertEqual(value["url"], "https://github.com/LuisBadal0/room-ac-control-hon/releases/download/"
-                                       "v9.9.9/Room-AC-Control-for-hOn-9.9.9-Windows-x64.zip")
+        self.assertEqual(
+            value["url"],
+            "https://github.com/LuisBadal0/room-ac-control-hon/releases/download/"
+            "v9.9.9/Room-AC-Control-for-hOn-9.9.9-Windows-x64.zip",
+        )
         self.assertEqual(value["notes"], "https://github.com/LuisBadal0/room-ac-control-hon/releases/tag/v9.9.9")
 
     def test_tampered_or_wrongly_signed_manifests_are_rejected(self):
@@ -122,19 +127,31 @@ class DownloadTests(unittest.TestCase):
     def test_matching_download_is_kept_and_progress_reported(self):
         with tempfile.TemporaryDirectory() as folder:
             progress = []
-            path = updates.download(release(), Path(folder), lambda done, total: progress.append((done, total)),
-                                    opener=opener_for({release()["url"]: ARCHIVE}))
+            path = updates.download(
+                release(),
+                Path(folder),
+                lambda done, total: progress.append((done, total)),
+                opener=opener_for({release()["url"]: ARCHIVE}),
+            )
             self.assertEqual(path.read_bytes(), ARCHIVE)
             self.assertEqual(progress[-1], (len(ARCHIVE), len(ARCHIVE)))
             self.assertEqual([item.name for item in Path(folder).iterdir()], [path.name])
 
     def test_wrong_bytes_size_or_cancel_leave_nothing_behind(self):
-        for body, cancelled in ((b"fixture archivX", False), (ARCHIVE + b"extra", False),
-                                (ARCHIVE[:-1], False), (ARCHIVE, True)):
+        for body, cancelled in (
+            (b"fixture archivX", False),
+            (ARCHIVE + b"extra", False),
+            (ARCHIVE[:-1], False),
+            (ARCHIVE, True),
+        ):
             with self.subTest(body=body, cancelled=cancelled), tempfile.TemporaryDirectory() as folder:
                 with self.assertRaises(updates.UpdateError):
-                    updates.download(release(), Path(folder), cancelled=lambda: cancelled,
-                                     opener=opener_for({release()["url"]: body}))
+                    updates.download(
+                        release(),
+                        Path(folder),
+                        cancelled=lambda cancelled=cancelled: cancelled,
+                        opener=opener_for({release()["url"]: body}),
+                    )
                 self.assertEqual(list(Path(folder).iterdir()), [])
 
 
@@ -146,14 +163,19 @@ class UnpackTests(unittest.TestCase):
             target.mkdir(parents=True)
             (target / "stale.txt").write_text("old")
             updates.extract_runtime(runtime_zip(folder / "update.zip"), target)
-            self.assertEqual(sorted(str(p.relative_to(target)).replace("\\", "/") for p in target.rglob("*") if p.is_file()),
-                             ["RoomACControl.exe", "_internal/base_library.zip"])
+            self.assertEqual(
+                sorted(str(p.relative_to(target)).replace("\\", "/") for p in target.rglob("*") if p.is_file()),
+                ["RoomACControl.exe", "_internal/base_library.zip"],
+            )
 
     def test_unsafe_names_links_and_missing_executable_are_refused(self):
         link = zipfile.ZipInfo(updates.ZIP_RUNTIME + "link")
         link.external_attr = 0o120777 << 16
-        unsafe = [((updates.ZIP_RUNTIME + "../../outside.txt"), b"x"), ((updates.ZIP_RUNTIME + "C:/outside.txt"), b"x"),
-                  (link, b"RoomACControl.exe")]
+        unsafe = [
+            ((updates.ZIP_RUNTIME + "../../outside.txt"), b"x"),
+            ((updates.ZIP_RUNTIME + "C:/outside.txt"), b"x"),
+            (link, b"RoomACControl.exe"),
+        ]
         for item in unsafe:
             with self.subTest(item=str(item[0])), tempfile.TemporaryDirectory() as folder:
                 folder = Path(folder)
@@ -170,14 +192,18 @@ class UnpackTests(unittest.TestCase):
             def run(command, **options):
                 Path(command[-1]).write_text(json.dumps(report), encoding="utf-8")
                 return SimpleNamespace(returncode=0 if report.get("ok") else 1)
+
             return run
+
         good = {"ok": True, "version": "9.9.9", "updates": True}
         updates.self_test(Path("new"), "9.9.9", run=fake(good))
         for report in ({**good, "ok": False}, {**good, "version": "9.9.8"}, {"ok": True, "version": "9.9.9"}):
             with self.subTest(report=report), self.assertRaises(updates.UpdateError):
                 updates.self_test(Path("new"), "9.9.9", run=fake(report))
+
         def timeout(command, **options):
             raise subprocess.TimeoutExpired(command, 1)
+
         with self.assertRaises(updates.UpdateError):
             updates.self_test(Path("new"), "9.9.9", run=timeout)
 
@@ -202,8 +228,9 @@ class InstallTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             folder = Path(folder)
             location = folder / "Luís & Co (test)" / "runtime" / "RoomACControl"
-            updates.launch_helper(location, "9.9.9", folder=folder, pid=4242,
-                                  popen=lambda *args, **options: calls.append((args, options)))
+            updates.launch_helper(
+                location, "9.9.9", folder=folder, pid=4242, popen=lambda *args, **options: calls.append((args, options))
+            )
             script = (folder / "apply-update.cmd").read_bytes()
         (command,), options = calls[0]
         self.assertEqual(command[-3:], ["/d", "/c", r".\apply-update.cmd"])
@@ -229,8 +256,14 @@ class InstallTests(unittest.TestCase):
             (new / "RoomACControl.exe").write_text("new")
             app = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(2)"])
             started = time.monotonic()
-            helper = updates.launch_helper(location, "9.9.9", folder=folder / "updates", pid=app.pid,
-                                           popen=subprocess.Popen, extra={"UPDATE_LAUNCH": "0", "UPDATE_TRIES": "1"})
+            helper = updates.launch_helper(
+                location,
+                "9.9.9",
+                folder=folder / "updates",
+                pid=app.pid,
+                popen=subprocess.Popen,
+                extra={"UPDATE_LAUNCH": "0", "UPDATE_TRIES": "1"},
+            )
             self.assertEqual(helper.wait(timeout=60), 0)
             app.wait()
             self.assertGreaterEqual(time.monotonic() - started, 1.5)  # It waited for the app to exit.
@@ -241,8 +274,14 @@ class InstallTests(unittest.TestCase):
             self.assertFalse(updates.previous(location).exists())
 
             # A failed swap puts the current version back and says so.
-            helper = updates.launch_helper(location, "9.9.10", folder=folder / "updates", pid=999999,
-                                           popen=subprocess.Popen, extra={"UPDATE_LAUNCH": "0", "UPDATE_TRIES": "1"})
+            helper = updates.launch_helper(
+                location,
+                "9.9.10",
+                folder=folder / "updates",
+                pid=999999,
+                popen=subprocess.Popen,
+                extra={"UPDATE_LAUNCH": "0", "UPDATE_TRIES": "1"},
+            )
             self.assertEqual(helper.wait(timeout=60), 1)  # Nothing was staged.
             self.assertEqual((location / "RoomACControl.exe").read_text(), "new")
             self.assertIn("could not be installed", updates.finish(location, "9.9.9", folder / "updates"))
@@ -259,8 +298,14 @@ class InstallTests(unittest.TestCase):
             (new / "RoomACControl.exe").write_text("new")
             # Another running copy keeps a file open, so Windows will not move the folder.
             with (location / "RoomACControl.exe").open("rb"):
-                helper = updates.launch_helper(location, "9.9.9", folder=folder / "updates", pid=999999,
-                                               popen=subprocess.Popen, extra={"UPDATE_LAUNCH": "0", "UPDATE_TRIES": "1"})
+                helper = updates.launch_helper(
+                    location,
+                    "9.9.9",
+                    folder=folder / "updates",
+                    pid=999999,
+                    popen=subprocess.Popen,
+                    extra={"UPDATE_LAUNCH": "0", "UPDATE_TRIES": "1"},
+                )
                 self.assertEqual(helper.wait(timeout=60), 1)
             self.assertEqual((location / "RoomACControl.exe").read_text(), "old")
             message = updates.finish(location, "0.4.0", folder / "updates")
@@ -284,7 +329,7 @@ class UpdaterTests(unittest.TestCase):
         deadline = time.monotonic() + 10
         while updater.state not in states and time.monotonic() < deadline:
             updater.poll()
-            time.sleep(.01)
+            time.sleep(0.01)
         return updater.state
 
     def test_check_install_and_apply_flow(self):
@@ -298,9 +343,19 @@ class UpdaterTests(unittest.TestCase):
                 self.assertTrue(updater.check())
                 self.assertEqual(self.wait(updater, {"available"}), "available")
             stages = []
-            with patch.object(updates, "updates_folder", return_value=Path(folder) / "updates"), \
-                    patch.object(updates, "download", side_effect=lambda r, f, progress, cancelled: (progress(1, 2), runtime_zip(Path(folder) / "u.zip"))[1]), \
-                    patch.object(updates, "self_test", side_effect=lambda runtime, version: stages.append((runtime, version))):
+            with (
+                patch.object(updates, "updates_folder", return_value=Path(folder) / "updates"),
+                patch.object(
+                    updates,
+                    "download",
+                    side_effect=lambda r, f, progress, cancelled: (progress(1, 2), runtime_zip(Path(folder) / "u.zip"))[
+                        1
+                    ],
+                ),
+                patch.object(
+                    updates, "self_test", side_effect=lambda runtime, version: stages.append((runtime, version))
+                ),
+            ):
                 self.assertTrue(updater.install())
                 self.assertEqual(self.wait(updater, {"ready", "failed"}), "ready", updater.error)
             self.assertEqual(stages, [(updates.staged(location), "9.9.9")])
@@ -317,11 +372,19 @@ class UpdaterTests(unittest.TestCase):
             location.mkdir(parents=True)
             updater = updates.Updater("0.1.23", location)
             updater.release, updater.state = release(), "available"
+
             def refuse(runtime, version):
                 raise updates.UpdateError("The new version did not pass its checks. Nothing was changed.")
-            with patch.object(updates, "updates_folder", return_value=Path(folder) / "updates"), \
-                    patch.object(updates, "download", side_effect=lambda r, f, progress, cancelled: runtime_zip(Path(folder) / "u.zip")), \
-                    patch.object(updates, "self_test", side_effect=refuse):
+
+            with (
+                patch.object(updates, "updates_folder", return_value=Path(folder) / "updates"),
+                patch.object(
+                    updates,
+                    "download",
+                    side_effect=lambda r, f, progress, cancelled: runtime_zip(Path(folder) / "u.zip"),
+                ),
+                patch.object(updates, "self_test", side_effect=refuse),
+            ):
                 updater.install()
                 self.assertEqual(self.wait(updater, {"ready", "failed"}), "failed")
             self.assertIn("did not pass", updater.error)
@@ -366,15 +429,21 @@ class PreferenceAndLanguageTests(unittest.TestCase):
 
     def test_every_update_message_is_translated(self):
         import ast
-        source = (Path(__file__).resolve().parents[1] / "src" / "room_ac_control" / "updates.py").read_text(encoding="utf-8")
+
+        source = (Path(__file__).resolve().parents[1] / "src" / "room_ac_control" / "updates.py").read_text(
+            encoding="utf-8"
+        )
         for node in ast.walk(ast.parse(source)):
             if isinstance(node, ast.Call) and getattr(node.func, "id", None) == "UpdateError":
                 self.assertIn(node.args[0].value, PORTUGUESE)
         from room_ac_control.updates_view import UpdatesView
+
         portuguese = Translator("pt-PT")
         fake = SimpleNamespace()
         for state in ("idle", "checking", "current", "available", "downloading", "verifying", "ready"):
-            fake.updater = SimpleNamespace(state=state, supported=True, demo=False, release=release(), progress=.5, error=None)
+            fake.updater = SimpleNamespace(
+                state=state, supported=True, demo=False, release=release(), progress=0.5, error=None
+            )
             for text in UpdatesView.message(fake):
                 self.assertNotEqual(portuguese.translate(text), text, text)
         for demo, supported in ((True, False), (False, False)):

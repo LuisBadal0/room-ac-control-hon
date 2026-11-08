@@ -6,9 +6,10 @@ repeats it on the listed days, so a past date in a repeating record is normal.
 When a schedule starts after it ends, hOn moves the start back one day.
 Records are written to the same cron service as the one-time timers.
 """
+
 import asyncio
 from copy import deepcopy
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from .cloud_timers import BUCKETS, DATE, SETUP, command_payload, iso, utc_time
 from .controller import MODES, ControlError, code
@@ -18,8 +19,17 @@ EVERY_DAY = (0, 1, 2, 3, 4, 5, 6)
 WEEKDAYS = (0, 1, 2, 3, 4)
 WEEKEND = (5, 6)
 # Fields a schedule keeps when it is switched on or off.
-KEEP = {"scheduledProgram", "setupStart", "setupEnd", "dateISOstart", "dateISOend", "days",
-        "timezoneOffset", "frequency", "scheduleEnd"}
+KEEP = {
+    "scheduledProgram",
+    "setupStart",
+    "setupEnd",
+    "dateISOstart",
+    "dateISOend",
+    "days",
+    "timezoneOffset",
+    "frequency",
+    "scheduleEnd",
+}
 
 
 def day_labels(days):
@@ -74,7 +84,7 @@ def summary(command):
     parameters = command.get("parameters") if isinstance(command, dict) else None
     if not isinstance(parameters, dict):
         return {}
-    result = {}
+    result: dict[str, str | float] = {}
     mode = MODES.get(code(parameters.get("machMode")))
     if mode:
         night = mode in {"Cool", "Heat"} and code(parameters.get("silentSleepStatus")) == "1"
@@ -91,7 +101,7 @@ def schedule_rows(payload, now=None):
 
     Maintenance routines are left alone, and finished one-time timers are hidden.
     """
-    now = now or datetime.now(timezone.utc)
+    now = now or datetime.now(UTC)
     rows = []
     for bucket in BUCKETS:
         records = payload.get(bucket, [])
@@ -100,15 +110,26 @@ def schedule_rows(payload, now=None):
         for record in records:
             if not isinstance(record, dict) or record.get("maintenance") or not record.get("id"):
                 continue
-            times = {action: clock(record, DATE[action]) for action in DATE if isinstance(record.get(SETUP[action]), dict)}
+            times = {
+                action: clock(record, DATE[action]) for action in DATE if isinstance(record.get(SETUP[action]), dict)
+            }
             times = {action: value for action, value in times.items() if value is not None}
             if not times:
                 continue
-            row = {"id": str(record["id"]), "bucket": bucket, "record": record, "active": bool(record.get("isActive")),
-                   "start": times.get("on"), "end": times.get("off"), **summary(record.get("setupStart"))}
+            row = {
+                "id": str(record["id"]),
+                "bucket": bucket,
+                "record": record,
+                "active": bool(record.get("isActive")),
+                "start": times.get("on"),
+                "end": times.get("off"),
+                **summary(record.get("setupStart")),
+            }
             days = record_days(record)
             if record.get("frequency") == "once":
-                upcoming = [due for due in (utc_time(record.get(DATE[action])) for action in times) if due and due > now]
+                upcoming = [
+                    due for due in (utc_time(record.get(DATE[action])) for action in times) if due and due > now
+                ]
                 if not upcoming or not row["active"]:
                     continue
                 due = min(upcoming).astimezone()
@@ -172,9 +193,9 @@ def schedule_dates(start, end, days, now=None):
     now = now or datetime.now().astimezone()
     due = {}
     if start is not None:
-        due["on"] = next_occurrence(*start, days, now)
+        due["on"] = next_occurrence(start[0], start[1], days, now)
     if end is not None:
-        due["off"] = next_occurrence(*end, days, now)
+        due["off"] = next_occurrence(end[0], end[1], days, now)
     if len(due) == 2 and due["on"] > due["off"]:
         due["on"] -= timedelta(days=1)
     return due
@@ -185,10 +206,15 @@ def repeating_body(device, handler, start, end, days, requested=None, now=None):
     days = validate_request(start, end, days)
     due = schedule_dates(start, end, days, now)
     first = min(due.values())
-    body = {"macAddress": device.mac_address, "scheduledProgram": None,
-            "frequency": "everyday" if days == EVERY_DAY else "weekly", "days": list(days),
-            "maintenance": False, "isActive": True,
-            "timezoneOffset": -int(first.utcoffset().total_seconds() // 60)}
+    body = {
+        "macAddress": device.mac_address,
+        "scheduledProgram": None,
+        "frequency": "everyday" if days == EVERY_DAY else "weekly",
+        "days": list(days),
+        "maintenance": False,
+        "isActive": True,
+        "timezoneOffset": -int(first.utcoffset().total_seconds() // 60),
+    }
     if start is not None:
         body["setupStart"] = command_payload(device, "on", handler, requested)
     if end is not None:
@@ -203,9 +229,14 @@ def preview_record(ident, start, end, days, requested=None, now=None):
     days = validate_request(start, end, days)
     due = schedule_dates(start, end, days, now)
     first = min(due.values())
-    record = {"id": ident, "frequency": "everyday" if days == EVERY_DAY else "weekly", "days": list(days),
-              "isActive": True, "maintenance": False,
-              "timezoneOffset": -int(first.utcoffset().total_seconds() // 60)}
+    record = {
+        "id": ident,
+        "frequency": "everyday" if days == EVERY_DAY else "weekly",
+        "days": list(days),
+        "isActive": True,
+        "maintenance": False,
+        "timezoneOffset": -int(first.utcoffset().total_seconds() // 60),
+    }
     if start is not None:
         record["setupStart"] = {"commandName": "startProgram", "parameters": {**(requested or {}), "onOffStatus": "1"}}
     if end is not None:
@@ -216,8 +247,11 @@ def preview_record(ident, start, end, days, requested=None, now=None):
 
 
 def same_dates(record, body):
-    return all(iso(utc_time(record.get(field))) == body[field] if utc_time(record.get(field)) else False
-               for field in DATE.values() if field in body)
+    return all(
+        iso(utc_time(record.get(field))) == body[field] if utc_time(record.get(field)) else False
+        for field in DATE.values()
+        if field in body
+    )
 
 
 class Schedules:
@@ -248,7 +282,9 @@ class Schedules:
                 return rows
             if attempt < 2:
                 await asyncio.sleep(1)
-        raise ControlError("The schedule request was sent, but its saved status is not confirmed. Check hOn before retrying.")
+        raise ControlError(
+            "The schedule request was sent, but its saved status is not confirmed. Check hOn before retrying."
+        )
 
     async def save(self, device, ident, start, end, days, requested=None, allow_conflict=False):
         """Create or edit a repeating schedule; conflicts are returned unless allowed."""
@@ -271,9 +307,16 @@ class Schedules:
             await self.timers.request("PUT", ident, body)
         else:
             await self.timers.request("POST", "", body)
+
         def saved(rows):
-            return any(row["kind"] == "repeat" and (ident is None or row["id"] == ident)
-                       and list(row["days"]) == body["days"] and same_dates(row["record"], body) for row in rows)
+            return any(
+                row["kind"] == "repeat"
+                and (ident is None or row["id"] == ident)
+                and list(row["days"]) == body["days"]
+                and same_dates(row["record"], body)
+                for row in rows
+            )
+
         return {"saved": True, "rows": await self.confirm(device, saved), "conflicts": []}
 
     async def set_active(self, device, ident, active):
@@ -281,7 +324,9 @@ class Schedules:
         body = {key: deepcopy(value) for key, value in row["record"].items() if key in KEEP}
         body.update(macAddress=device.mac_address, maintenance=False, isActive=bool(active))
         await self.timers.request("PUT", ident, body)
-        return await self.confirm(device, lambda rows: any(item["id"] == ident and item["active"] == bool(active) for item in rows))
+        return await self.confirm(
+            device, lambda rows: any(item["id"] == ident and item["active"] == bool(active) for item in rows)
+        )
 
     async def delete(self, device, ident):
         row = await self.find(device, ident)

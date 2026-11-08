@@ -1,8 +1,9 @@
 """Choosing up to four top presets in Everyday use, with offline fixtures only."""
+
 import os
-from pathlib import Path
 import tempfile
 import unittest
+from pathlib import Path
 
 from room_ac_control.functions_view import PRESETS_UP_FRONT, everyday_layout, preset_key, toggle_top_preset
 from room_ac_control.program_memory import ProgramMemory
@@ -36,7 +37,7 @@ class LayoutTests(unittest.TestCase):
         choices, top, more = everyday_layout(ITEMS, MODES, ["turbo", "heat"])
         self.assertEqual(keys(top), ["turbo", "heat"])
         self.assertEqual(keys(more), ["cool", "coolnight", "heatnight", "10°cheat"])
-        self.assertEqual(len(top)+len(more), len(choices))
+        self.assertEqual(len(top) + len(more), len(choices))
 
     def test_no_top_presets_puts_everything_in_more(self):
         choices, top, more = everyday_layout(ITEMS, MODES, [])
@@ -96,6 +97,7 @@ class StorageTests(unittest.TestCase):
 
         def denied():
             raise OSError("test access failure")
+
         state.write = denied
         memory.save_top_presets("unit", ["heat"])
         self.assertTrue(memory.save_error)
@@ -107,7 +109,7 @@ class StorageTests(unittest.TestCase):
     @unittest.skipUnless(os.name == "nt", "Windows DPAPI required")
     def test_choices_survive_a_restart(self):
         with tempfile.TemporaryDirectory() as directory:
-            path = Path(directory)/"state.dpapi"
+            path = Path(directory) / "state.dpapi"
             SecureState(path).save_top_presets("account", "unit", ["heatnight", "turbo"])
             self.assertEqual(SecureState(path).top_presets("account", "unit"), ["heatnight", "turbo"])
 

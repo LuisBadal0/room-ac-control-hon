@@ -17,10 +17,20 @@ def airflow_icon(label):
 
 def airflow_choices(spec, patch=False):
     """Use human position labels: wire codes differ between the two axes."""
-    descriptions = {"Position 1": "Most closed", "Position 2": "Slightly open",
-                    "Position 3": "Half open", "Position 4": "Mostly open",
-                    "Position 5": "Most open", "Swing": "Automatic swing"}
-    return [{"label": label, "value": {spec["key"]: value} if patch else value,
-             "glyph": airflow_icon(label),
-             "description": " · ".join(filter(None, (spec["label"], descriptions.get(label))))}
-            for label, value in spec.get("options", {}).items()]
+    descriptions = {
+        "Position 1": "Most closed",
+        "Position 2": "Slightly open",
+        "Position 3": "Half open",
+        "Position 4": "Mostly open",
+        "Position 5": "Most open",
+        "Swing": "Automatic swing",
+    }
+    return [
+        {
+            "label": label,
+            "value": {spec["key"]: value} if patch else value,
+            "glyph": airflow_icon(label),
+            "description": " · ".join(filter(None, (spec["label"], descriptions.get(label)))),
+        }
+        for label, value in spec.get("options", {}).items()
+    ]

@@ -1,8 +1,10 @@
 """Offline one-time wall-clock selection, including overnight rollover."""
-from datetime import datetime
-from types import SimpleNamespace
+
 import tkinter as tk
 import unittest
+from datetime import datetime
+from types import SimpleNamespace
+
 from room_ac_control.inline_timers import NumberWheel, next_time
 
 
@@ -30,7 +32,7 @@ class WheelDragTests(unittest.TestCase):
         self.root.destroy()
 
     def event(self, y):
-        return SimpleNamespace(y=y, y_root=100+y)
+        return SimpleNamespace(y=y, y_root=100 + y)
 
     def test_drag_up_advances_and_down_reverses_with_live_offset(self):
         self.assertEqual(self.wheel.ROW_HEIGHT, 26)

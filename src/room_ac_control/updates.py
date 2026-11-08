@@ -8,11 +8,11 @@ next to the current one and must pass its own self-test. Only then, after the
 person clicks Update, a small helper swaps the folders once the app has
 closed, starts the new version, and puts the old one back if the swap fails.
 """
+
 import hashlib
 import json
 import os
 import queue
-from datetime import datetime
 import re
 import shutil
 import subprocess
@@ -21,6 +21,7 @@ import tempfile
 import threading
 import urllib.request
 import zipfile
+from datetime import datetime
 from pathlib import Path, PurePosixPath
 
 from .diagnostics import diagnostics
@@ -69,6 +70,7 @@ def parse_version(text):
 def verify_signature(data, signature, public_key=PUBLIC_KEY):
     """RSA-PSS SHA-256, checked with awscrt, which the app already ships for MQTT."""
     from awscrt.crypto import RSA, RSASignatureAlgorithm
+
     try:
         key = RSA.new_public_key_from_pem_data(public_key)
         valid = key.verify(RSASignatureAlgorithm.PSS_SHA256, hashlib.sha256(data).digest(), signature)
@@ -90,14 +92,25 @@ def read_manifest(data, signature, public_key=PUBLIC_KEY):
     version = manifest.get("version")
     parse_version(version)
     archive, digest, size = manifest.get("archive"), manifest.get("sha256"), manifest.get("size")
-    if (manifest.get("tag") != f"v{version}"
-            or archive != f"Room-AC-Control-for-hOn-{version}-Windows-x64.zip"
-            or not isinstance(digest, str) or not re.fullmatch(r"[0-9a-f]{64}", digest)
-            or not isinstance(size, int) or isinstance(size, bool) or not 0 < size <= MAX_ARCHIVE):
+    if (
+        manifest.get("tag") != f"v{version}"
+        or archive != f"Room-AC-Control-for-hOn-{version}-Windows-x64.zip"
+        or not isinstance(digest, str)
+        or not re.fullmatch(r"[0-9a-f]{64}", digest)
+        or not isinstance(size, int)
+        or isinstance(size, bool)
+        or not 0 < size <= MAX_ARCHIVE
+    ):
         raise UpdateError("The update information is not valid.")
-    return {"version": version, "tag": manifest["tag"], "archive": archive, "sha256": digest, "size": size,
-            "url": f"https://github.com/{REPOSITORY}/releases/download/{manifest['tag']}/{archive}",
-            "notes": f"https://github.com/{REPOSITORY}/releases/tag/{manifest['tag']}"}
+    return {
+        "version": version,
+        "tag": manifest["tag"],
+        "archive": archive,
+        "sha256": digest,
+        "size": size,
+        "url": f"https://github.com/{REPOSITORY}/releases/download/{manifest['tag']}/{archive}",
+        "notes": f"https://github.com/{REPOSITORY}/releases/tag/{manifest['tag']}",
+    }
 
 
 def is_newer(release, current):
@@ -172,10 +185,15 @@ def extract_runtime(archive, target):
     with zipfile.ZipFile(archive) as bundle:
         members = [info for info in bundle.infolist() if info.filename.startswith(ZIP_RUNTIME)]
         for info in members:
-            relative = PurePosixPath(info.filename[len(ZIP_RUNTIME):])
+            relative = PurePosixPath(info.filename[len(ZIP_RUNTIME) :])
             mode = (info.external_attr >> 16) & 0o170000
-            if (not relative.parts or relative.is_absolute() or ".." in relative.parts
-                    or any(":" in part or "\\" in part for part in relative.parts) or mode == 0o120000):
+            if (
+                not relative.parts
+                or relative.is_absolute()
+                or ".." in relative.parts
+                or any(":" in part or "\\" in part for part in relative.parts)
+                or mode == 0o120000
+            ):
                 raise UpdateError("The update contains unsafe file names. It was not installed.")
             unpacked += info.file_size
             if unpacked > MAX_UNPACKED:
@@ -196,13 +214,21 @@ def self_test(runtime, version, run=subprocess.run):
     with tempfile.TemporaryDirectory() as folder:
         report = Path(folder) / "self-test.json"
         try:
-            result = run([str(runtime / EXECUTABLE), "--self-test", str(report)], timeout=120,
-                         creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+            result = run(
+                [str(runtime / EXECUTABLE), "--self-test", str(report)],
+                timeout=120,
+                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+            )
             outcome = json.loads(report.read_text(encoding="utf-8"))
         except (OSError, ValueError, subprocess.TimeoutExpired):
             outcome, result = {}, None
-    if not (result is not None and result.returncode == 0 and outcome.get("ok") is True
-            and outcome.get("version") == version and outcome.get("updates") is True):
+    if not (
+        result is not None
+        and result.returncode == 0
+        and outcome.get("ok") is True
+        and outcome.get("version") == version
+        and outcome.get("updates") is True
+    ):
         raise UpdateError("The new version did not pass its checks. Nothing was changed.")
 
 
@@ -288,15 +314,29 @@ def launch_helper(location, version, folder=None, pid=None, popen=subprocess.Pop
     script = folder / "apply-update.cmd"
     script.write_text(HELPER.replace("\n", "\r\n"), encoding="ascii", newline="")
     (folder / "result.json").unlink(missing_ok=True)
-    environment = {**os.environ, "UPDATE_PID": str(pid or os.getpid()), "UPDATE_CURRENT": str(location),
-                   "UPDATE_STAGED": str(staged(location)), "UPDATE_OLD": str(previous(location)),
-                   "UPDATE_RESULT": str(folder / "result.json"), "UPDATE_VERSION": version, **(extra or {})}
+    environment = {
+        **os.environ,
+        "UPDATE_PID": str(pid or os.getpid()),
+        "UPDATE_CURRENT": str(location),
+        "UPDATE_STAGED": str(staged(location)),
+        "UPDATE_OLD": str(previous(location)),
+        "UPDATE_RESULT": str(folder / "result.json"),
+        "UPDATE_VERSION": version,
+        **(extra or {}),
+    }
     flags = getattr(subprocess, "CREATE_NO_WINDOW", 0) | getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
     comspec = os.environ.get("ComSpec", "cmd.exe")
     # Use a relative path with a dot prefix: cmd then finds the script even when NoDefaultCurrentDirectoryInExePath is set.
-    return popen([comspec, "/d", "/c", ".\\" + script.name], cwd=str(folder), env=environment,
-                 creationflags=flags, close_fds=True, stdin=subprocess.DEVNULL,
-                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    return popen(
+        [comspec, "/d", "/c", ".\\" + script.name],
+        cwd=str(folder),
+        env=environment,
+        creationflags=flags,
+        close_fds=True,
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
 
 
 def finish(location, current, folder=None):
@@ -307,13 +347,15 @@ def finish(location, current, folder=None):
     try:
         outcome = json.loads(result.read_text(encoding="utf-8"))
         if outcome.get("ok") and outcome.get("version") == current:
-            message = "Updated to version {version}.".format(version=current)
+            message = f"Updated to version {current}."
         elif outcome.get("reason") == "busy":
             # Windows would not move the app folder: another copy or window still had it open.
-            message = ("The update could not be installed because the app folder was in use. Close every "
-                       "Room AC Control window, including the one in the notification area, then try again.")
+            message = (
+                "The update could not be installed because the app folder was in use. Close every "
+                "Room AC Control window, including the one in the notification area, then try again."
+            )
         else:
-            message = "The update could not be installed. Room AC Control is still on version {version}.".format(version=current)
+            message = f"The update could not be installed. Room AC Control is still on version {current}."
     except (OSError, ValueError, AttributeError):
         pass
     result.unlink(missing_ok=True)
@@ -369,7 +411,10 @@ class Updater:
                 self.events.put(("failed", str(error)))
             except Exception as error:
                 diagnostics.record("update_failed", error)
-                self.events.put(("failed", "Could not reach the update service. Check your internet connection and try again."))
+                self.events.put(
+                    ("failed", "Could not reach the update service. Check your internet connection and try again.")
+                )
+
         self.thread = threading.Thread(target=target, name="room-ac-update", daemon=True)
         self.thread.start()
 
@@ -386,7 +431,10 @@ class Updater:
         if not self.supported or self.busy or not self.release:
             return False
         if not writable(self.location):
-            self.state, self.error = "failed", "Room AC Control cannot write to its folder. Move it to a folder you own, or download the update from the releases page."
+            self.state, self.error = (
+                "failed",
+                "Room AC Control cannot write to its folder. Move it to a folder you own, or download the update from the releases page.",
+            )
             self.notify()
             return False
         release, location = self.release, self.location
@@ -396,8 +444,9 @@ class Updater:
 
         def work():
             folder = updates_folder()
-            archive = download(release, folder, lambda done, total: self.events.put(("progress", done / total)),
-                               self.cancel.is_set)
+            archive = download(
+                release, folder, lambda done, total: self.events.put(("progress", done / total)), self.cancel.is_set
+            )
             self.events.put(("verifying", None))
             try:
                 extract_runtime(archive, staged(location))
@@ -408,6 +457,7 @@ class Updater:
             finally:
                 archive.unlink(missing_ok=True)
             return ("installed", None)
+
         self.run(work)
         return True
 

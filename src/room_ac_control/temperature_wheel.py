@@ -1,10 +1,11 @@
 """A bounded temperature selector using the timer wheels' drag interaction."""
+
 from decimal import Decimal, InvalidOperation
 
-from .inline_timers import NumberWheel
-from .theme import C, font, rounded
 from .i18n import translator
+from .inline_timers import NumberWheel
 from .smooth import aa_text
+from .theme import C, font, rounded
 
 
 class TemperatureWheel(NumberWheel):
@@ -15,13 +16,17 @@ class TemperatureWheel(NumberWheel):
         self.minimum = Decimal(str(spec["min"]))
         maximum = Decimal(str(spec["max"]))
         self.increment = Decimal(str(spec["step"]))
-        if not all(number.is_finite() for number in (self.minimum, maximum, self.increment)) or self.increment <= 0 or maximum < self.minimum:
+        if (
+            not all(number.is_finite() for number in (self.minimum, maximum, self.increment))
+            or self.increment <= 0
+            or maximum < self.minimum
+        ):
             raise ValueError("Invalid temperature range")
-        limit = int((maximum-self.minimum) // self.increment) + 1
+        limit = int((maximum - self.minimum) // self.increment) + 1
         self.chosen, self.hover, self.wheel_remainder = False, False, 0
         index = 0
         try:
-            position = (Decimal(str(value))-self.minimum)/self.increment
+            position = (Decimal(str(value)) - self.minimum) / self.increment
             if position.is_finite() and position == int(position) and 0 <= position < limit:
                 index, self.chosen = int(position), True
         except (InvalidOperation, ValueError, OverflowError):
@@ -34,14 +39,14 @@ class TemperatureWheel(NumberWheel):
         self.bind("<Up>", lambda event: self.step(1))
         self.bind("<Down>", lambda event: self.step(-1))
         self.bind("<Home>", lambda event: self.step(-self.value))
-        self.bind("<End>", lambda event: self.step(self.limit-1-self.value))
+        self.bind("<End>", lambda event: self.step(self.limit - 1 - self.value))
         self.draw()
 
     def normalize_value(self, value):
-        return max(0, min(self.limit-1, value))
+        return max(0, min(self.limit - 1, value))
 
     def number(self, index):
-        return format((self.minimum+self.increment*index).normalize(), "f")
+        return format((self.minimum + self.increment * index).normalize(), "f")
 
     def get(self):
         return self.number(self.value) if self.chosen else None
@@ -56,7 +61,7 @@ class TemperatureWheel(NumberWheel):
 
     def wheel(self, event):
         if self.enabled:
-            self.wheel_remainder += event.delta/120
+            self.wheel_remainder += event.delta / 120
             steps = int(self.wheel_remainder)
             if steps:
                 self.wheel_remainder -= steps
@@ -76,16 +81,29 @@ class TemperatureWheel(NumberWheel):
         self.delete("all")
         focused = self.focus_get() is self
         self.configure(bg=C.BG, cursor="sb_v_double_arrow" if self.enabled else "arrow")
-        rounded(self, 1, 1, 235, 107, 12, fill=C.HOVER if self.hover or focused else C.CARD,
-                outline=C.BRAND if self.hover or focused else C.FIELD)
+        rounded(
+            self,
+            1,
+            1,
+            235,
+            107,
+            12,
+            fill=C.HOVER if self.hover or focused else C.CARD,
+            outline=C.BRAND if self.hover or focused else C.FIELD,
+        )
         rounded(self, 14, 37, 222, 71, 6, fill=C.SURFACE, outline="")
         for offset in range(-2, 3):
-            index = self.value+offset
+            index = self.value + offset
             if not 0 <= index < self.limit:
                 continue
-            y = 54+offset*self.ROW_HEIGHT+self.drag_offset
-            emphasis = max(0, 1-abs(y-54)/self.ROW_HEIGHT)
-            text = "—" if offset == 0 and not self.chosen else translator(self).number(self.number(index))+"°C"
-            aa_text(self, 118, y, text=text,
-                             fill=C.TEXT if emphasis >= .5 and self.enabled else C.MUTED,
-                             font=font(round(11+12*emphasis), "black" if emphasis >= .5 else "normal"))
+            y = 54 + offset * self.ROW_HEIGHT + self.drag_offset
+            emphasis = max(0, 1 - abs(y - 54) / self.ROW_HEIGHT)
+            text = "—" if offset == 0 and not self.chosen else translator(self).number(self.number(index)) + "°C"
+            aa_text(
+                self,
+                118,
+                y,
+                text=text,
+                fill=C.TEXT if emphasis >= 0.5 and self.enabled else C.MUTED,
+                font=font(round(11 + 12 * emphasis), "black" if emphasis >= 0.5 else "normal"),
+            )
