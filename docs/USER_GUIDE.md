@@ -22,7 +22,7 @@ The room card shows the active AC's name and model. Accounts with several units 
 
 ## Readings
 
-Below the unit picture, one row shows the **Room** temperature and what the AC itself measures: **Outside** temperature (from the outdoor unit's sensor), indoor **Humidity** and **Air quality** (Good, Medium or Poor). A reading your model doesn't report shows —. Units without a sensor report 0, so a reading of exactly 0 also shows — rather than a real value. The outdoor sensor sits on the outdoor unit and can read warmer than the weather while the compressor runs in the sun.
+Below the unit picture, one row shows the **Room** temperature and what the AC itself measures: **Outside** temperature (from the outdoor unit's sensor), indoor **Humidity** and **Air quality** (Good, Medium or Poor). A reading your model doesn't report shows —. Units without a temperature or humidity sensor report 0, so an Outside or Humidity reading of exactly 0 also shows — rather than a real value. Air quality follows the hOn app: the AC reports a level, and levels 0 and 1 show as Good, 2 as Medium and 3 as Poor. A model without an air sensor reports level 0, which hOn also shows as good, so Good on such a model is not a measurement. The outdoor sensor sits on the outdoor unit and can read warmer than the weather while the compressor runs in the sun.
 
 A coloured banner below the unit picture appears when the AC reports a condition, and disappears by itself when it clears:
 
