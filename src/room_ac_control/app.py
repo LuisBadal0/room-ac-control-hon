@@ -63,6 +63,13 @@ def self_test(output):
 
         timers, _ = select_timers({"scheduledPrograms": [], "scheduleRunningProgramEnd": []})
         check(all(value["due"] is None for value in timers.values()))
+        # The self-test starts no tray icon and connects to nothing, so check that the
+        # libraries for both are in this build: pystray picks its Windows backend on import.
+        import pystray
+        from awsiot import mqtt5_client_builder
+
+        check(pystray.Icon.__module__ == "pystray._win32")
+        check(callable(mqtt5_client_builder.websockets_with_custom_authorizer))
         # The updater's signature check must work in this build before it may replace another.
         from awscrt.crypto import RSA
 
