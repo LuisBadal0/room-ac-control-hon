@@ -10,6 +10,11 @@ section above it.
 
 ## [Unreleased]
 
+### Fixed
+
+- The app no longer stops responding after an unexpected error while showing a cloud result. Before, later results, the notification-area icon and update progress were ignored until the app was closed from Task Manager.
+- Maintenance: when hOn's command history cannot be read, each routine shows the last run saved on this computer. Before, an error box opened and **Checking the last run…** never went away.
+
 ## [0.6.0] - 2026-11-08
 
 ### Changed

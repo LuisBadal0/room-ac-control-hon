@@ -48,7 +48,8 @@ class Worker:
                         text = f"The cloud service returned an unexpected response ({type(error).__name__}). The community integration may need updating."
                     if operation in {"command", "timer", "schedule"} and not isinstance(error, ControlError):
                         text += " The request outcome is unknown. Refresh and check hOn before retrying."
-                    self.results.put((on_error or callback, None, text, operation))
+                    # Without an error handler the callback is None and the app shows the message.
+                    self.results.put((on_error, None, text, operation))
 
         asyncio.run_coroutine_threadsafe(perform(), self.loop)
 

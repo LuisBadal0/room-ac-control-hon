@@ -212,22 +212,33 @@ class App(PreferencesMixin, CanvasMixin, ControlsMixin, ScheduleActionsMixin):
         if self.updater.supported:
             self.update_job = root.after(updates.FIRST_CHECK_MS, self.auto_check_updates)
 
+    # Loads that run beside a command. Their results must not unlock the controls.
+    BACKGROUND = {"auto-refresh", "routine-history", "schedule-list"}
+
     def poll(self):
         if self.closing:
             return
         try:
+            self.handle_events()
+        finally:
+            # Keep polling whatever happened: one failing callback must not stop cloud
+            # results, the tray, a second start and update progress from being handled.
+            if not self.closing:
+                self.poll_job = self.root.after(100, self.poll)
+
+    def handle_events(self):
+        try:
             while True:
                 callback, value, error, operation = self.worker.results.get_nowait()
-                if operation != "auto-refresh":
+                if operation not in self.BACKGROUND:
                     self.set_busy(False)
-                if error:
-                    if operation in {"auto-refresh", "login", "timer", "schedule", "schedule-list"}:
-                        callback(error)
-                    else:
-                        self.status.set(error)
-                        messagebox.showerror("Room AC Control", tr(self.root, error), parent=self.root)
-                else:
+                if not error:
                     callback(value)
+                elif callback is not None:
+                    callback(error)  # The operation has its own error handler.
+                else:
+                    self.status.set(error)
+                    messagebox.showerror("Room AC Control", tr(self.root, error), parent=self.root)
         except queue.Empty:
             pass
         try:
@@ -263,7 +274,6 @@ class App(PreferencesMixin, CanvasMixin, ControlsMixin, ScheduleActionsMixin):
             self.theme_checks = 0
             if self.theme_preference == "system":
                 self.apply_theme()
-        self.poll_job = self.root.after(100, self.poll)
 
     def update_apply_label(self):
         """Discard and Apply (with a count) while edits wait; otherwise "In sync with the AC"."""
