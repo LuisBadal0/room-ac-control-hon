@@ -84,8 +84,9 @@ project does not claim byte-identical reproducible Windows binaries.
 
 ## In-app update signing
 
-Each release also publishes `update.json` (version, tag, ZIP name, size and
-SHA-256) and `update.json.sig`, an RSA-PSS SHA-256 signature. The release job
+Each release also publishes `update.json` (version, tag, and the name, size and
+SHA-256 of the ZIP, the MSI and Setup.exe) and `update.json.sig`, an RSA-PSS
+SHA-256 signature. The release job
 signs with the `UPDATE_SIGNING_KEY` repository secret. Before publishing, it
 verifies the signature against `packaging/update-signing-key.pub` at the release
 commit, and it refuses to publish when the secret is missing. The app embeds the
