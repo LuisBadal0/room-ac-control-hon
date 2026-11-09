@@ -87,6 +87,8 @@ class PyhonArchiveTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(state["fan"], "Auto")
         self.assertEqual((state["room"], state["target"]), (28.5, 27.0))
         self.assertEqual(state["connection"], "CONNECTED")
+        # No humidity sensor (0 is hidden); air quality level 0 shows as good, as in hOn.
+        self.assertEqual(state["sensors"], {"outdoor": 42.0, "air": "Good"})
         self.assertEqual(state["modes"], {"Auto": "0", "Cool": "1", "Dry": "2", "Heat": "4", "Fan": "6"})
         self.assertEqual(state["fans"], {"High": "1", "Medium": "2", "Low": "3", "Auto": "5"})
         self.assertEqual(state["temperatures"][0], "16")

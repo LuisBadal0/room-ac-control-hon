@@ -323,11 +323,13 @@ class CommandTests(unittest.IsolatedAsyncioTestCase):
                 {"tempOutdoor": "31.00", "humidityIndoor": "58", "airQuality": "1"},
                 {"outdoor": 31.0, "humidity": 58.0, "air": "Good"},
             ),
-            # Sensors a unit lacks report 0; level 0 is not shown as good air.
-            ({"tempOutdoor": "0", "humidityIndoor": "0", "airQuality": "0"}, {}),
+            # Temperature and humidity sensors a unit lacks report 0, which is hidden.
+            # hOn shows air quality level 0 as good, so the dashboard does too.
+            ({"tempOutdoor": "0", "humidityIndoor": "0", "airQuality": "0"}, {"air": "Good"}),
             ({"tempOutdoor": "-4.50", "airQuality": "2"}, {"outdoor": -4.5, "air": "Medium"}),
             ({"tempOutdoor": "-64", "humidityIndoor": "140", "airQuality": "3"}, {"air": "Poor"}),
             ({"tempOutdoor": "n/a", "airQuality": "9"}, {}),
+            ({"tempOutdoor": "18.00", "airQuality": ""}, {"outdoor": 18.0}),
         ):
             with self.subTest(extra=extra):
                 device, api = make_device()
@@ -335,6 +337,15 @@ class CommandTests(unittest.IsolatedAsyncioTestCase):
                 await device.update(force=True)
                 self.assertEqual(describe(device)["sensors"], expected)
                 self.assertEqual(api.sent, [])
+
+    async def test_air_quality_is_hidden_on_the_series_where_hon_hides_it(self):
+        device, api = make_device()
+        api.extra = {"airQuality": "2"}
+        device.info["series"] = "jade"
+        await device.update(force=True)
+        self.assertEqual(describe(device)["sensors"], {})
+        device.info["series"] = "pearl"
+        self.assertEqual(describe(device)["sensors"], {"air": "Medium"})
 
     async def test_alerts_follow_hon_rules_and_are_ordered_by_severity(self):
         for extra, expected in (

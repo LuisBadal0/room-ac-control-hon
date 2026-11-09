@@ -235,9 +235,11 @@ def mode_label(snapshot, pending=None):
     return label + " Night" if label in {"Cool", "Heat"} and code(sleep_value) == "1" else label
 
 
-# hOn 2.30.7 colours the AC's airQuality level: 0/1 good, 2 medium, 3 bad. Units
-# without the sensor also report 0, so only levels 1–3 are shown.
-AIR_QUALITY = {"1": "Good", "2": "Medium", "3": "Poor"}
+# hOn 2.30.7 shows the AC's airQuality level on every series except "jade": 0 and 1
+# as good, 2 as medium, 3 as bad. A unit without the sensor reports 0 and hOn shows
+# it as good too, so the dashboard matches what the person sees in hOn.
+AIR_QUALITY = {"0": "Good", "1": "Good", "2": "Medium", "3": "Poor"}
+NO_AIR_QUALITY_SERIES = {"jade"}
 
 
 def reading(device, key, low, high):
@@ -258,8 +260,9 @@ def sensors(device):
     humidity = reading(device, "humidityIndoor", 1, 100)
     if humidity is not None:
         result["humidity"] = humidity
-    if quality := AIR_QUALITY.get(code(device.get("airQuality"))):
-        result["air"] = quality
+    if str(device.info.get("series", "")).lower() not in NO_AIR_QUALITY_SERIES:
+        if quality := AIR_QUALITY.get(code(device.get("airQuality"))):
+            result["air"] = quality
     return result
 
 

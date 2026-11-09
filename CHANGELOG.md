@@ -10,6 +10,10 @@ section above it.
 
 ## [Unreleased]
 
+### Changed
+
+- Air quality now matches the hOn app: an AC that reports level 0 shows **Good** instead of "—". A model without an air sensor also reports level 0, so Good on such a model is not a measurement.
+
 ### Fixed
 
 - The app no longer stops responding after an unexpected error while showing a cloud result. Before, later results, the notification-area icon and update progress were ignored until the app was closed from Task Manager.
