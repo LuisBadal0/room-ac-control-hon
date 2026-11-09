@@ -156,6 +156,33 @@ class DownloadTests(unittest.TestCase):
                     )
                 self.assertEqual(list(Path(folder).iterdir()), [])
 
+    def test_a_disk_failure_is_not_reported_as_a_network_problem(self):
+        opener = opener_for({release()["url"]: ARCHIVE})
+        with tempfile.TemporaryDirectory() as folder:
+            # The updates folder cannot be created: a file is in its place.
+            blocked = Path(folder) / "updates"
+            blocked.write_text("not a folder", encoding="utf-8")
+            with self.assertRaisesRegex(updates.UpdateError, "saved on this computer"):
+                updates.download(release(), blocked, opener=opener)
+
+            # The disk fills up while the download is written.
+            class FullDisk(io.BytesIO):
+                def write(self, data):
+                    raise OSError(28, "No space left on device")
+
+            with patch.object(Path, "open", return_value=FullDisk()):
+                with self.assertRaisesRegex(updates.UpdateError, "saved on this computer"):
+                    updates.download(release(), Path(folder) / "downloads", opener=opener)
+            self.assertEqual(list((Path(folder) / "downloads").iterdir()), [])
+
+    def test_a_network_failure_keeps_its_own_error(self):
+        def offline(url, timeout=30):
+            raise ConnectionResetError("fixture")
+
+        with tempfile.TemporaryDirectory() as folder:
+            with self.assertRaises(ConnectionResetError):
+                updates.download(release(), Path(folder), opener=offline)
+
 
 class UnpackTests(unittest.TestCase):
     def test_only_the_runtime_folder_is_unpacked(self):
@@ -392,6 +419,27 @@ class UpdaterTests(unittest.TestCase):
             self.assertIn("did not pass", updater.error)
             self.assertFalse(updates.staged(location).exists())
             self.assertFalse(updater.apply())
+
+    def test_a_failed_unpack_says_the_update_could_not_be_saved(self):
+        with tempfile.TemporaryDirectory() as folder:
+            location = Path(folder) / "runtime" / "RoomACControl"
+            location.mkdir(parents=True)
+            updater = updates.Updater("0.1.23", location)
+            updater.release, updater.state = release(), "available"
+            with (
+                patch.object(updates, "updates_folder", return_value=Path(folder) / "updates"),
+                patch.object(
+                    updates,
+                    "download",
+                    side_effect=lambda r, f, progress, cancelled: runtime_zip(Path(folder) / "u.zip"),
+                ),
+                patch.object(updates, "extract_runtime", side_effect=PermissionError("fixture")),
+            ):
+                updater.install()
+                self.assertEqual(self.wait(updater, {"ready", "failed"}), "failed")
+            self.assertIn("saved on this computer", updater.error)
+            self.assertNotIn("internet", updater.error)
+            self.assertFalse((Path(folder) / "u.zip").exists())
 
     def test_quiet_automatic_check_failures_stay_silent(self):
         updater = updates.Updater("0.1.23", Path("runtime/RoomACControl"))
