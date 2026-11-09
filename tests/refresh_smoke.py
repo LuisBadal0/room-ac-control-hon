@@ -123,5 +123,43 @@ expired["confirmation_expired"] = True
 app.show_device(expired, preserve_edits=True)
 assert app.fan.get() == "Auto" and "not confirmed" in app.status.get()
 
+# A failing result callback is reported, and the app keeps handling later results.
+# Tk runs the poll here, as in the real app, so the failure reaches Tk's error hook.
+import time
+
+app.reset_auto()
+handled = []
+
+
+def broken(value):
+    raise KeyError("an unexpected cloud field")
+
+
+def pump(until, seconds=3):
+    end = time.monotonic() + seconds
+    while not until() and time.monotonic() < end:
+        root.update()
+        time.sleep(0.01)
+
+
+app.worker.results.put((broken, "value", None, "refresh"))
+pump(lambda: "interface action failed" in app.status.get())
+assert "interface action failed" in app.status.get()
+app.worker.results.put((handled.append, "later", None, "refresh"))
+pump(lambda: handled)
+assert handled == ["later"]
+
+# A background load delivers its error to its own handler, shows no error dialog and
+# does not unlock the controls while a command is in flight.
+app.busy = True
+app.worker.results.put((handled.append, None, "History unavailable", "routine-history"))
+app.worker.results.put((handled.append, "rows", None, "schedule-list"))
+pump(lambda: len(handled) == 3)
+assert handled == ["later", "History unavailable", "rows"]
+assert app.busy
+app.busy = False
+
 app.close()
-print("Automatic refresh, edit preservation, event coalescing, retry and stale-result checks passed.")
+print(
+    "Automatic refresh, edit preservation, event coalescing, retry, stale-result and failed-callback recovery checks passed."
+)

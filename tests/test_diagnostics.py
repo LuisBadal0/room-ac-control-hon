@@ -2,11 +2,12 @@
 
 import json
 import logging
+import re
 import tempfile
 import unittest
 from pathlib import Path
 
-from room_ac_control.diagnostics import Diagnostics, quiet_library_logs
+from room_ac_control.diagnostics import EVENTS, Diagnostics, quiet_library_logs
 
 
 class DiagnosticTests(unittest.TestCase):
@@ -25,6 +26,17 @@ class DiagnosticTests(unittest.TestCase):
             self.assertEqual(json.loads(text)["events"][-1]["error"], "UnexpectedError")
         with self.assertRaises(ValueError):
             report.record(secret)
+
+    def test_every_event_the_app_records_is_registered(self):
+        # An unregistered name raises inside an error handler, hiding the original failure.
+        source = Path(__file__).resolve().parents[1] / "src" / "room_ac_control"
+        used = {}
+        for file in sorted(source.rglob("*.py")):
+            for name in re.findall(r'diagnostics\.record\(\s*"([^"]+)"', file.read_text(encoding="utf-8")):
+                used.setdefault(name, file.name)
+        self.assertGreater(len(used), 10)
+        self.assertEqual({name: file for name, file in used.items() if name not in EVENTS}, {})
+        self.assertEqual(EVENTS - set(used), set(), "registered events nothing records")
 
     def test_reports_are_bounded_and_copied(self):
         report = Diagnostics(limit=2)
