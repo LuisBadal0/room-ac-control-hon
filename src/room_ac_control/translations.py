@@ -348,6 +348,7 @@ PORTUGUESE = {
     "The new version did not pass its checks. Nothing was changed.": "A nova versão não passou nas verificações. Nada foi alterado.",
     "Room AC Control cannot write to its folder. Move it to a folder you own, or download the update from the releases page.": "O Room AC Control não consegue escrever na sua pasta. Mova-o para uma pasta sua ou transfira a atualização a partir da página de versões.",
     "Could not reach the update service. Check your internet connection and try again.": "Não foi possível contactar o serviço de atualizações. Verifique a ligação à internet e tente novamente.",
+    "The update could not be saved on this computer. Check free disk space and try again.": "Não foi possível guardar a atualização neste computador. Verifique o espaço livre em disco e tente novamente.",
     "Updated to version {version}.": "Atualizado para a versão {version}.",
     "The update could not be installed. Room AC Control is still on version {version}.": "Não foi possível instalar a atualização. O Room AC Control continua na versão {version}.",
     "The update could not be installed because the app folder was in use. Close every Room AC Control window, including the one in the notification area, then try again.": "Não foi possível instalar a atualização porque a pasta da aplicação estava em uso. Feche todas as janelas do Room AC Control, incluindo a da área de notificação, e tente novamente.",

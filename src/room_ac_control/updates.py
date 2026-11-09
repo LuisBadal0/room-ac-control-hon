@@ -30,6 +30,7 @@ import tempfile
 import threading
 import urllib.request
 import zipfile
+from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path, PurePosixPath
 
@@ -205,29 +206,48 @@ def download(release, folder, progress=lambda done, total: None, cancelled=lambd
     return download_file(item, folder, progress, cancelled, opener)
 
 
+@contextmanager
+def local_step():
+    """Disk work for an update. A failure here is this computer's (a full disk, a folder
+    that cannot be written), so it must not be reported as a network problem."""
+    try:
+        yield
+    except (OSError, zipfile.BadZipFile, shutil.Error) as error:
+        diagnostics.record("update_failed", error)
+        raise UpdateError(
+            "The update could not be saved on this computer. Check free disk space and try again."
+        ) from None
+
+
 def download_file(release, folder, progress=lambda done, total: None, cancelled=lambda: False, opener=open_url):
     """Stream one signed release file (name, url, size, sha256) to disk."""
-    folder.mkdir(parents=True, exist_ok=True)
+    with local_step():
+        folder.mkdir(parents=True, exist_ok=True)
     target = folder / release["name"]
     partial = target.with_name(target.name + ".part")
     digest, done = hashlib.sha256(), 0
     try:
-        with opener(release["url"], timeout=60) as response, partial.open("wb") as handle:
-            while True:
-                if cancelled():
-                    raise UpdateError("The update was cancelled.")
-                chunk = response.read(256 * 1024)
-                if not chunk:
-                    break
-                done += len(chunk)
-                if done > release["size"]:
-                    raise UpdateError("The downloaded update does not match its signature. It was not installed.")
-                digest.update(chunk)
-                handle.write(chunk)
-                progress(done, release["size"])
+        with opener(release["url"], timeout=60) as response:
+            with local_step():
+                handle = partial.open("wb")
+            with handle:
+                while True:
+                    if cancelled():
+                        raise UpdateError("The update was cancelled.")
+                    chunk = response.read(256 * 1024)
+                    if not chunk:
+                        break
+                    done += len(chunk)
+                    if done > release["size"]:
+                        raise UpdateError("The downloaded update does not match its signature. It was not installed.")
+                    digest.update(chunk)
+                    with local_step():
+                        handle.write(chunk)
+                    progress(done, release["size"])
         if done != release["size"] or digest.hexdigest() != release["sha256"]:
             raise UpdateError("The downloaded update does not match its signature. It was not installed.")
-        os.replace(partial, target)
+        with local_step():
+            os.replace(partial, target)
         return target
     finally:
         partial.unlink(missing_ok=True)
@@ -724,7 +744,8 @@ class Updater:
             )
             self.events.put(("verifying", None))
             try:
-                extract_runtime(archive, staged(location))
+                with local_step():
+                    extract_runtime(archive, staged(location))
                 self_test(staged(location), release["version"])
             except BaseException:
                 shutil.rmtree(staged(location), ignore_errors=True)
