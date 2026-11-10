@@ -33,7 +33,7 @@ Keep the `runtime/` folder next to the launcher: it contains the application, Py
 ## What it does
 
 - A dashboard built around a temperature dial: drag along the ring, click it, scroll on it or use −/+. Power, Eco, a mode bar, and Fan speed, Airflow and Sleep tiles sit around it. The accent colour follows the selected mode: blue for Cool, amber for Heat, green for Dry, violet for Fan and teal for Auto.
-- Room temperature, and outside temperature, indoor humidity and air quality when your AC reports them, in one row below the unit picture.
+- Room temperature, outside temperature, humidity and air quality in one row below the unit picture. Values your AC does not measure come from the weather at its location in hOn, as in hOn's **Outdoor** panel; select one for the full forecast: low and high, chance of rain, UV index, wind and air pressure.
 - Banners for AC errors (with the reported code), defrosting and filter-cleaning reminders.
 - Light and dark modes. **Appearance** follows the Windows app mode by default, or stays on Light or Dark; the choice is saved.
 - One **Settings** button in the window header for Appearance, Language, Updates and Sign out.

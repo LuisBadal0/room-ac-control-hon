@@ -261,8 +261,11 @@ def sensors(device):
     if humidity is not None:
         result["humidity"] = humidity
     if str(device.info.get("series", "")).lower() not in NO_AIR_QUALITY_SERIES:
-        if quality := AIR_QUALITY.get(code(device.get("airQuality"))):
+        level = code(device.get("airQuality"))
+        if quality := AIR_QUALITY.get(level):
             result["air"] = quality
+            # Level 0 is also what a unit without the sensor reports: not a measurement.
+            result["air_measured"] = level != "0"
     return result
 
 
@@ -430,6 +433,44 @@ class Controller:
         self.active_functions = {}
         self.pending_changes = {}
         self.cloud_timers = None
+        # Outside weather per AC: when it was loaded, when to load it next, and its values.
+        self.weather_cache: dict[str, dict] = {}
+
+    WEATHER_EVERY = 15 * 60  # hOn's forecast has one entry every three hours.
+    WEATHER_KEEP = 3 * 60 * 60  # After a failed load, older values stay this long.
+    WEATHER_TIMEOUT = 10  # Seconds; status refresh does not wait longer for the weather.
+
+    async def weather(self, device, load=True):
+        """Outside weather at the AC's location, as in hOn's Outdoor panel; {} when unknown.
+
+        Loaded at most every 15 minutes; after a failure, tried again a minute later.
+        Values older than three hours are not shown. Status refresh never waits long for it."""
+        if self.api is None:
+            return {}
+        now = time.monotonic()
+        entry = self.weather_cache.setdefault(device.unique_id, {"loaded": None, "retry": now, "values": {}})
+        if load and now >= entry["retry"]:
+            from . import weather
+
+            try:
+                values = await asyncio.wait_for(weather.load(self.api._hon, device), timeout=self.WEATHER_TIMEOUT)
+                entry.update(loaded=now, retry=now + self.WEATHER_EVERY, values=values)
+            except Exception as error:
+                from .diagnostics import diagnostics
+
+                diagnostics.record("weather_failed", error)
+                entry["retry"] = now + 60
+        if entry["loaded"] is None or now - entry["loaded"] > self.WEATHER_KEEP:
+            return {}
+        return dict(entry["values"])
+
+    async def snapshot(self, device, timers=True, load_weather=True):
+        """The device state the app shows: reported status, timers and outside weather."""
+        snapshot = describe(device)
+        if timers:
+            snapshot["timers"] = await self.timer_status(device)
+        snapshot["weather"] = await self.weather(device, load_weather)
+        return snapshot
 
     def remember(self, snapshot, explicit=None):
         if self.memory:
@@ -503,12 +544,7 @@ class Controller:
                     self.remember(describe(device))
             if self.on_change:
                 self.watch_task = asyncio.create_task(self.watch_updates())
-            snapshots = []
-            for device in self.devices.values():
-                snapshot = describe(device)
-                snapshot["timers"] = await self.timer_status(device)
-                snapshots.append(snapshot)
-            return snapshots
+            return [await self.snapshot(device) for device in self.devices.values()]
         except BaseException:
             await self.close()
             raise
@@ -517,8 +553,7 @@ class Controller:
         device = self.devices[device_id]
         device.attributes.clear()
         await device.update(force=True)
-        snapshot = describe(device)
-        snapshot["timers"] = await self.timer_status(device)
+        snapshot = await self.snapshot(device)
         self.confirm_changes(snapshot)
         if not snapshot.get("pending_changes"):
             self.remember(snapshot)
@@ -588,7 +623,7 @@ class Controller:
             raise ControlError("The hOn timer connection is unavailable. Sign in again.")
         device = self.devices[device_id]
         values = await self.cloud_timers.change(device, action, due, expected, requested)
-        snapshot = describe(device)
+        snapshot = await self.snapshot(device, timers=False, load_weather=False)
         snapshot["timers"] = {"available": True, "values": values}
         return snapshot
 
@@ -618,9 +653,7 @@ class Controller:
             result = {"saved": True, "rows": await service.delete(device, options["ident"]), "conflicts": []}
         else:
             raise ControlError("Unknown schedule action.")
-        snapshot = describe(device)
-        snapshot["timers"] = await self.timer_status(device)
-        result["snapshot"] = snapshot
+        result["snapshot"] = await self.snapshot(device, load_weather=False)
         return result
 
     async def action(self, device_id, action, requested):
@@ -716,6 +749,7 @@ class Controller:
         self.devices.clear()
         self.active_functions.clear()
         self.pending_changes.clear()
+        self.weather_cache.clear()
         self.api = None
         self.cloud_timers = None
         if self.session:

@@ -67,7 +67,11 @@ Use **Export diagnostics** on the login screen or **Diagnostics** in the Updates
 to choose a local JSON file. Nothing is automatically written or uploaded.
 Review the report before sharing; event times reveal when failures happened.
 
-The app uses the hOn cloud for authentication, status and control. It runs no
+The app uses the hOn cloud for authentication, status and control. Like the hOn
+app, it also asks hOn's weather service for the forecast at the location saved
+with the AC, identifying the AC by its MAC address, at most every 15 minutes
+while signed in. Only the forecast values are kept, in memory; the place name and
+coordinates in the answer are discarded. It runs no
 local network server, opens no router ports and collects no telemetry.
 
 The app, portable or installed, also contacts GitHub to check for updates:

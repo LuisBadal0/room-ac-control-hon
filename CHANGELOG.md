@@ -10,9 +10,13 @@ section above it.
 
 ## [Unreleased]
 
+### Added
+
+- **Outside** weather, as in the hOn app's **Outdoor** panel. When your AC does not measure humidity or air quality, the dashboard shows them for the location saved with the AC in hOn, marked with a small cloud; the outside temperature does the same when the AC has no outdoor sensor. Select one of these readings to see the temperature with the day's low and high, humidity, chance of rain, air quality, UV index, wind and air pressure.
+
 ### Changed
 
-- Air quality now matches the hOn app: an AC that reports level 0 shows **Good** instead of "—". A model without an air sensor also reports level 0, so Good on such a model is not a measurement.
+- Air quality now matches the hOn app: an AC that reports level 0 shows **Good** instead of "—" when no outside weather is available. A model without an air sensor also reports level 0, so Good on such a model is not a measurement.
 
 ### Fixed
 

@@ -69,6 +69,16 @@ class ControlsMixin:
             self.sheets = DashboardSheets(self)
         self.sheets.open_airflow_sheet()
 
+    def open_outside_sheet(self):
+        """The weather at the AC's location, as in hOn's Outdoor panel."""
+        if self.busy or not (self.selected or {}).get("weather"):
+            return
+        from ..functions_view import DashboardSheets
+
+        if getattr(self, "sheets", None) is None:
+            self.sheets = DashboardSheets(self)
+        self.sheets.open_outside_sheet()
+
     def cycle_fan(self):
         spec = self.selected.get("controls", {}).get("windSpeed")
         if spec:

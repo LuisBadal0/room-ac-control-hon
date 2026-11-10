@@ -49,7 +49,21 @@ def devices():
         "fans": fans,
         "temperatures": [str(n) for n in range(16, 33)],
         "commands": {},
-        "sensors": {"outdoor": 31, "humidity": 58, "air": "Good"},
+        "sensors": {"outdoor": 31, "humidity": 58, "air": "Good", "air_measured": True},
+        # Fictional weather for the offline preview, in the shape weather.summary gives.
+        "weather": {
+            "temperature": 27.4,
+            "low": 24.1,
+            "high": 29.0,
+            "humidity": 46,
+            "pressure": 1016,
+            "rain": 10,
+            "wind": 14,
+            "uv": 6.2,
+            "aqi": 2,
+            "air": "Fair",
+            "condition": "Cloudy",
+        },
         "alerts": [],
     }
     bedroom = deepcopy(room)
@@ -58,7 +72,7 @@ def devices():
         name="Bedroom",
         power="Off",
         room=22,
-        sensors={"outdoor": 31, "air": "Medium"},
+        sensors={"outdoor": 31, "air": "Good", "air_measured": False},
         alerts=[{"kind": "filter"}],
     )
     return [room, bedroom]
