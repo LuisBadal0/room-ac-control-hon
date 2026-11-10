@@ -3,9 +3,9 @@
 import tkinter as tk
 
 from ..i18n import tr, translator
-from ..smooth import aa_text
+from ..smooth import aa_oval, aa_text
 from ..temperature_wheel import TemperatureWheel
-from ..theme import C, blend, font, rounded
+from ..theme import C, blend, font, icon, rounded
 from ..widgets import Overlay, louver, raise_widget, section_label
 from .model import (
     SIZE,
@@ -186,6 +186,79 @@ class SheetHost:
 
         self.open_sheet(draw)
 
+    def open_outside_sheet(self):
+        """hOn's Outdoor panel: the forecast at the AC's location, read-only."""
+        weather = self.app.selected.get("weather") or {}
+        if not weather:
+            return
+        number = translator(self.window).number
+
+        def degrees(value):
+            return number(f"{float(value):.0f}") + "°"
+
+        def draw(c, width):
+            from ..dashboard import AIR_COLORS
+
+            y = 30
+            self.text(c, 24, y + 12, "Outside", -22, weight="black")
+            if weather.get("condition"):
+                self.text(c, 24, y + 38, weather["condition"], -13, C.MUTED, width=width - 48)
+            y += 64
+            # The temperature now, with the forecast's low and high.
+            tile = blend(self.tone(), C.CARD, 0.10)
+            rounded(c, 24, y, width - 24, y + 92, 20, fill=tile, outline="")
+            icon(c, "thermo", 58, y + 46, self.tone(), scale=1.1, bg=tile)
+            if "temperature" in weather:
+                self.text(c, 92, y + 44, degrees(weather["temperature"]), -40, weight="light", translate=False)
+            span = []
+            if "low" in weather:
+                span.append(tr(c, "Min") + " " + degrees(weather["low"]))
+            if "high" in weather:
+                span.append(tr(c, "Max") + " " + degrees(weather["high"]))
+            if span:
+                self.text(c, width - 44, y + 46, "  ·  ".join(span), -13, C.MUTED, "e", "semibold", translate=False)
+            y += 92 + 14
+            air = weather.get("air")
+            rows = [
+                ("drop", "Humidity", f"{weather['humidity']:.0f}%" if "humidity" in weather else None, None),
+                ("cloud", "Chance of rain", f"{weather['rain']}%" if "rain" in weather else None, None),
+                (
+                    "leaf",
+                    "Air quality",
+                    tr(c, air) if air else None,
+                    getattr(C, AIR_COLORS.get(air, "MUTED")) if air else None,
+                ),
+                ("sun", "UV index", number(f"{weather['uv']:.1f}") if "uv" in weather else None, None),
+                ("wind", "Wind", f"{weather['wind']} km/h" if "wind" in weather else None, None),
+                ("sliders", "Pressure", f"{weather['pressure']:.0f} hPa" if "pressure" in weather else None, None),
+            ]
+            rows = [row for row in rows if row[2] is not None]
+            cell = (width - 48 - 10) / 2
+            for index, (glyph, label, value, dot) in enumerate(rows):
+                x = 24 + (index % 2) * (cell + 10)
+                top = y + (index // 2) * 74
+                rounded(c, x, top, x + cell, top + 64, 16, fill=C.SURFACE, outline="")
+                icon(c, glyph, x + 26, top + 32, C.MUTED, scale=0.6, bg=C.SURFACE)
+                self.text(c, x + 50, top + 20, label, -11, C.MUTED, weight="semibold", width=cell - 60)
+                value_x = x + 50
+                if dot:
+                    aa_oval(c, value_x, top + 38, value_x + 8, top + 46, fill=dot, outline="")
+                    value_x += 14
+                self.text(c, value_x, top + 43, value, -16, weight="bold", translate=False)
+            y += ((len(rows) + 1) // 2) * 74 + 4
+            sensor = (self.app.selected.get("sensors") or {}).get("outdoor")
+            note = tr(c, "Forecast for the location saved with this AC in hOn.")
+            if sensor is not None:
+                note += " " + tr(c, "The AC's outdoor unit reads {value}°.").format(value=number(f"{sensor:.0f}"))
+            self.text(c, 24, y + 10, note, -12, C.MUTED, "nw", width=width - 48, translate=False)
+            y += 58 if sensor is not None else 40
+            rounded(c, 24, y, width - 24, y + 50, 14, fill=C.CARD, outline=C.STRONG, width=1.2)
+            self.text(c, width / 2, y + 25, "Close", -14, C.TEXT, "center", "bold")
+            self.sheet_hit((24, y, width - 24, y + 50), self.close_sheet)
+            return y + 50 + 28
+
+        self.open_sheet(draw)
+
     def sheet_closed(self):
         """Called after a sheet closes."""
 
@@ -194,7 +267,7 @@ class SheetHost:
 
 
 class DashboardSheets(SheetHost):
-    """The airflow picker opened from the dashboard's Airflow tile."""
+    """The airflow picker and the Outside sheet, opened from the dashboard."""
 
     def __init__(self, app):
         self.app, self.window, self.sheet = app, app.root, None

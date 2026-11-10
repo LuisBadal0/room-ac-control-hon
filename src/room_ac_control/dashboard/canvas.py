@@ -87,7 +87,7 @@ class CanvasMixin:
         c.create_image(WIDTH / 2, UNIT[1], image=self.unit_image, anchor="n")
         if not self.draw_alert(c, text):
             self.draw_chip(c, text, tone)
-        self.draw_readings(c, text)
+        self.draw_readings(c, text, hit)
         self.draw_dial(c, text, hit, tone)
         self.draw_modes(c, text, hit)
         self.draw_tiles(c, text, hit)
@@ -150,33 +150,47 @@ class CanvasMixin:
         aa_oval(c, 10, middle - 3, 16, middle + 3, fill=ink, outline="")
         text(22, middle, label, -11, ink, weight="bold", translate=False)
 
-    def draw_readings(self, c, text):
-        """Room, outside, humidity and air quality, as one row of chips."""
-        sensors = self.selected.get("sensors", {})
+    def draw_readings(self, c, text, hit):
+        """Room, outside, humidity and air quality, as one row of chips.
+
+        A cloud marks a value from the weather at the AC's location rather than the AC's
+        own sensor; selecting such a chip opens the Outside sheet with every weather value."""
+        from ..weather import readings
+
+        found = readings(self.selected)
         number = lambda value, places: self.i18n.number(f"{float(value):.{places}f}") + "°"
         try:
             room = number(self.selected["room"], 1)
         except (TypeError, ValueError):
             room = "—"
-        outside = number(sensors["outdoor"], 0) if "outdoor" in sensors else "—"
-        humidity = f"{sensors['humidity']:.0f}%" if "humidity" in sensors else "—"
-        quality = sensors.get("air")
+        outside, humidity, quality = found.get("outdoor"), found.get("humidity"), found.get("air")
         chips = [
-            ("Room", room, None),
-            ("Outside", outside, None),
-            ("Humidity", humidity, None),
-            ("Air quality", tr(c, quality) if quality else "—", getattr(C, AIR_COLORS[quality]) if quality else None),
+            ("Room", room, None, None),
+            ("Outside", number(outside[0], 0) if outside else "—", None, outside),
+            ("Humidity", f"{float(humidity[0]):.0f}%" if humidity else "—", None, humidity),
+            (
+                "Air quality",
+                tr(c, quality[0]) if quality else "—",
+                getattr(C, AIR_COLORS.get(quality[0], "MUTED")) if quality else None,
+                quality,
+            ),
         ]
         gap = 8
         width = (WIDTH - gap * (len(chips) - 1)) / len(chips)
         top = READINGS_TOP
-        for index, (label, value, dot) in enumerate(chips):
+        weather = bool(self.selected.get("weather"))
+        for index, (label, value, dot, source) in enumerate(chips):
             x = index * (width + gap)
-            items = [rounded(c, x, top, x + width, top + READINGS_HEIGHT, 14, fill=C.CARD, outline="")]
+            card = rounded(c, x, top, x + width, top + READINGS_HEIGHT, 14, fill=C.CARD, outline="")
+            items = [card]
+            from_weather = source is not None and source[1] == "weather"
+            room_for_caption = width - 24 - (16 if from_weather else 0)
             caption = tr(c, label)
-            while measure(c, caption, -11, "semibold") > width - 24 and len(caption) > 3:
+            while measure(c, caption, -11, "semibold") > room_for_caption and len(caption) > 3:
                 caption = caption[:-2] + "…"
             items.append(text(x + 12, top + 19, caption, -11, C.MUTED, weight="semibold", translate=False))
+            if from_weather:
+                items.append(icon(c, "cloud", x + width - 17, top + 19, C.MUTED, scale=0.42, bg=C.CARD))
             value_x = x + 12
             if dot:
                 items.append(aa_oval(c, x + 12, top + 36, x + 20, top + 44, fill=dot, outline=""))
@@ -184,6 +198,10 @@ class CanvasMixin:
             items.append(text(value_x, top + 40, value, -17, weight="bold", translate=False))
             for item in items:
                 c.addtag_withtag("reading", item)
+            if weather and index:
+                box = (x, top, x + width, top + READINGS_HEIGHT)
+                self.canvas_hover.add(box, card, {"fill": C.CARD}, {"fill": C.HOVER})
+                hit(box, self.open_outside_sheet)
 
     def draw_dial(self, c, text, hit, tone):
         """A 270° ring: drag along it, click it, scroll on it or use −/+."""

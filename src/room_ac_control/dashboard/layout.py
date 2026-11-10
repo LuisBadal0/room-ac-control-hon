@@ -17,7 +17,15 @@ MODES_TOP, MODES_HEIGHT = 473, 60
 TILE_TOP, TILE_HEIGHT = 542, 70
 TIMER_TOP = 621
 CANVAS_HEIGHT = TIMER_TOP + EndAtCard.HEIGHT + 1
-AIR_COLORS = {"Good": "OK", "Medium": "WARN_TEXT", "Poor": "DANGER"}
+# The AC's own levels (Good, Medium, Poor) and the weather's five (Good to Very poor).
+AIR_COLORS = {
+    "Good": "OK",
+    "Fair": "OK",
+    "Medium": "WARN_TEXT",
+    "Moderate": "WARN_TEXT",
+    "Poor": "DANGER",
+    "Very poor": "DANGER",
+}
 ALERTS = {
     "error": ("alert", "DANGER_BG", "DANGER_TEXT", "AC error {code}", "Check the unit, or see troubleshooting in hOn."),
     "defrost": ("snow", "SOFT", "ON_SOFT", "Defrosting", "Heating pauses while the outdoor unit melts ice."),

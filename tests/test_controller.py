@@ -321,13 +321,13 @@ class CommandTests(unittest.IsolatedAsyncioTestCase):
         for extra, expected in (
             (
                 {"tempOutdoor": "31.00", "humidityIndoor": "58", "airQuality": "1"},
-                {"outdoor": 31.0, "humidity": 58.0, "air": "Good"},
+                {"outdoor": 31.0, "humidity": 58.0, "air": "Good", "air_measured": True},
             ),
             # Temperature and humidity sensors a unit lacks report 0, which is hidden.
             # hOn shows air quality level 0 as good, so the dashboard does too.
-            ({"tempOutdoor": "0", "humidityIndoor": "0", "airQuality": "0"}, {"air": "Good"}),
-            ({"tempOutdoor": "-4.50", "airQuality": "2"}, {"outdoor": -4.5, "air": "Medium"}),
-            ({"tempOutdoor": "-64", "humidityIndoor": "140", "airQuality": "3"}, {"air": "Poor"}),
+            ({"tempOutdoor": "0", "humidityIndoor": "0", "airQuality": "0"}, {"air": "Good", "air_measured": False}),
+            ({"tempOutdoor": "-4.50", "airQuality": "2"}, {"outdoor": -4.5, "air": "Medium", "air_measured": True}),
+            ({"tempOutdoor": "-64", "humidityIndoor": "140", "airQuality": "3"}, {"air": "Poor", "air_measured": True}),
             ({"tempOutdoor": "n/a", "airQuality": "9"}, {}),
             ({"tempOutdoor": "18.00", "airQuality": ""}, {"outdoor": 18.0}),
         ):
@@ -345,7 +345,7 @@ class CommandTests(unittest.IsolatedAsyncioTestCase):
         await device.update(force=True)
         self.assertEqual(describe(device)["sensors"], {})
         device.info["series"] = "pearl"
-        self.assertEqual(describe(device)["sensors"], {"air": "Medium"})
+        self.assertEqual(describe(device)["sensors"], {"air": "Medium", "air_measured": True})
 
     async def test_alerts_follow_hon_rules_and_are_ordered_by_severity(self):
         for extra, expected in (

@@ -59,6 +59,7 @@ files = [
     "src/room_ac_control/controller.py",
     "src/room_ac_control/schedules.py",
     "src/room_ac_control/cloud_timers.py",
+    "src/room_ac_control/weather.py",
 ]
 mypy_path = "src"
 check_untyped_defs = true

@@ -26,6 +26,7 @@ EVENTS = {
     "state_save_failed",
     "credential_save_failed",
     "timer_status_failed",
+    "weather_failed",
     "update_failed",
 }
 ERROR_TYPES = {
