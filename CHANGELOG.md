@@ -10,6 +10,8 @@ section above it.
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-11-10
+
 ### Added
 
 - **Outside** weather, as in the hOn app's **Outdoor** panel. When your AC does not measure humidity or air quality, the dashboard shows them for the location saved with the AC in hOn, marked with a small cloud; the outside temperature does the same when the AC has no outdoor sensor. Select one of these readings to see the temperature with the day's low and high, humidity, chance of rain, air quality, UV index, wind and air pressure.
