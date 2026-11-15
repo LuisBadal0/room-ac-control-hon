@@ -182,6 +182,28 @@ class SecureState:
                 self.dirty = dirty
                 raise
 
+    def notifications(self):
+        """Whether to show Windows notifications while the app is in the notification area (on unless turned off)."""
+        with self.lock:
+            value = self.data.get("notifications", True)
+            return value if isinstance(value, bool) else True
+
+    def save_notifications(self, value):
+        if not isinstance(value, bool):
+            raise ValueError("Unsupported notification preference")
+        with self.lock:
+            previous, dirty = self.data.get("notifications"), self.dirty
+            self.data["notifications"], self.dirty = value, True
+            try:
+                self.write()
+            except OSError:
+                if previous is None:
+                    self.data.pop("notifications", None)
+                else:
+                    self.data["notifications"] = previous
+                self.dirty = dirty
+                raise
+
     def top_presets(self, account, device):
         """The presets chosen to show first for one AC, or None if none were ever chosen."""
         with self.lock:

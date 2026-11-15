@@ -122,6 +122,16 @@ class SettingsPanel:
         y += 10
         aa_line(c, 18, y, WIDTH - 18, y, fill=C.TRACK)
         y += 14
+        # Notifications.
+        section_label(c, 18, y + 6, "Notifications")
+        y += 20
+        text(18, y + 14, tr(c, "Notify me from the notification area"), -13, weight="semibold")
+        text(18, y + 33, tr(c, "AC errors, filter reminders and power changes"), -11, C.MUTED)
+        switch(c, WIDTH - 58, y + 8, self.app.notifications, tone)
+        self.regions.append(((18, y, WIDTH - 18, y + 44), self.toggle_notifications))
+        y += 44 + 14
+        aa_line(c, 18, y, WIDTH - 18, y, fill=C.TRACK)
+        y += 14
         # Updates.
         section_label(c, 18, y + 6, "Updates")
         y += 22
@@ -242,6 +252,10 @@ class SettingsPanel:
 
     def texts(self):
         return [text for item, text in canvas_texts(self.canvas)]
+
+    def toggle_notifications(self):
+        self.app.set_notifications(not self.app.notifications)
+        self.draw()
 
     def toggle_automatic(self):
         self.app.set_auto_update(not self.app.updater.enabled)

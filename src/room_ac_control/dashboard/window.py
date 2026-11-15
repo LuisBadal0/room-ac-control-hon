@@ -11,6 +11,21 @@ from ..i18n import (
 
 
 class WindowMixin:
+    def notify_changes(self, device):
+        """Announce what the AC reports while the window waits in the notification area."""
+        import time
+
+        from ..notifier import changes, text
+
+        previous = self.last_seen.get(device["id"])
+        self.last_seen[device["id"]] = device
+        hidden = self.root.state() == "withdrawn"
+        if not (self.notifications and self.tray and hidden and previous):
+            return
+        own = time.monotonic() < self.own_change_until.get(device["id"], 0)
+        for notification in changes(previous, device, own_power_change=own):
+            self.tray.notify(*text(self.i18n, notification))
+
     def close(self):
         if self.closing:
             return

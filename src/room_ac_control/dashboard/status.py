@@ -1,5 +1,7 @@
 """Reported status: manual and automatic refresh, and sending commands."""
 
+import time
+
 
 class StatusMixin:
     def discard(self):
@@ -91,6 +93,8 @@ class StatusMixin:
             action = "configure"
         # Results requested before this command must not overwrite its selection.
         self.refresh_epoch += 1
+        # The AC turning on or off in the next minutes is this command, not news.
+        self.own_change_until[self.selected["id"]] = time.monotonic() + 180
         self.auto_inflight = False
         self.set_busy(True)
         self.status.set("Sending changes to the cloud service…")

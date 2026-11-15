@@ -29,6 +29,7 @@ EVENTS = {
     "weather_failed",
     "history_load_failed",
     "history_save_failed",
+    "tray_notify_failed",
     "update_failed",
 }
 ERROR_TYPES = {

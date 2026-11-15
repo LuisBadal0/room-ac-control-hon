@@ -71,6 +71,11 @@ class App(SessionMixin, StatusMixin, WindowMixin, PreferencesMixin, CanvasMixin,
         self.worker = Worker(memory=self.memory)
         self.tray = None
         self.closing = False
+        # Windows notifications from the tray: the last snapshot seen per AC, and until when
+        # power changes come from this app's own command.
+        self.notifications = self.storage.notifications()
+        self.last_seen = {}
+        self.own_change_until = {}
         if enable_tray and not demo:
             try:
                 from ..tray import SystemTray
@@ -328,6 +333,7 @@ class App(SessionMixin, StatusMixin, WindowMixin, PreferencesMixin, CanvasMixin,
         self.draw()
 
     def show_device(self, device, preserve_edits=False):
+        self.notify_changes(device)
         pending = dict(self.dirty) if preserve_edits else {}
         self.selected = device
         self.devices[self.device_picker.current()] = device
