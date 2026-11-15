@@ -125,8 +125,8 @@ class SettingsPanel:
         # Notifications.
         section_label(c, 18, y + 6, "Notifications")
         y += 20
-        text(18, y + 14, tr(c, "Notify me from the notification area"), -13, weight="semibold")
-        text(18, y + 33, tr(c, "AC errors, filter reminders and power changes"), -11, C.MUTED)
+        text(18, y + 14, tr(c, "Windows notifications"), -13, weight="semibold")
+        text(18, y + 33, tr(c, "While minimized: errors, filter, on and off"), -11, C.MUTED)
         switch(c, WIDTH - 58, y + 8, self.app.notifications, tone)
         self.regions.append(((18, y, WIDTH - 18, y + 44), self.toggle_notifications))
         y += 44 + 14

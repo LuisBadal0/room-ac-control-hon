@@ -57,7 +57,7 @@ app.open_settings()
 root.update()
 panel = app.settings_panel
 shown = " ".join(text for item, text in canvas_texts(panel.canvas))
-assert "NOTIFICATIONS" in shown and "Notify me from the notification area" in shown, shown
+assert "NOTIFICATIONS" in shown and "Windows notifications" in shown, shown
 box = next(box for box, action in panel.regions if action == panel.toggle_notifications)
 panel.click(type("Event", (), {"x": (box[0] + box[2]) / 2, "y": (box[1] + box[3]) / 2})())
 assert app.notifications is False

@@ -523,7 +523,7 @@ PORTUGUESE = {
     "Turned on by its start timer.": "Ligado pelo temporizador de início.",
     "Turned on outside this app.": "Ligado fora desta app.",
     "Notifications": "Notificações",
-    "Notify me from the notification area": "Notificar a partir da área de notificação",
-    "AC errors, filter reminders and power changes": "Erros do AC, lembretes do filtro e mudanças de energia",
+    "Windows notifications": "Notificações do Windows",
+    "While minimized: errors, filter, on and off": "Minimizada: erros, filtro, ligar e desligar",
     "Notification setting changed for this session, but the preference could not be saved.": "A definição de notificações foi alterada nesta sessão, mas não foi possível guardar a preferência.",
 }
