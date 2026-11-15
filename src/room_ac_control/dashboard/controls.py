@@ -79,6 +79,16 @@ class ControlsMixin:
             self.sheets = DashboardSheets(self)
         self.sheets.open_outside_sheet()
 
+    def open_history_sheet(self):
+        """The room temperature over the last day or week, kept on this computer."""
+        if self.busy or not self.selected:
+            return
+        from ..functions_view import DashboardSheets
+
+        if getattr(self, "sheets", None) is None:
+            self.sheets = DashboardSheets(self)
+        self.sheets.open_history_sheet()
+
     def cycle_fan(self):
         spec = self.selected.get("controls", {}).get("windSpeed")
         if spec:

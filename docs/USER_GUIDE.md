@@ -26,6 +26,8 @@ Below the unit picture, one row shows the **Room** temperature, **Outside** temp
 
 When outside weather is available, select **Outside**, **Humidity** or **Air quality** to open **Outside**: the current temperature with the forecast's low and high, humidity, chance of rain, air quality, UV index, wind and air pressure. If the AC also reports its outdoor unit's temperature, the sheet shows it below for comparison. The weather is loaded at most every 15 minutes. If the AC has no location in hOn, these values stay —.
 
+Select **Room** (marked with a small chart) to see the room temperature over the last **24 hours** or **7 days**, with the lowest, average and highest values, the outside temperature when known, and shading for the times the AC was on. hOn does not keep this history, so the app saves one reading every ten minutes while it is open, including while it waits in the notification area. Readings older than seven days are dropped. They are encrypted for your Windows user in `%LOCALAPPDATA%\RoomACControl\history.dpapi` and never leave this computer. The line has a gap where the app was closed.
+
 A coloured banner below the unit picture appears when the AC reports a condition, and disappears by itself when it clears:
 
 - **AC error** (red) with the code the unit reports. The code is shown as reported; check the unit or the troubleshooting section of the hOn app for its meaning.

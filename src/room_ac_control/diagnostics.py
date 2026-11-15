@@ -27,6 +27,8 @@ EVENTS = {
     "credential_save_failed",
     "timer_status_failed",
     "weather_failed",
+    "history_load_failed",
+    "history_save_failed",
     "update_failed",
 }
 ERROR_TYPES = {

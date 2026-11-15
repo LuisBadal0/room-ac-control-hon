@@ -28,7 +28,7 @@ def clouds():
         tag
         for item in app.canvas.find_withtag("reading")
         for tag in app.canvas.gettags(item)
-        if tag.startswith("icon-")
+        if tag.startswith("icon-") and "history" not in app.canvas.gettags(item)
     ]
 
 
@@ -67,9 +67,10 @@ close = next(box for box, action in sheet["hits"] if action == app.sheets.close_
 app.sheets.sheet_click(type("Event", (), {"x": (close[0] + close[2]) / 2, "y": (close[1] + close[3]) / 2})())
 assert app.sheets.sheet is None
 
-# The Room chip opens nothing; Portuguese labels fit; no weather means no sheet.
+# The Room chip opens the room history instead; Portuguese labels fit; no weather means no sheet.
 click_reading(0)
-assert app.sheets.sheet is None
+assert "Room temperature" in texts(app.sheets.sheet["canvas"])
+app.sheets.close_sheet()
 app.set_language("pt-PT")
 app.open_outside_sheet()
 shown = texts(app.sheets.sheet["canvas"])

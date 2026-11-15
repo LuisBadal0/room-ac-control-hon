@@ -7,6 +7,7 @@ from ..smooth import aa_oval, aa_text
 from ..temperature_wheel import TemperatureWheel
 from ..theme import C, blend, font, icon, rounded
 from ..widgets import Overlay, louver, raise_widget, section_label
+from .history_sheet import HistorySheetMixin
 from .model import (
     SIZE,
     louver_position,
@@ -266,8 +267,8 @@ class SheetHost:
         """Called after a sheet's choice is staged."""
 
 
-class DashboardSheets(SheetHost):
-    """The airflow picker and the Outside sheet, opened from the dashboard."""
+class DashboardSheets(HistorySheetMixin, SheetHost):
+    """The airflow picker and the Outside and Room history sheets, opened from the dashboard."""
 
     def __init__(self, app):
         self.app, self.window, self.sheet = app, app.root, None

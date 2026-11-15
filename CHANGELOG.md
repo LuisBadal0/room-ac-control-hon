@@ -10,6 +10,10 @@ section above it.
 
 ## [Unreleased]
 
+### Added
+
+- **Room temperature history.** Select **Room** on the dashboard to see the room temperature over the last 24 hours or 7 days, with the lowest, average and highest values, the outside temperature and when the AC was on. hOn does not keep this history, so the app saves a reading every ten minutes while it is open (also from the notification area), encrypted on this computer, for seven days.
+
 ## [0.7.0] - 2026-11-10
 
 ### Added
