@@ -24,6 +24,7 @@ from .model import (
     option_label,
     section_items,
 )
+from .preset_sheet import PresetSheetMixin
 from .schedules_tab import SchedulesTabMixin
 from .settings_tab import SettingsTabMixin
 from .sheets import (
@@ -31,7 +32,9 @@ from .sheets import (
 )
 
 
-class FunctionsView(SettingsTabMixin, EverydayTabMixin, MaintenanceTabMixin, SchedulesTabMixin, SheetHost):
+class FunctionsView(
+    SettingsTabMixin, EverydayTabMixin, PresetSheetMixin, MaintenanceTabMixin, SchedulesTabMixin, SheetHost
+):
     def __init__(self, app):
         self.app = app
         self.window = tk.Toplevel(app.root)

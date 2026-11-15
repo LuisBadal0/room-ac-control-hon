@@ -14,8 +14,22 @@ pyhOn update, the update changed something the app depends on.
 
 Keep cloud work on the worker thread and UI changes on Tk's main thread. Preserve reported state separately from pending edits. Preview mode, login and status refresh must not send AC commands. Validate saved settings against current device capabilities before applying them.
 
-The main window lives in `src/room_ac_control/dashboard/`. `app.py` holds `App`: sign-in, device state, refresh, commands and the tray. `App` inherits the rest from mixins:
+The cloud side is split by job: `ac_model.py` reads what an AC reports and supports (the
+device snapshot, controls, sensors and alerts), `ac_commands.py` sends power, settings and
+preset commands, and `controller.py` holds `Controller`: the session, refresh, timers and
+weather. `controller` still re-exports the model and command names.
 
+Updates are split the same way: `update_release.py` reads the signed manifest and
+downloads, unpacks and self-tests a release; `update_install.py` finds how this copy was
+installed and starts the helper that swaps folders or runs the installer; `updates.py`
+holds `Updater` and re-exports the rest, so `updates.<name>` (and patching it in tests)
+keeps working.
+
+The main window lives in `src/room_ac_control/dashboard/`. `app.py` holds `App`: building the window, device state, staged edits and the event loop. `App` inherits the rest from mixins:
+
+- `session.py`: sign-in, the connected dashboard and sign-out;
+- `status.py`: manual and automatic refresh, commands and discarding edits;
+- `window.py`: minimize, restore, close, the notification-area icon and failures;
 - `canvas.py`: drawing;
 - `controls.py`: pointer and menu input;
 - `schedule_actions.py`: timers and schedules;
@@ -26,7 +40,7 @@ The fixed grid values are in `layout.py`. Put new dashboard code in the mixin fo
 All functions lives in `src/room_ac_control/functions_view/`:
 
 - `view.py`: the `FunctionsView` window, header, search, tabs, scrolling and footer;
-- one mixin per tab: `settings_tab.py`, `everyday_tab.py`, `maintenance_tab.py` and `schedules_tab.py`;
+- one mixin per tab: `settings_tab.py`, `everyday_tab.py`, `maintenance_tab.py` and `schedules_tab.py`, with the Everyday use preset sheet in `preset_sheet.py`;
 - `sheets.py`: bottom sheets shared with the dashboard;
 - `model.py`: tab, preset and search logic without Tk.
 
