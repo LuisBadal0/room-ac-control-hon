@@ -380,6 +380,16 @@ def icon(canvas, name, x, y, color=None, scale=1, bg=None, tags=(), rotate=0):
         rounded(canvas, x - 3, y - 11, x + 3, y + 4, 3, fill="", outline=color, width=1.5, tags=tags)
         oval(x - 5.5, y + 2, x + 5.5, y + 13, fill=bg)
         line(x, y - 4, x, y + 7)
+    elif name == "mail":
+        rounded(canvas, x - 11, y - 8, x + 11, y + 8, 3, fill="", outline=color, width=1.5, tags=tags)
+        line(x - 9, y - 5, x, y + 1, x + 9, y - 5)
+    elif name == "lock":
+        rounded(canvas, x - 9, y - 2, x + 9, y + 11, 3, fill="", outline=color, width=1.5, tags=tags)
+        aa_arc(
+            canvas, x - 6, y - 12, x + 6, y + 2, start=0, extent=180, style="arc", outline=color, width=1.5, tags=tags
+        )
+        line(x - 6, y - 5, x - 6, y - 2)
+        line(x + 6, y - 5, x + 6, y - 2)
     elif name == "chart":
         line(x - 11, y - 10, x - 11, y + 10, x + 11, y + 10)
         line(x - 7, y + 4, x - 2, y - 2, x + 2, y + 2, x + 9, y - 6, width=1.8)

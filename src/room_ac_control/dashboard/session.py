@@ -71,7 +71,6 @@ class SessionMixin:
         self.devices = devices
         self.login_frame.pack_forget()
         self.panel.pack(fill="both", expand=True)
-        self.status_label.pack_forget()
         self.device_picker.set_devices(devices)
         index = 0
         self.device_picker.current(index)
@@ -105,7 +104,6 @@ class SessionMixin:
             self.toast.hide()
             self.panel.pack_forget()
             self.login_frame.pack(fill="x", pady=(5, 0))
-            self.status_label.pack(fill="x", pady=(8, 0))
             self.remember_account.set(False)
             self.status.set("Signed out.")
             self.set_busy(False)

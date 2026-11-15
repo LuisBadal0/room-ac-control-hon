@@ -24,21 +24,24 @@ with tempfile.TemporaryDirectory() as directory:
         submissions.append((callback, operation, on_error))
 
     app.worker.submit = submit
-    # The "unofficial" line keeps clear of the unit picture, in both languages.
+    # The "unofficial" chip sits below the unit picture and its airflow, in both languages.
     for language in ("en", "pt-PT"):
         app.set_language(language)
         root.update()
         hero = app.login_view.hero
         app.login_view.draw_hero()
-        picture = hero.bbox([item for item in hero.find_all() if hero.type(item) == "image"][-1])
-        assert picture[1] - hero.bbox("unofficial")[3] >= 10, (language, picture, hero.bbox("unofficial"))
+        images = [hero.bbox(item) for item in hero.find_all() if hero.type(item) == "image"]
+        picture = max(images, key=lambda box: box[2] - box[0])  # The unit picture is the widest.
+        assert hero.bbox("title")[1] - picture[3] >= 40, (language, picture, hero.bbox("title"))
+        assert hero.bbox("unofficial")[1] > hero.bbox("tagline")[3], (language, hero.bbox("unofficial"))
+        assert hero.bbox("unofficial")[3] <= int(hero.cget("height")), (language, hero.bbox("unofficial"))
     app.set_language("en")
     assert not app.remember_account.get()
     app.connect()
     assert not app.login_view.loading  # Empty fields do not start a spinner.
     app.sign_in("sample@example.test", "fake-desktop-test-password")
     assert app.login_view.loading and app.login_view.animation.job is not None
-    assert app.login_view.surface.itemcget(app.login_view.form_id, "state") == "hidden"
+    assert app.login_view.surface.itemcget(app.login_view.windows["email"], "state") == "hidden"
     app.sign_in("sample@example.test", "fake-desktop-test-password")
     assert len(submissions) == 1  # Repeated login cannot create a second worker.
     submissions[-1][0]([demo_device()])
@@ -64,7 +67,7 @@ with tempfile.TemporaryDirectory() as directory:
     assert reopened.login_view.loading and reopened.login_view.animation.job is not None
     submissions[-1][2]("test connection failed")
     assert not reopened.login_view.loading and reopened.login_view.animation.job is None
-    assert reopened.login_view.surface.itemcget(reopened.login_view.form_id, "state") == "normal"
+    assert reopened.login_view.surface.itemcget(reopened.login_view.windows["email"], "state") == "normal"
     assert not reopened.busy
     assert "Automatic sign-in failed" in reopened.status.get()
     assert reopened.storage.credentials() is not None

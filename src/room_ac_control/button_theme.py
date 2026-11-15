@@ -76,7 +76,6 @@ def _install_buttons(root, style):
     style.configure("Ghost.TButton", padding=(10, 8))
     style.configure("Danger.Ghost.TButton", foreground=C.DANGER)
     style.map("Danger.Ghost.TButton", foreground=[("disabled", C.FAINT)], background=[])
-    style.configure("Login.Accent.TButton", padding=(14, 12), font=font(11, "bold"), background=C.CARD)
     style.configure("Card.TButton", background=C.CARD)
     style.configure("Card.Ghost.TButton", background=C.CARD)
 
@@ -117,8 +116,6 @@ def configure_styles(root):
         foreground=[("disabled", C.MUTED)],
         indicatorbackground=[("selected", C.BRAND), ("active", C.HOVER)],
     )
-    style.configure("Login.TCheckbutton", background=C.CARD, foreground=C.TEXT, font=font(10))
-    style.map("Login.TCheckbutton", background=[("active", C.CARD)], foreground=[("disabled", C.MUTED)])
     style.configure("TCombobox", background=C.CARD, arrowcolor=C.BRAND, padding=5, **field)
     style.map(
         "TCombobox",
