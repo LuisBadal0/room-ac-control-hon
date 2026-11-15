@@ -118,4 +118,6 @@ history = app.memory.history
 assert history.record(app.memory.account, "preview-living-room", app.selected, now=time.time())
 assert not history.record(app.memory.account, "preview-living-room", app.selected, now=time.time() + 60)
 app.close()
-print("History sheet, temperature periods, energy tiles and states, Portuguese, dark mode and reading spacing passed offline.")
+print(
+    "History sheet, temperature periods, energy tiles and states, Portuguese, dark mode and reading spacing passed offline."
+)
