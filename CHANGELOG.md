@@ -15,6 +15,7 @@ section above it.
 - **Room temperature history.** Select **Room** on the dashboard to see the room temperature over the last 24 hours or 7 days, with the lowest, average and highest values, the outside temperature and when the AC was on. hOn does not keep this history, so the app saves a reading every ten minutes while it is open (also from the notification area), encrypted on this computer, for seven days.
 - **Energy use**, as in hOn's Energy consumption panel. The same sheet's **Energy** tab shows the kWh your AC reported to hOn this week, this month and this year, with a bar for each day or month. ACs that do not measure their consumption show that hOn has no energy data for them.
 - **Windows notifications** while the app waits in the notification area: a new AC error code, a filter reminder, the AC going offline, and the AC turning on or off, saying when its timer did it. Changes you make in the app are not announced. Turn them off in **Settings › Notifications**.
+- **Quick actions in the notification area.** Right-click the tray icon to see the AC's status and to turn it on or off, switch Eco or start one of your top presets without opening the window.
 
 ### Changed
 

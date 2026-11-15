@@ -16,6 +16,9 @@ class FakeTray:
     def __init__(self):
         self.shown = []
 
+    def set_state(self, state):
+        self.state = state
+
     def notify(self, title, message):
         self.shown.append((title, message))
         return True
