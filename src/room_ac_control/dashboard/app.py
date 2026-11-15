@@ -2,8 +2,7 @@
 
 import queue
 import tkinter as tk
-from pathlib import Path
-from tkinter import filedialog, messagebox, ttk
+from tkinter import messagebox, ttk
 
 from .. import __version__, updates
 from ..airflow import AirflowAnimation
@@ -41,17 +40,18 @@ from .canvas import CanvasMixin
 from .controls import ControlsMixin
 from .layout import (
     CANVAS_HEIGHT,
-    FLOW,
     UNIT,
-    WIDTH,
     WINDOW_SIZE,
     equal,
 )
 from .preferences import PreferencesMixin
 from .schedule_actions import ScheduleActionsMixin
+from .session import SessionMixin
+from .status import StatusMixin
+from .window import WindowMixin
 
 
-class App(PreferencesMixin, CanvasMixin, ControlsMixin, ScheduleActionsMixin):
+class App(SessionMixin, StatusMixin, WindowMixin, PreferencesMixin, CanvasMixin, ControlsMixin, ScheduleActionsMixin):
     def __init__(self, root, demo=False, state=None, enable_tray=True, language=None, theme=None):
         self.root, self.demo = root, demo
         self.storage = state if state is not None else SecureState(persistent=not demo)
@@ -250,21 +250,8 @@ class App(PreferencesMixin, CanvasMixin, ControlsMixin, ScheduleActionsMixin):
                         self.schedule_auto(750)
         except queue.Empty:
             pass
-        if self.tray:
-            try:
-                while True:
-                    event = self.tray.events.get_nowait()
-                    if event == "ready":
-                        self.tray.ready = True
-                        if self.root.state() == "iconic":
-                            self.minimize_to_tray()
-                    elif event == "restore":
-                        self.restore_window()
-                    elif event == "exit":
-                        self.close()
-                        return
-            except queue.Empty:
-                pass
+        if self.handle_tray_events():
+            return
         if self.instance and self.instance.show_requested():
             self.restore_window()
         self.updater.poll()
@@ -321,14 +308,6 @@ class App(PreferencesMixin, CanvasMixin, ControlsMixin, ScheduleActionsMixin):
         text = self.connection.get()
         self.device_picker.set_status(text, text.startswith("Connected"))
 
-    def discard(self):
-        """Drop staged edits and show the reported (or awaiting) values again."""
-        if self.busy or not self.selected or not self.dirty:
-            return
-        self.dirty = {}
-        self.show_device(self.selected)
-        self.status.set("Changes discarded.")
-
     def set_busy(self, value):
         self.busy = value
         state = "disabled" if value else "normal"
@@ -346,78 +325,6 @@ class App(PreferencesMixin, CanvasMixin, ControlsMixin, ScheduleActionsMixin):
             self.mode.get() if self.selected else None,
         )
         self.draw()
-
-    def connect(self):
-        if self.busy:
-            return
-        email, password = self.email.get().strip(), self.password.get()
-        if not email or not password:
-            self.status.set("Enter your cloud account email and password.")
-            return
-        self.password.delete(0, "end")
-        self.sign_in(email, password)
-
-    def auto_sign_in(self):
-        if self.closing or self.busy or self.selected:
-            return
-        login = self.storage.credentials()
-        if login:
-            # Existing saved accounts retain their previously chosen auto sign-in.
-            self.remember_account.set(True)
-            self.email.delete(0, "end")
-            self.email.insert(0, login[0])
-            self.sign_in(*login, automatic=True)
-        elif self.storage.load_error:
-            self.status.set("Saved sign-in could not be decrypted. Sign in again to replace it.")
-
-    def sign_in(self, email, password, automatic=False):
-        if self.closing or self.busy:
-            return
-        self.set_busy(True)
-        self.login_view.set_loading(True, automatic)
-        self.status.set("Signing in with your saved account…" if automatic else "Connecting to the cloud service…")
-
-        def done(devices):
-            persistence_error = False
-            try:
-                if self.remember_account.get():
-                    self.storage.save_credentials(email, password)
-                else:
-                    self.storage.forget_credentials()
-            except OSError as error:
-                diagnostics.record("credential_save_failed", error)
-                persistence_error = True
-            self.connected(devices)
-            if persistence_error:
-                self.status.set("Connected, but Windows could not save the encrypted sign-in.")
-
-        def failed(error):
-            self.login_view.set_loading(False)
-            self.set_busy(False)
-            self.status.set(("Automatic sign-in failed. " if automatic else "") + error)
-
-        self.worker.submit(self.worker.controller.connect(email, password), done, "login", on_error=failed)
-
-    def connected(self, devices):
-        self.login_view.set_loading(False)
-        if self.demo and not self.memory.account:
-            self.memory.use_account("preview@example.test")
-        self.reset_auto()
-        self.devices = devices
-        self.login_frame.pack_forget()
-        self.panel.pack(fill="both", expand=True)
-        self.status_label.pack_forget()
-        self.device_picker.set_devices(devices)
-        index = 0
-        self.device_picker.current(index)
-        self.show_device(devices[index])
-        self.status.set(
-            "Design preview · No AC commands are sent." if self.demo else "Connected. Select changes, then apply."
-        )
-        if self.update_notice:
-            self.status.set(self.update_notice)
-            self.update_notice = None
-        self.schedule_auto()
 
     def show_device(self, device, preserve_edits=False):
         pending = dict(self.dirty) if preserve_edits else {}
@@ -479,209 +386,3 @@ class App(PreferencesMixin, CanvasMixin, ControlsMixin, ScheduleActionsMixin):
             return self.pending_changes[key]
         spec = self.selected.get("controls", {}).get(key)
         return spec.get("value") if spec and spec.get("reported") else None
-
-    def refresh(self):
-        if self.busy or not self.selected:
-            return
-        if self.demo:
-            self.show_device(self.selected)
-            self.status.set("Preview refreshed. No network connection.")
-            return
-        self.set_busy(True)
-        self.status.set("Refreshing reported AC status…")
-
-        def done(device):
-            self.show_device(device, preserve_edits=True)
-            if not device.get("confirmation_expired"):
-                self.status.set("Status retrieved from the cloud service.")
-            self.schedule_auto()
-
-        self.worker.submit(self.worker.controller.refresh(self.selected["id"]), done, "refresh")
-
-    def reset_auto(self):
-        self.refresh_epoch += 1
-        if self.auto_job is not None:
-            self.root.after_cancel(self.auto_job)
-        self.auto_job = None
-        self.auto_inflight = False
-        self.auto_pending = False
-        self.auto_failures = 0
-
-    def schedule_auto(self, delay=15000):
-        if self.demo or self.selected is None:
-            return
-        if self.auto_job is not None:
-            self.root.after_cancel(self.auto_job)
-        self.auto_job = self.root.after(delay, self.auto_refresh)
-
-    def auto_refresh(self):
-        self.auto_job = None
-        if self.demo or self.selected is None:
-            return
-        if self.busy or self.auto_inflight:
-            self.auto_pending = True
-            self.schedule_auto(1000)
-            return
-        self.auto_inflight = True
-        self.auto_pending = False
-        epoch, device_id = self.refresh_epoch, self.selected["id"]
-
-        def valid():
-            return epoch == self.refresh_epoch and self.selected is not None and device_id == self.selected["id"]
-
-        def done(device):
-            if not valid():
-                return
-            self.auto_inflight = False
-            self.auto_failures = 0
-            self.show_device(device, preserve_edits=True)
-            self.schedule_auto(750 if self.auto_pending else 15000)
-
-        def failed(error):
-            if not valid():
-                return
-            self.auto_inflight = False
-            self.auto_failures += 1
-            self.connection.set("Status unavailable · Retrying automatically")
-            self.schedule_auto(min(60000, 15000 * 2 ** min(self.auto_failures, 2)))
-
-        self.worker.submit(self.worker.controller.refresh(device_id), done, "auto-refresh", on_error=failed)
-
-    def action(self, action, requested=None):
-        if self.busy or not self.selected:
-            return
-        if self.demo:
-            self.status.set("Design preview only. No command sent.")
-            return
-        if requested is None:
-            requested = {} if action == "off" else dict(self.dirty)
-        if action == "on":
-            requested = self.memory.mode_values(self.selected, requested)
-        if action == "apply":
-            action = "configure"
-        # Results requested before this command must not overwrite its selection.
-        self.refresh_epoch += 1
-        self.auto_inflight = False
-        self.set_busy(True)
-        self.status.set("Sending changes to the cloud service…")
-
-        def done(text):
-            if action in {"on", "configure"}:
-                self.pending_changes.update(
-                    {key: str(value) for key, value in requested.items() if key in self.selected.get("controls", {})}
-                )
-            else:
-                self.pending_changes = {}
-            self.dirty = {}
-            self.set_busy(False)
-            device = {**self.selected, "pending_changes": dict(self.pending_changes)}
-            device.pop("confirmation_expired", None)
-            self.show_device(device, preserve_edits=True)
-            self.status.set(text)
-            # Allow the unit time to acknowledge; do not present optimistic state as confirmed.
-            self.schedule_auto(12000)
-
-        self.worker.submit(self.worker.controller.action(self.selected["id"], action, requested), done, "command")
-
-    def logout(self):
-        if self.busy:
-            return
-        if self.demo:
-            return
-        try:
-            self.storage.forget_credentials()
-        except OSError:
-            self.status.set("Could not remove saved sign-in. Check access to the app's data folder.")
-            return
-        self.reset_auto()
-        self.set_busy(True)
-
-        def done(value):
-            self.selected = None
-            self.devices = []
-            self.dirty = {}
-            self.airflow.set_state(None, WIDTH / 2, *FLOW)
-            self.toast.hide()
-            self.panel.pack_forget()
-            self.login_frame.pack(fill="x", pady=(5, 0))
-            self.status_label.pack(fill="x", pady=(8, 0))
-            self.remember_account.set(False)
-            self.status.set("Signed out.")
-            self.set_busy(False)
-
-        self.worker.submit(self.worker.controller.close(), done, "logout")
-
-    def close(self):
-        if self.closing:
-            return
-        self.closing = True
-        self.updater.close()
-        if getattr(self, "poll_job", None) is not None:
-            self.root.after_cancel(self.poll_job)
-            self.poll_job = None
-        if self.update_job is not None:
-            self.root.after_cancel(self.update_job)
-            self.update_job = None
-        self.login_view.close()
-        self.reset_auto()
-        self.airflow.close()
-        if self.tray:
-            try:
-                self.tray.close()
-            except Exception as error:
-                diagnostics.record("tray_close_failed", error)
-        self.worker.close()
-        if self.instance:
-            self.instance.close()
-        self.root.destroy()
-
-    def on_minimize(self, event):
-        if event.widget is self.root and not self.closing and self.root.state() == "iconic":
-            self.root.after(50, self.minimize_to_tray)
-
-    def minimize_window(self):
-        if not self.closing:
-            self.root.iconify()
-
-    def minimize_to_tray(self):
-        if not self.closing and self.tray and self.root.state() == "iconic" and self.tray.show():
-            self.root.withdraw()
-
-    def restore_window(self):
-        if self.closing:
-            return
-        if self.tray:
-            try:
-                self.tray.hide()
-            except Exception as error:
-                diagnostics.record("tray_hide_failed", error)
-        self.root.deiconify()
-        self.root.lift()
-        active = self.root.grab_current()
-        if active and active.winfo_exists():
-            active.deiconify()
-            active.lift()
-            active.focus_force()
-        else:
-            self.root.focus_force()
-
-    def callback_failed(self, kind, error, traceback):
-        diagnostics.record("ui_callback_failed", error)
-        if self.login_view.loading:
-            self.login_view.set_loading(False)
-            self.set_busy(False)
-        self.status.set("An interface action failed. You can export diagnostics for troubleshooting.")
-
-    def export_diagnostics(self):
-        destination = filedialog.asksaveasfilename(
-            parent=self.root,
-            title=tr(self.root, "Save diagnostics"),
-            initialfile="room-ac-diagnostics.json",
-            defaultextension=".json",
-            filetypes=[(tr(self.root, "JSON report"), "*.json")],
-        )
-        if destination:
-            try:
-                diagnostics.export(Path(destination))
-            except OSError:
-                self.status.set("Could not save the diagnostic report. Choose a writable folder.")

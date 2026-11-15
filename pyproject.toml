@@ -56,6 +56,8 @@ known-first-party = ["room_ac_control"]
 python_version = "3.11"
 # The cloud-facing modules are checked strictly first; widen this list as code gains types.
 files = [
+    "src/room_ac_control/ac_commands.py",
+    "src/room_ac_control/ac_model.py",
     "src/room_ac_control/controller.py",
     "src/room_ac_control/schedules.py",
     "src/room_ac_control/cloud_timers.py",
