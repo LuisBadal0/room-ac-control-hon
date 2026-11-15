@@ -196,7 +196,11 @@ class Controller:
                     self.remember(describe(device))
             if self.on_change:
                 self.watch_task = asyncio.create_task(self.watch_updates())
-            return [await self.snapshot(device) for device in self.devices.values()]
+            snapshots = [await self.snapshot(device) for device in self.devices.values()]
+            if self.memory:
+                for snapshot in snapshots:
+                    self.memory.record_reading(snapshot)
+            return snapshots
         except BaseException:
             await self.close()
             raise
@@ -206,6 +210,8 @@ class Controller:
         device.attributes.clear()
         await device.update(force=True)
         snapshot = await self.snapshot(device)
+        if self.memory:
+            self.memory.record_reading(snapshot)
         self.confirm_changes(snapshot)
         if not snapshot.get("pending_changes"):
             self.remember(snapshot)

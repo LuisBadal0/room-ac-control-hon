@@ -20,6 +20,7 @@ from ..i18n import (
 )
 from ..inline_timers import InlineTimers
 from ..program_memory import ProgramMemory
+from ..room_history import RoomHistory
 from ..secure_state import SecureState
 from ..smooth import aa_text
 from ..theme import (
@@ -59,7 +60,7 @@ class App(SessionMixin, StatusMixin, WindowMixin, PreferencesMixin, CanvasMixin,
         self.theme_preference = self.storage.theme() if theme is None else (theme if theme in THEMES else "system")
         C.use(resolve_theme(self.theme_preference))
         self.theme_checks = 0
-        self.memory = ProgramMemory(self.storage)
+        self.memory = ProgramMemory(self.storage, RoomHistory(persistent=not demo))
         self.preview_timers = {}
         self.preview_records = {}  # Fictional schedules for the offline preview.
         self.schedules_view = None

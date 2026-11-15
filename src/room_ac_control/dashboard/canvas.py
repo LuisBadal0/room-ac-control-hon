@@ -154,7 +154,8 @@ class CanvasMixin:
         """Room, outside, humidity and air quality, as one row of chips.
 
         A cloud marks a value from the weather at the AC's location rather than the AC's
-        own sensor; selecting such a chip opens the Outside sheet with every weather value."""
+        own sensor; selecting such a chip opens the Outside sheet with every weather value.
+        Selecting Room opens the room temperature history."""
         from ..weather import readings
 
         found = readings(self.selected)
@@ -184,13 +185,18 @@ class CanvasMixin:
             card = rounded(c, x, top, x + width, top + READINGS_HEIGHT, 14, fill=C.CARD, outline="")
             items = [card]
             from_weather = source is not None and source[1] == "weather"
-            room_for_caption = width - 24 - (16 if from_weather else 0)
+            history = index == 0 and room != "—"
+            room_for_caption = width - 24 - (16 if from_weather or history else 0)
             caption = tr(c, label)
             while measure(c, caption, -11, "semibold") > room_for_caption and len(caption) > 3:
                 caption = caption[:-2] + "…"
             items.append(text(x + 12, top + 19, caption, -11, C.MUTED, weight="semibold", translate=False))
             if from_weather:
                 items.append(icon(c, "cloud", x + width - 17, top + 19, C.MUTED, scale=0.42, bg=C.CARD))
+            elif history:
+                items.append(
+                    icon(c, "chart", x + width - 17, top + 19, C.MUTED, scale=0.42, bg=C.CARD, tags=("history",))
+                )
             value_x = x + 12
             if dot:
                 items.append(aa_oval(c, x + 12, top + 36, x + 20, top + 44, fill=dot, outline=""))
@@ -198,10 +204,14 @@ class CanvasMixin:
             items.append(text(value_x, top + 40, value, -17, weight="bold", translate=False))
             for item in items:
                 c.addtag_withtag("reading", item)
+            box = (x, top, x + width, top + READINGS_HEIGHT)
             if weather and index:
-                box = (x, top, x + width, top + READINGS_HEIGHT)
                 self.canvas_hover.add(box, card, {"fill": C.CARD}, {"fill": C.HOVER})
                 hit(box, self.open_outside_sheet)
+            elif history:
+                # The room temperature over the last day or week, kept on this computer.
+                self.canvas_hover.add(box, card, {"fill": C.CARD}, {"fill": C.HOVER})
+                hit(box, self.open_history_sheet)
 
     def draw_dial(self, c, text, hit, tone):
         """A 270° ring: drag along it, click it, scroll on it or use −/+."""

@@ -63,6 +63,10 @@ class SessionMixin:
         self.login_view.set_loading(False)
         if self.demo and not self.memory.account:
             self.memory.use_account("preview@example.test")
+        if self.demo:
+            from ..demo import seed_history
+
+            seed_history(self.memory, devices)
         self.reset_auto()
         self.devices = devices
         self.login_frame.pack_forget()

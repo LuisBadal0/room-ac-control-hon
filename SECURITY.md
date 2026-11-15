@@ -15,6 +15,11 @@ previous opt-in. **Sign out** removes saved credentials and resets Remember me;
 it retains program preferences. If saved data cannot be decrypted, the app
 requires sign-in rather than falling back to plaintext storage.
 
+The room temperature history (one reading every ten minutes, for seven days: room
+and outside temperature, humidity, target and whether the AC was on) is kept in
+`%LOCALAPPDATA%\RoomACControl\history.dpapi`, encrypted the same way. It is
+keyed by a hash of the account email and never sent anywhere.
+
 Credentials are passed to the third-party **pyhOn** library, which authenticates
 with hOn over HTTPS. You therefore trust both the app and its dependencies with
 your credentials. The current integration uses password-based authentication;

@@ -76,3 +76,26 @@ def devices():
         alerts=[{"kind": "filter"}],
     )
     return [room, bedroom]
+
+
+def seed_history(memory, rooms, now=None):
+    """A fictional week of room readings for the offline preview's history chart."""
+    import math
+    import time
+    from datetime import datetime
+
+    from .room_history import EVERY
+
+    if memory.history is None:
+        return
+    now = time.time() if now is None else now
+    for offset, room in enumerate(rooms):
+        for step in range(7 * 24 * 3600 // EVERY, -1, -1):
+            moment = now - step * EVERY
+            hour = datetime.fromtimestamp(moment).hour + datetime.fromtimestamp(moment).minute / 60
+            on = 13 <= hour < 22 and offset == 0
+            outside = 25 + 6 * math.sin((hour - 9) / 24 * 2 * math.pi)
+            indoor = (23.4 if on else 25.5 - offset) + 0.9 * math.sin((hour - 11) / 24 * 2 * math.pi)
+            snapshot = {"room": round(indoor, 1), "target": 23, "power": "On" if on else "Off"}
+            snapshot["sensors"] = {"outdoor": round(outside, 1)}
+            memory.history.record(memory.account, room["id"], snapshot, now=moment)

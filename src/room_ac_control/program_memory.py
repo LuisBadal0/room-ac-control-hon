@@ -42,8 +42,9 @@ def supported(spec, value):
 
 
 class ProgramMemory:
-    def __init__(self, state):
+    def __init__(self, state, history=None):
         self.state = state
+        self.history = history  # RoomHistory, or None when readings are not kept.
         self.account = ""
         self.save_error = False
 
@@ -54,6 +55,18 @@ class ProgramMemory:
         except OSError as error:
             diagnostics.record("state_save_failed", error)
             self.save_error = True
+
+    def record_reading(self, snapshot):
+        """Keep the room temperature for the history chart, at most every ten minutes."""
+        if self.history is None:
+            return
+        try:
+            self.history.record(self.account, snapshot.get("id"), snapshot)
+        except OSError as error:
+            diagnostics.record("history_save_failed", error)
+
+    def readings(self, device_id, hours):
+        return [] if self.history is None else self.history.readings(self.account, device_id, hours)
 
     def use_account(self, email):
         self.account = hashlib.sha256(email.strip().casefold().encode()).hexdigest()

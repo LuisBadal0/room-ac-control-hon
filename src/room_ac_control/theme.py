@@ -380,6 +380,11 @@ def icon(canvas, name, x, y, color=None, scale=1, bg=None, tags=(), rotate=0):
         rounded(canvas, x - 3, y - 11, x + 3, y + 4, 3, fill="", outline=color, width=1.5, tags=tags)
         oval(x - 5.5, y + 2, x + 5.5, y + 13, fill=bg)
         line(x, y - 4, x, y + 7)
+    elif name == "chart":
+        line(x - 11, y - 10, x - 11, y + 10, x + 11, y + 10)
+        line(x - 7, y + 4, x - 2, y - 2, x + 2, y + 2, x + 9, y - 6, width=1.8)
+    elif name == "bolt":
+        line(x + 2, y - 12, x - 6, y + 1, x + 1, y + 1, x - 2, y + 12, x + 6, y - 1, x - 1, y - 1, x + 2, y - 12)
     elif name == "power":
         aa_arc(
             canvas,
