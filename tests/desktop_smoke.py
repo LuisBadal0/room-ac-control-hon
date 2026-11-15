@@ -81,6 +81,9 @@ with tempfile.TemporaryDirectory() as directory:
             self.shown = False
             self.stopped = False
 
+        def set_state(self, state):
+            self.state = state
+
         def show(self):
             self.shown = True
             return True
