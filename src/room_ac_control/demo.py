@@ -99,3 +99,30 @@ def seed_history(memory, rooms, now=None):
             snapshot = {"room": round(indoor, 1), "target": 23, "power": "On" if on else "Off"}
             snapshot["sensors"] = {"outdoor": round(outside, 1)}
             memory.history.record(memory.account, room["id"], snapshot, now=moment)
+
+
+def energy(room, today=None):
+    """Fictional energy use for the offline preview; the bedroom reports none, like many ACs."""
+    from datetime import date, timedelta
+
+    from .energy import summary
+
+    if room["id"] != "preview-living-room":
+        return summary({"payload": {"payload": {"total": {"week": 0, "month": 0, "year": 0}}}})
+    today = today or date.today()
+    week = [today - timedelta(days=offset) for offset in range(6, -1, -1)]
+    month = [today - timedelta(days=offset) for offset in range(today.day - 1, -1, -1)]
+    daily = lambda day: round(2.2 + 1.4 * ((day.toordinal() * 7) % 5) / 4, 1)
+    history = {
+        "week": [{"date": day.isoformat(), "consumption": daily(day)} for day in week],
+        "month": [{"date": day.isoformat(), "consumption": daily(day)} for day in month],
+        "year": [
+            {
+                "date": date(today.year, number, 1).isoformat(),
+                "consumption": (40, 32, 18, 9, 26, 71, 98, 104, 63, 21, 12)[number - 1] if number <= 11 else 0,
+            }
+            for number in range(1, today.month + 1)
+        ],
+    }
+    totals = {period: round(sum(row["consumption"] for row in rows), 1) for period, rows in history.items()}
+    return summary({"payload": {"payload": {"total": totals, "history": history}}})

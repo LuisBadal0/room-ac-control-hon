@@ -214,7 +214,7 @@ class App(SessionMixin, StatusMixin, WindowMixin, PreferencesMixin, CanvasMixin,
             self.update_job = root.after(updates.FIRST_CHECK_MS, self.auto_check_updates)
 
     # Loads that run beside a command. Their results must not unlock the controls.
-    BACKGROUND = {"auto-refresh", "routine-history", "schedule-list"}
+    BACKGROUND = {"auto-refresh", "routine-history", "schedule-list", "energy"}
 
     def poll(self):
         if self.closing:

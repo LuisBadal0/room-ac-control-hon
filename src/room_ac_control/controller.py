@@ -87,6 +87,8 @@ class Controller:
         self.cloud_timers = None
         # Outside weather per AC: when it was loaded, when to load it next, and its values.
         self.weather_cache: dict[str, dict] = {}
+        # Energy use per AC: when it was loaded, and its values.
+        self.energy_cache: dict[str, tuple[float, dict]] = {}
 
     WEATHER_EVERY = 15 * 60  # hOn's forecast has one entry every three hours.
     WEATHER_KEEP = 3 * 60 * 60  # After a failed load, older values stay this long.
@@ -115,6 +117,25 @@ class Controller:
         if entry["loaded"] is None or now - entry["loaded"] > self.WEATHER_KEEP:
             return {}
         return dict(entry["values"])
+
+    ENERGY_EVERY = 30 * 60  # hOn's statistics change at most every few minutes.
+
+    async def energy(self, device_id):
+        """Energy use from hOn's statistics service, as in its Energy consumption panel.
+
+        Read only when asked (the History sheet), and loaded at most every 30 minutes."""
+        if self.api is None:
+            raise ControlError("The cloud service did not accept the command. Sign in again.")
+        from . import energy
+
+        device = self.devices[device_id]
+        now = time.monotonic()
+        cached = self.energy_cache.get(device_id)
+        if cached and now - cached[0] < self.ENERGY_EVERY:
+            return cached[1]
+        values = await asyncio.wait_for(energy.load(self.api._hon, device), timeout=15)
+        self.energy_cache[device_id] = (now, values)
+        return values
 
     async def snapshot(self, device, timers=True, load_weather=True):
         """The device state the app shows: reported status, timers and outside weather."""
@@ -408,6 +429,7 @@ class Controller:
         self.active_functions.clear()
         self.pending_changes.clear()
         self.weather_cache.clear()
+        self.energy_cache.clear()
         self.api = None
         self.cloud_timers = None
         if self.session:

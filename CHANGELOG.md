@@ -13,6 +13,7 @@ section above it.
 ### Added
 
 - **Room temperature history.** Select **Room** on the dashboard to see the room temperature over the last 24 hours or 7 days, with the lowest, average and highest values, the outside temperature and when the AC was on. hOn does not keep this history, so the app saves a reading every ten minutes while it is open (also from the notification area), encrypted on this computer, for seven days.
+- **Energy use**, as in hOn's Energy consumption panel. The same sheet's **Energy** tab shows the kWh your AC reported to hOn this week, this month and this year, with a bar for each day or month. ACs that do not measure their consumption show that hOn has no energy data for them.
 
 ## [0.7.0] - 2026-11-10
 
