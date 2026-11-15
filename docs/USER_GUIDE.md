@@ -103,6 +103,8 @@ After an accepted settings command, **Awaiting confirmation** keeps the values y
 
 Drag the integrated header to move the window, or use its minimize and close controls. Minimize moves the app to the Windows notification area. Double-click the tray icon or choose **Open Room AC Control** to restore. **Exit** or the window's close button quits without turning the AC off.
 
+Right-click the tray icon for quick actions on the selected AC. The menu shows its name, room temperature and mode, then **Turn on** or **Turn off**, **Eco** (while the AC is on) and **Presets**, which lists your top presets from **Everyday use**. These send the same commands as the window: turning on uses the mode's remembered settings, and a preset starts with the values its sheet shows. Choices wait while another command is being sent. Edits staged in the window but not applied are discarded when a tray action is sent.
+
 While the app waits in the notification area, it keeps checking the AC and shows a Windows notification when the AC reports a new error code, needs its filter cleaned, goes offline, or turns on or off. A power change is put down to the **End at** or start timer when one was due within the last few minutes; otherwise it says it happened outside the app (the remote, hOn or a schedule). Changes you just sent from the app are not announced. With the window open, the dashboard's banners show the same information instead. Turn notifications off or on in **Settings › Notifications**; the choice is saved.
 
 The main window and All functions open at a fixed size designed for their layout, so they cannot be resized or maximized. All functions scrolls when a section has more cards than fit.

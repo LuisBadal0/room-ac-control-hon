@@ -526,4 +526,6 @@ PORTUGUESE = {
     "Windows notifications": "Notificações do Windows",
     "While minimized: errors, filter, on and off": "Minimizada: erros, filtro, ligar e desligar",
     "Notification setting changed for this session, but the preference could not be saved.": "A definição de notificações foi alterada nesta sessão, mas não foi possível guardar a preferência.",
+    "Eco": "Eco",
+    "Presets": "Predefinições",
 }

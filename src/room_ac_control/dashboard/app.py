@@ -309,6 +309,7 @@ class App(SessionMixin, StatusMixin, WindowMixin, PreferencesMixin, CanvasMixin,
         self.apply_button.set_enabled(available and bool(self.dirty))
         self.update_apply_label()
         self.device_picker.set_enabled(available)
+        self.update_tray()
         self.power_button.set_state(
             self.selected is not None and self.selected["power"] == "On",
             available,

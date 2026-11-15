@@ -19,36 +19,55 @@ from .sheets import (
 )
 
 
+def preset_parameters(app, item):
+    """A preset's editable values as (spec, initial value): its defaults, then what was last used."""
+    selected = app.selected
+    controls = selected.get("controls", {})
+    if item["kind"] == "night":
+        values = {
+            **PRESET_DEFAULTS.get(preset_key(item), {}),
+            **app.memory.mode_values(selected, dict(item["changes"])),
+        }
+        return [
+            (controls[key], values.get(key, app.current(key)))
+            for key in ("tempSel", "windSpeed", "windDirectionVertical", "muteStatus", "ecoMode")
+            if key in controls
+        ]
+    saved = {
+        **PRESET_DEFAULTS.get(preset_key(item), {}),
+        **app.memory.function_values(selected["id"], item["command"], item["form"]),
+    }
+    return [
+        (spec, saved.get(spec["key"], spec.get("value")))
+        for spec in item["form"].get("parameters", [])
+        if spec["key"] != "machMode"
+    ]
+
+
+def preset_request(app, item, values=None):
+    """The command that starts a preset: ("on", settings) for a Night mode, else ("execute", …).
+
+    Without `values`, the preset starts with the values its sheet would show."""
+    if values is None:
+        values = {spec["key"]: value for spec, value in preset_parameters(app, item)}
+    values = {key: value for key, value in values.items() if value is not None}
+    if item["kind"] == "night":
+        request = dict(app.memory.mode_values(app.selected, dict(item["changes"])))
+        request.update(values)
+        request.update(item["changes"])
+        return "on", request
+    return "execute", {"command": item["command"], "category": item["form"]["category"], "parameters": values}
+
+
 class PresetSheetMixin:
     def open_preset(self, item):
         """Review a preset, Night mode or maintenance routine, then start it explicitly."""
-        selected = self.app.selected
-        controls = selected.get("controls", {})
         color, glyph, description, features = self.preset_details(item)
         maintenance = item.get("section") == "maintenance" or (
             item["kind"] == "function" and item["form"].get("group") == "maintenance"
         )
         # Editable parameters: (spec, initial value).
-        if item["kind"] == "night":
-            values = {
-                **PRESET_DEFAULTS.get(preset_key(item), {}),
-                **self.app.memory.mode_values(selected, dict(item["changes"])),
-            }
-            parameters = [
-                (controls[key], values.get(key, self.app.current(key)))
-                for key in ("tempSel", "windSpeed", "windDirectionVertical", "muteStatus", "ecoMode")
-                if key in controls
-            ]
-        else:
-            saved = {
-                **PRESET_DEFAULTS.get(preset_key(item), {}),
-                **self.app.memory.function_values(selected["id"], item["command"], item["form"]),
-            }
-            parameters = [
-                (spec, saved.get(spec["key"], spec.get("value")))
-                for spec in item["form"].get("parameters", [])
-                if spec["key"] != "machMode"
-            ]
+        parameters = preset_parameters(self.app, item)
         values = {spec["key"]: value for spec, value in parameters}
         holder = {}
 
@@ -307,17 +326,9 @@ class PresetSheetMixin:
         self.render(keep_scroll=True)
 
     def run_preset(self, item, values):
-        values = {key: value for key, value in values.items() if value is not None}
-        if item["kind"] == "night":
-            request = dict(self.app.memory.mode_values(self.app.selected, dict(item["changes"])))
-            request.update(values)
-            request.update(item["changes"])
-            self.close()
-            self.app.action("on", request)
-            return
-        request = {"command": item["command"], "category": item["form"]["category"], "parameters": values}
+        action, request = preset_request(self.app, item, values)
         self.close()
-        self.app.action("execute", request)
+        self.app.action(action, request)
 
     # Kept for callers of the earlier card view.
     configure_function = open_preset

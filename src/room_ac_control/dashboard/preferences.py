@@ -33,6 +33,7 @@ class PreferencesMixin:
         broadcast_language(self.root)
         if self.tray:
             try:
+                self.update_tray()
                 self.tray.refresh_language()
             except Exception as error:
                 diagnostics.record("tray_language_failed", error)
