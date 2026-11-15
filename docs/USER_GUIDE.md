@@ -28,6 +28,8 @@ When outside weather is available, select **Outside**, **Humidity** or **Air qua
 
 Select **Room** (marked with a small chart) to see the room temperature over the last **24 hours** or **7 days**, with the lowest, average and highest values, the outside temperature when known, and shading for the times the AC was on. hOn does not keep this history, so the app saves one reading every ten minutes while it is open, including while it waits in the notification area. Readings older than seven days are dropped. They are encrypted for your Windows user in `%LOCALAPPDATA%\RoomACControl\history.dpapi` and never leave this computer. The line has a gap where the app was closed.
 
+The same sheet's **Energy** tab shows the energy use the AC reports to hOn, as in the hOn app's **Energy consumption** panel: kWh for this week, this month and this year, and a bar for each day (or each month for the year). Select a total to see its bars. Many ACs do not measure their consumption; hOn then has only zeros, and the tab says **No energy data from hOn**, as the hOn app shows an empty state. The values are loaded when you open the tab, at most every 30 minutes.
+
 A coloured banner below the unit picture appears when the AC reports a condition, and disappears by itself when it clears:
 
 - **AC error** (red) with the code the unit reports. The code is shown as reported; check the unit or the troubleshooting section of the hOn app for its meaning.

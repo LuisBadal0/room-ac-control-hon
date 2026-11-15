@@ -69,7 +69,7 @@ assert app.sheets.sheet is None
 
 # The Room chip opens the room history instead; Portuguese labels fit; no weather means no sheet.
 click_reading(0)
-assert "Room temperature" in texts(app.sheets.sheet["canvas"])
+assert "History" in texts(app.sheets.sheet["canvas"])
 app.sheets.close_sheet()
 app.set_language("pt-PT")
 app.open_outside_sheet()
