@@ -37,7 +37,10 @@ assert app.tray.shown == [("Living room turned off", "Turned off outside this ap
 app.set_language("pt-PT")
 app.show_device(dict(living, power="Off", alerts=[{"kind": "error", "code": "E5"}, {"kind": "filter"}]))
 assert ("Living room: erro do AC", "O AC comunica o erro E5. Verifique-o na app hOn.") in app.tray.shown, app.tray.shown
-assert ("Living room: limpe o filtro de ar", "O ar condicionado indica que o filtro precisa de limpeza.") in app.tray.shown
+assert (
+    "Living room: limpe o filtro de ar",
+    "O ar condicionado indica que o filtro precisa de limpeza.",
+) in app.tray.shown
 app.set_language("en")
 
 # A visible window shows banners instead; nothing is announced.
