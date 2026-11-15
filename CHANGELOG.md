@@ -16,6 +16,10 @@ section above it.
 - **Energy use**, as in hOn's Energy consumption panel. The same sheet's **Energy** tab shows the kWh your AC reported to hOn this week, this month and this year, with a bar for each day or month. ACs that do not measure their consumption show that hOn has no energy data for them.
 - **Windows notifications** while the app waits in the notification area: a new AC error code, a filter reminder, the AC going offline, and the AC turning on or off, saying when its timer did it. Changes you make in the app are not announced. Turn them off in **Settings › Notifications**.
 
+### Changed
+
+- The sign-in screen now looks like the rest of the app: the unit picture with its airflow, rounded fields with icons, a **Remember me** switch, the same Sign in button, and messages inside the sign-in card instead of a strip at the bottom of the window.
+
 ## [0.7.0] - 2026-11-10
 
 ### Added

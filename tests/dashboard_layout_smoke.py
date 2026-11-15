@@ -96,7 +96,7 @@ try:
             unit = app.canvas.bbox("temperature-unit")
             assert unit[0] >= number[2] - 1  # °C follows the number, as in the mockup.
             assert number[0] > (DIAL[0] - DIAL[2]) * scale and unit[2] < (DIAL[0] + DIAL[2]) * scale
-        assert app.status_label.winfo_y() + app.status_label.winfo_height() <= app.body.winfo_height()
+        assert app.panel.winfo_y() + app.panel.winfo_height() <= app.body.winfo_height()
         # Dial: clicking the top of the ring picks the middle value; dragging past the
         # ends stops at the limits; the wheel and keys step.
         app.discard()

@@ -187,22 +187,8 @@ class App(SessionMixin, StatusMixin, WindowMixin, PreferencesMixin, CanvasMixin,
         self.connection.trace_add("write", lambda *args: self.paint_connection())
         self.status = tk.StringVar(value="Sign in to connect to your air conditioner.")
         self.status_display = TranslatedVariable(root, self.status)
-        self.status_label = tk.Label(
-            self.body,
-            textvariable=self.status_display,
-            font=font(9),
-            anchor="w",
-            justify="left",
-            padx=12,
-            pady=6,
-            wraplength=480,
-            bd=0,
-        )
-        paint(self.status_label, bg="SOFT", fg="ON_SOFT")
-        self.status_label.pack(fill="x", pady=(8, 0))
-        self.status_label.bind(
-            "<Configure>", lambda event: self.status_label.configure(wraplength=max(1, event.width - 24))
-        )
+        self.status.trace_add("write", lambda *args: self.login_view.draw_card())
+        # Before sign-in, messages show inside the sign-in card (login_view).
         # Signed in, messages appear briefly above the action row instead.
         self.toast = Toast(root)
         self.update_notice_bar = UpdateNotice(self)
@@ -316,9 +302,7 @@ class App(SessionMixin, StatusMixin, WindowMixin, PreferencesMixin, CanvasMixin,
 
     def set_busy(self, value):
         self.busy = value
-        state = "disabled" if value else "normal"
-        for widget in (self.email, self.password, self.login_button):
-            widget.configure(state=state)
+        self.login_view.set_enabled(not value)
         available = self.selected is not None and not value
         for widget in (self.refresh_button, self.all_button, self.discard_button):
             widget.set_enabled(available)

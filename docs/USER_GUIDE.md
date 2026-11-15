@@ -1,6 +1,6 @@
 # Using Room AC Control
 
-Launch from the **Room AC Control** shortcut that the installer adds to the Start menu (and to the desktop, if you left that ticked), or with **Start Room AC Control.cmd** in the portable folder. Sign in using the hOn email/password account that already controls the AC on your phone. **Remember me on this computer** enables encrypted automatic sign-in after the first successful login.
+Launch from the **Room AC Control** shortcut that the installer adds to the Start menu (and to the desktop, if you left that ticked), or with **Start Room AC Control.cmd** in the portable folder. Sign in using the hOn email/password account that already controls the AC on your phone. Turn on the **Remember me on this computer** switch, below the password, for encrypted automatic sign-in after the first successful login. If sign-in fails, the reason appears inside the sign-in card.
 
 Remember me is off by default. Enabling it saves your actual email and password using Windows encryption; other programs running as your Windows user can decrypt them. Existing remembered accounts retain their previous choice. Your password is passed to pyhOn for authentication.
 

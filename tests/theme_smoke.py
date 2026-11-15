@@ -91,7 +91,7 @@ with tempfile.TemporaryDirectory() as folder:
         assert C.mode == "dark" and app.theme_preference == "dark"
         assert SecureState(path).theme() == "dark"
         assert view.window.winfo_exists() and dict(app.dirty) == drafts
-        assert app.canvas.cget("bg") == C.BG and app.status_label.cget("bg") == C.SOFT
+        assert app.canvas.cget("bg") == C.BG and app.login_view.surface.cget("bg") == C.BG
         assert (
             view.search_entry.cget("bg") == C.CARD and view.top.cget("bg") == C.BG and view.content.cget("bg") == C.BG
         )

@@ -21,7 +21,7 @@ PORTUGUESE = {
     "Sign in with your hOn account.": "Entre com a sua conta hOn.",
     "Email address": "E-mail",
     "Password": "Palavra-passe",
-    "Sign in  →": "Entrar  →",
+    "Sign in": "Entrar",
     "Remember me on this computer": "Memorizar a conta neste computador",
     "Remember me saves your email and password, encrypted by Windows.\nPrograms running as your Windows user can decrypt them.": "Memorizar a conta guarda o e-mail e a palavra-passe, cifrados pelo Windows.\nAs aplicações executadas pelo seu utilizador do Windows podem decifrá-los.",
     "Export diagnostics": "Exportar diagnóstico",

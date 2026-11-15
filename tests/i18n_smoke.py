@@ -26,7 +26,7 @@ with patch("room_ac_control.i18n.system_language", return_value="pt_PT"):
 try:
     root.update()
     assert app.i18n.preference == "system" and app.i18n.language == "pt-PT"
-    assert app.login_button.cget("text") == "Entrar  →"
+    assert app.login_button.label() == "Entrar"
     callbacks = []
 
     def submit(coroutine, callback, operation, on_error=None):
@@ -63,7 +63,7 @@ try:
     # Windows caps a window at about the screen height; short screens (CI runners use
     # 1024x768) cannot show the full window, so the fit is checked only where it can.
     if root.winfo_screenheight() >= WINDOW_SIZE[1] + 80:
-        assert app.status_label.winfo_y() + app.status_label.winfo_height() <= app.body.winfo_height()
+        assert app.panel.winfo_y() + app.panel.winfo_height() <= app.body.winfo_height()
         for timer in app.inline_timers.cards.values():
             # Portuguese labels stay inside; outlined polygons report one extra pixel.
             assert all(
