@@ -82,6 +82,13 @@ class PreferencesMixin:
             self.updater.check(quiet=True)
         self.update_job = self.root.after(updates.CHECK_EVERY_MS, self.auto_check_updates)
 
+    def set_notifications(self, value):
+        self.notifications = bool(value)
+        try:
+            self.storage.save_notifications(bool(value))
+        except OSError:
+            self.status.set("Notification setting changed for this session, but the preference could not be saved.")
+
     def set_auto_update(self, value):
         self.updater.enabled = bool(value)
         try:

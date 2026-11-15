@@ -40,6 +40,17 @@ class SystemTray:
             diagnostics.record("tray_show_failed", error)
             return False
 
+    def notify(self, title, message):
+        """A Windows notification from the tray icon; only while the icon is shown."""
+        if not self.ready or not self.icon.visible:
+            return False
+        try:
+            self.icon.notify(message, title)
+            return True
+        except Exception as error:
+            diagnostics.record("tray_notify_failed", error)
+            return False
+
     def hide(self):
         if self.ready:
             self.icon.visible = False
