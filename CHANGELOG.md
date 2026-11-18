@@ -10,6 +10,8 @@ section above it.
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-11-18
+
 ### Changed
 
 - While an update installs, a small **Updating Room AC Control** window with a moving progress bar stays on screen until the new version opens, instead of the app simply disappearing for a few seconds.
