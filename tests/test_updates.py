@@ -19,7 +19,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from room_ac_control import updates
+from room_ac_control import update_progress, updates
 from room_ac_control.i18n import Translator
 from room_ac_control.secure_state import SecureState
 from room_ac_control.translations import PORTUGUESE
@@ -455,6 +455,112 @@ class UpdaterTests(unittest.TestCase):
             self.assertFalse(updater.supported)
             self.assertFalse(updater.check())
             self.assertFalse(updater.install())
+
+
+class ProgressWindowTests(unittest.TestCase):
+    TEXTS = {
+        "title": "A atualizar o Room AC Control",
+        "version": "Versão 9.9.9",
+        "detail": "A instalar a nova versão.",
+        "opening": "A abrir o Room AC Control…",
+    }
+    COLORS = {"CARD": "#161B22", "BRAND": "#5CC8FF"}
+
+    def test_window_gets_text_and_colours_through_its_environment(self):
+        calls = []
+        with tempfile.TemporaryDirectory() as folder:
+            folder = Path(folder)
+            icon = folder / "app" / "app-icon.png"
+            icon.parent.mkdir()
+            icon.write_bytes(b"png")
+            updates.launch_progress(
+                "9.9.9",
+                4242,
+                self.TEXTS,
+                self.COLORS,
+                folder=folder / "updates",
+                icon=icon,
+                popen=lambda *args, **options: calls.append((args, options)),
+            )
+            script = (folder / "updates" / "update-progress.ps1").read_bytes()
+            copied = folder / "updates" / "update-icon.png"
+            self.assertEqual(copied.read_bytes(), b"png")
+        (command,), options = calls[0]
+        self.assertTrue(command[0].lower().endswith("powershell.exe"))
+        self.assertEqual(command[-2:], ["-File", str(folder / "updates" / "update-progress.ps1")])
+        self.assertEqual(options["cwd"], str(folder / "updates"))
+        environment = options["env"]
+        self.assertEqual(environment["UPDATE_HELPER_PID"], "4242")
+        self.assertEqual(environment["UPDATE_RESULT"], str(folder / "updates" / "result.json"))
+        # The window shows a copy of the icon, never a file in the app folder being replaced.
+        self.assertEqual(environment["UPDATE_ICON"], str(copied))
+        self.assertEqual(environment["UPDATE_TITLE"], "A atualizar o Room AC Control")
+        self.assertEqual(environment["UPDATE_VERSION_TEXT"], "Versão 9.9.9")
+        self.assertEqual(environment["UPDATE_OPENING"], "A abrir o Room AC Control…")
+        self.assertEqual(environment["UPDATE_COLOR_BRAND"], "#5CC8FF")
+        script.decode("ascii")  # Static ASCII: no text or paths are written into it.
+
+    def test_a_missing_icon_still_shows_the_window(self):
+        calls = []
+        with tempfile.TemporaryDirectory() as folder:
+            updates.launch_progress(
+                "9.9.9",
+                1,
+                self.TEXTS,
+                {},
+                folder=Path(folder),
+                icon=Path(folder) / "missing.png",
+                popen=lambda *args, **options: calls.append(options),
+            )
+        self.assertEqual(calls[0]["env"]["UPDATE_ICON"], "")
+
+    @unittest.skipUnless(sys.platform == "win32", "The progress window runs in Windows PowerShell")
+    def test_windows_powershell_parses_the_script(self):
+        with tempfile.TemporaryDirectory() as folder:
+            script = Path(folder) / "update-progress.ps1"
+            script.write_text(update_progress.SCRIPT, encoding="ascii")
+            check = (
+                "$errors = $null; "
+                "[System.Management.Automation.Language.Parser]::ParseFile($env:CHECK_SCRIPT, [ref]$null, [ref]$errors) | Out-Null; "
+                "$errors | ForEach-Object { $_.Message }; exit $errors.Count"
+            )
+            result = subprocess.run(
+                [update_progress.powershell(), "-NoProfile", "-NonInteractive", "-Command", check],
+                env={**__import__("os").environ, "CHECK_SCRIPT": str(script)},
+                capture_output=True,
+                text=True,
+                timeout=60,
+            )
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+    def ready_updater(self, folder):
+        location = Path(folder) / "runtime" / "RoomACControl"
+        location.mkdir(parents=True)
+        updater = updates.Updater("0.1.23", location)
+        updater.release, updater.state = release(), "ready"
+        return updater
+
+    def test_apply_shows_the_window_for_the_helper(self):
+        progress = (self.TEXTS, self.COLORS, Path("icon.png"))
+        with tempfile.TemporaryDirectory() as folder:
+            updater = self.ready_updater(folder)
+            with (
+                patch.object(updates, "launch_helper", return_value=SimpleNamespace(pid=77)),
+                patch.object(updates, "launch_progress") as window,
+            ):
+                self.assertTrue(updater.apply(progress))
+        window.assert_called_once_with("9.9.9", 77, self.TEXTS, self.COLORS, icon=Path("icon.png"))
+
+    def test_the_update_goes_ahead_when_the_window_cannot_open(self):
+        with tempfile.TemporaryDirectory() as folder:
+            updater = self.ready_updater(folder)
+            with (
+                patch.object(updates, "launch_helper", return_value=SimpleNamespace(pid=77)) as helper,
+                patch.object(updates, "launch_progress", side_effect=OSError("no powershell")),
+            ):
+                self.assertTrue(updater.apply((self.TEXTS, self.COLORS, None)))
+        helper.assert_called_once()
+        self.assertTrue(updater.applied)
 
 
 class FakeRegistry:

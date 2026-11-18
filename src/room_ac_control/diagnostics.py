@@ -31,6 +31,7 @@ EVENTS = {
     "history_save_failed",
     "tray_notify_failed",
     "update_failed",
+    "update_progress_failed",
 }
 ERROR_TYPES = {
     "TimeoutError",

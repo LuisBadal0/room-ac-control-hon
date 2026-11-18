@@ -43,6 +43,7 @@ from .update_install import (
     updates_folder,
     writable,
 )
+from .update_progress import launch_progress
 from .update_release import (
     BUNDLE_UPGRADE_CODE,
     CHECK_EVERY_MS,
@@ -126,6 +127,7 @@ __all__ = [
     "is_newer",
     "launch_helper",
     "launch_installer_helper",
+    "launch_progress",
     "local_step",
     "open_url",
     "parse_version",
@@ -272,15 +274,26 @@ class Updater:
         self.run(work_installer if plan else work)
         return True
 
-    def apply(self):
-        """Hand over to the helper; the caller closes the app straight after."""
+    def apply(self, progress=None):
+        """Hand over to the helper; the caller closes the app straight after.
+
+        `progress` is (texts, colors, icon) for the window that shows the update
+        while the app is closed; see `launch_progress`."""
         if self.state != "ready" or self.applied:
             return False
+        version = self.release["version"]
         if self.installer:
-            launch_installer_helper(self.location, self.installed, self.installer, self.release["version"])
+            helper = launch_installer_helper(self.location, self.installed, self.installer, version)
         else:
-            launch_helper(self.location, self.release["version"])
+            helper = launch_helper(self.location, version)
         self.applied = True
+        if progress is not None:
+            texts, colors, icon = progress
+            try:
+                launch_progress(version, getattr(helper, "pid", 0), texts, colors, icon=icon)
+            except OSError as error:
+                # Only the window is missing; the update itself goes ahead.
+                diagnostics.record("update_progress_failed", error)
         return True
 
     def close(self):
