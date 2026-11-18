@@ -22,7 +22,11 @@ anonymized archive in `tests/fixtures/pyhon/`; never add archives from a real ac
 Build with `tools/Build.ps1` (portable ZIP, then the MSI and Setup.exe via
 `tools/build_installers.py`, which needs the .NET SDK). Run tests with
 `.venv\Scripts\python.exe -m unittest discover -s tests -v`. Run the UI smoke checks with
-`.venv\Scripts\python.exe tests/run_smoke.py`. The app version
+`.venv\Scripts\python.exe tests/run_smoke.py`. Save a picture of the offline
+preview with `.venv\Scripts\python.exe tools/preview_capture.py <file.png>`
+(`--screen login`, `--room 1`, `--theme dark`, `--language pt-PT`). The
+`.claude/skills/verify` skill lists the order of these checks and which smoke
+check matches each module; follow it before saying a change is done. The app version
 lives in `pyproject.toml`, `src/room_ac_control/__init__.py`,
 `packaging/version_info.txt` and `README.md`; `tests/test_version.py` checks them.
 Releases are batched, and this overrides the global rule that every user-facing
