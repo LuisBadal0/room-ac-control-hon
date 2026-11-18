@@ -10,6 +10,10 @@ section above it.
 
 ## [Unreleased]
 
+### Changed
+
+- The image library bundled with the app (Pillow) is updated to 13.0.0, with the latest fixes.
+
 ## [0.8.0] - 2026-11-15
 
 ### Added
