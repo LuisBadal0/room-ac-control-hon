@@ -6,6 +6,15 @@
 
 - 
 
+## Risk
+
+- What could break for someone who installs this, and what was done about it.
+
+## How to revert
+
+- Revert this PR. Mention anything a revert would not undo (saved settings,
+  installed files, a published release).
+
 ## Version
 
 No version change.

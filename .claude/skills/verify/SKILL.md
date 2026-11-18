@@ -74,7 +74,22 @@ If the user approved a mockup, compare with it: it must match exactly.
 The preview cannot show screens behind clicks (sheets, menus, the functions
 list). For those, the matching smoke check is the evidence; say so.
 
-## 4. When a check fails
+## 4. Prove a fix
+
+On a `fix/` branch, the new or changed test must fail without the fix. Stash or
+revert only the source change (`git stash push -- src`), run the test and see it
+fail for the reason the bug describes, then restore the fix and see it pass. A
+test that passes either way does not guard against the bug.
+
+## 5. Review the diff
+
+Before opening the pull request, run `/code-review` on the branch. It follows
+`REVIEW.md` from `main`. When the diff touches `updates.py`, `update_*.py`,
+`secure_state.py`, `login_view.py`, `diagnostics.py`, `packaging/` or
+`.github/workflows/`, run `/security-review` as well. Fix each Important finding,
+or say in the PR why it does not apply.
+
+## 6. When a check fails
 
 - Fix the code, not the check. Do not loosen an assertion, skip a test, add a
   `sleep` or rerun until a flaky test passes. If a test is truly flaky and the
@@ -82,7 +97,7 @@ list). For those, the matching smoke check is the evidence; say so.
 - After three rounds of fixes on the same failure, stop and report to the user:
   the failing command, its output, and what was tried.
 
-## 5. Report
+## 7. Report
 
 End with a short list for the PR's **Checks** section: each command and its
 result, the pictures looked at (and what they showed), and what was not checked.

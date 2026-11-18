@@ -26,7 +26,10 @@ Build with `tools/Build.ps1` (portable ZIP, then the MSI and Setup.exe via
 preview with `.venv\Scripts\python.exe tools/preview_capture.py <file.png>`
 (`--screen login`, `--room 1`, `--theme dark`, `--language pt-PT`). The
 `.claude/skills/verify` skill lists the order of these checks and which smoke
-check matches each module; follow it before saying a change is done. The app version
+check matches each module; follow it before saying a change is done.
+`.claude/settings.json` runs `.claude/hooks/ruff_after_edit.py` after every edit to a
+Python file in `src`, `tests` or `tools` (ruff format, then ruff check). `REVIEW.md`
+says what a review looks for; run `/code-review` before opening a pull request. The app version
 lives in `pyproject.toml`, `src/room_ac_control/__init__.py`,
 `packaging/version_info.txt` and `README.md`; `tests/test_version.py` checks them.
 Releases are batched, and this overrides the global rule that every user-facing
