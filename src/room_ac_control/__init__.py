@@ -1,3 +1,3 @@
 """Room AC Control: a community hOn controller for Windows."""
 
-__version__ = "0.8.0"
+__version__ = "0.8.1"
