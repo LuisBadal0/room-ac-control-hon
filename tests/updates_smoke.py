@@ -130,6 +130,7 @@ try:
         patch.object(updates, "download", side_effect=fake_download),
         patch.object(updates, "self_test"),
         patch.object(updates, "launch_helper") as helper,
+        patch.object(updates, "launch_progress") as window,
     ):
         view.primary.invoke()
         settle(root, lambda: halfway.is_set() and app.updater.progress == 0.5)
@@ -143,9 +144,13 @@ try:
         assert bar.label.cget("text") == "Restarting to finish the update…" and bar.frame.winfo_ismapped()
         settle(root, lambda: app.closing)
     helper.assert_called_once_with(location, "9.9.9")
+    # The "Updating…" window takes over while the app is closed.
+    (version, _pid, texts, colors, *_), options = window.call_args
+    assert version == "9.9.9" and texts["title"] == "Updating Room AC Control" and texts["version"] == "Version 9.9.9"
+    assert colors["BRAND"] and options["icon"].name == "app-icon.png" and options["icon"].is_file()
     assert (updates.staged(location) / "RoomACControl.exe").exists()
     print(
-        "Settings panel and Updates window, preview lock, check, header badge, update progress bar, Portuguese, automatic-check setting and update hand-over passed offline."
+        "Settings panel and Updates window, preview lock, check, header badge, update progress bar, the updating window, Portuguese, automatic-check setting and update hand-over passed offline."
     )
 finally:
     temporary.cleanup()

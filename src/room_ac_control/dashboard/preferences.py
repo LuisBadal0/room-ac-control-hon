@@ -7,8 +7,10 @@ from ..diagnostics import diagnostics
 from ..i18n import (
     LANGUAGES,
     broadcast_language,
+    tr,
 )
 from ..theme import (
+    ASSETS,
     THEMES,
     C,
     broadcast_theme,
@@ -115,7 +117,7 @@ class PreferencesMixin:
         if self.updater.state == "ready":
             # The person clicked Update; the helper waits for this process to exit.
             try:
-                applied = self.updater.apply()
+                applied = not self.updater.applied and self.updater.apply(self.update_progress())
             except OSError as error:
                 diagnostics.record("update_failed", error)
                 self.updater.state, self.updater.error = (
@@ -126,6 +128,18 @@ class PreferencesMixin:
                 return
             if applied:
                 self.root.after(300, self.close)
+
+    def update_progress(self):
+        """Text and colours for the window that shows the update while the app is closed."""
+        version = self.updater.release["version"]
+        texts = {
+            "title": tr(self.root, "Updating Room AC Control"),
+            "version": tr(self.root, f"Version {version}"),
+            "detail": tr(self.root, "Installing the new version. Room AC Control opens again when it is done."),
+            "opening": tr(self.root, "Opening Room AC Control…"),
+        }
+        colors = {name: getattr(C, name) for name in ("CARD", "EDGE", "TEXT", "MUTED", "TRACK", "BRAND")}
+        return texts, colors, ASSETS / "app-icon.png"
 
     def open_updates(self, parent=None):
         if self.updates_view and self.updates_view.window.winfo_exists():
