@@ -10,6 +10,10 @@ section above it.
 
 ## [Unreleased]
 
+### Fixed
+
+- The app's icon in the taskbar and title bar is sharp again instead of blurred.
+
 ## [0.10.0] - 2026-11-23
 
 ### Changed

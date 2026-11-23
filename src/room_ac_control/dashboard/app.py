@@ -98,9 +98,9 @@ class App(SessionMixin, StatusMixin, WindowMixin, PreferencesMixin, CanvasMixin,
         self.unit_image = unit_photo(root, UNIT[0])
         self.settings_panel = None
         self.dial_drag = False
-        root.iconbitmap(str(ASSETS / "app.ico"))
-        self.app_icon = tk.PhotoImage(master=root, file=str(ASSETS / "app-icon.png"))
-        root.iconphoto(True, self.app_icon)
+        # The multi-size .ico, not a single large photo: Windows shrinks one big
+        # image crudely, which blurs the taskbar and title-bar icons.
+        root.iconbitmap(default=str(ASSETS / "app.ico"))
         localized_title(root, "Room AC Control for hOn" + (" · Design preview" if demo else ""))
         root.geometry("{}x{}".format(*WINDOW_SIZE))
         root.resizable(False, False)
