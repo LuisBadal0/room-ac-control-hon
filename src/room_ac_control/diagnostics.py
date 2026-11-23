@@ -18,6 +18,7 @@ EVENTS = {
     "tray_hide_failed",
     "tray_close_failed",
     "tray_language_failed",
+    "tray_menu_failed",
     "routine_history_failed",
     "worker_shutdown_failed",
     "background_task_failed",

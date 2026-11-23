@@ -531,4 +531,5 @@ PORTUGUESE = {
     "Notification setting changed for this session, but the preference could not be saved.": "A definição de notificações foi alterada nesta sessão, mas não foi possível guardar a preferência.",
     "Eco": "Eco",
     "Presets": "Predefinições",
+    "Waits until on": "Só quando ligado",
 }

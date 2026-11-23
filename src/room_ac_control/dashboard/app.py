@@ -70,6 +70,7 @@ class App(SessionMixin, StatusMixin, WindowMixin, PreferencesMixin, CanvasMixin,
         self.instance = None  # The single-instance lock, set by main().
         self.worker = Worker(memory=self.memory)
         self.tray = None
+        self.tray_menu = None  # The open notification-area menu, if any.
         self.closing = False
         # Windows notifications from the tray: the last snapshot seen per AC, and until when
         # power changes come from this app's own command.

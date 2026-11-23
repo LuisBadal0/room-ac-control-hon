@@ -36,32 +36,55 @@ class WindowMixin:
         return {preset_key(item): item for item in top}
 
     def update_tray(self):
-        """Give the tray menu the selected AC's name, reading, power, Eco and top presets."""
+        """Give the tray menu the selected AC's name, reading, mode, power, Eco and top presets."""
         if not self.tray:
             return
         if not self.selected:
-            self.tray.set_state({})
+            self.set_tray_state({})
             return
         from ..controller import code, mode_label
 
         device = self.selected
-        parts = [device["name"]]
         try:
-            parts.append(self.i18n.number(f"{float(device['room']):.1f}") + "°")
+            reading = self.i18n.number(f"{float(device['room']):.1f}") + "°"
         except (TypeError, ValueError):
-            pass
-        parts.append(tr(self.root, mode_label(device) if device["power"] == "On" else "Off"))
+            reading = ""
+        mode = mode_label(device)
         eco = device.get("controls", {}).get("ecoMode")
         presets = self.tray_presets()
-        self.tray.set_state(
+        self.set_tray_state(
             {
-                "summary": " · ".join(parts),
+                "name": device["name"],
+                "reading": reading,
+                "mode": tr(self.root, mode),
+                "mode_key": mode,
                 "power": device["power"],
                 "eco": (code(eco["value"]) == "1") if eco and eco.get("reported") else None,
-                "presets": [(key, tr(self.root, item["label"])) for key, item in presets.items()],
+                # (key, label shown, English label: its mode colours the chip's dot).
+                "presets": [(key, tr(self.root, item["label"]), item["label"]) for key, item in presets.items()],
                 "busy": self.busy,
             }
         )
+
+    def set_tray_state(self, state):
+        if self.tray.set_state(state) and self.tray_menu:
+            self.tray_menu.refresh()
+
+    def open_tray_menu(self, x, y):
+        """The notification-area menu at the cursor, in the app's style; a second right-click reopens it."""
+        from ..tray_menu import TrayMenu
+
+        if self.tray_menu:
+            self.tray_menu.close()
+        try:
+            self.tray_menu = TrayMenu(self, x, y)
+        except Exception as error:
+            self.tray_menu = None
+            diagnostics.record("tray_menu_failed", error)
+
+    def close_tray_menu(self):
+        if self.tray_menu:
+            self.tray_menu.close()
 
     def tray_action(self, event):
         """A quick action chosen in the tray menu: the same commands as the window sends."""
@@ -98,6 +121,7 @@ class WindowMixin:
         self.login_view.close()
         self.reset_auto()
         self.airflow.close()
+        self.close_tray_menu()
         if self.tray:
             try:
                 self.tray.close()
@@ -120,10 +144,13 @@ class WindowMixin:
                     if self.root.state() == "iconic":
                         self.minimize_to_tray()
                 elif event == "restore":
+                    self.close_tray_menu()
                     self.restore_window()
                 elif event == "exit":
                     self.close()
                     return True
+                elif isinstance(event, tuple) and event[0] == "menu":
+                    self.open_tray_menu(*event[1:])
                 elif isinstance(event, tuple):
                     self.tray_action(event)
                 elif event in {"power", "eco"}:
