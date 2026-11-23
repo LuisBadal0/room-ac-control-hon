@@ -29,7 +29,7 @@ The main window lives in `src/room_ac_control/dashboard/`. `app.py` holds `App`:
 
 - `session.py`: sign-in, the connected dashboard and sign-out;
 - `status.py`: manual and automatic refresh, commands and discarding edits;
-- `window.py`: minimize, restore, close, the notification-area icon and failures;
+- `window.py`: minimize, restore, close, the notification-area icon and failures (the icon itself is `tray.py`, and its Ambient right-click menu is `tray_menu.py`);
 - `canvas.py`: drawing;
 - `controls.py`: pointer and menu input;
 - `schedule_actions.py`: timers and schedules;

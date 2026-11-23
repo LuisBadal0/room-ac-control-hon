@@ -43,7 +43,7 @@ python tests/run_smoke.py                             # all of them
 | `schedules*.py` | `schedules_smoke.py` |
 | `room_history.py`, `routine_history.py`, `energy.py` | `history_smoke.py` |
 | `weather.py` | `outside_smoke.py` |
-| `tray.py`, `notifier.py` | `tray_smoke.py`, `notifications_smoke.py` |
+| `tray.py`, `tray_menu.py`, `notifier.py` | `tray_smoke.py`, `notifications_smoke.py` |
 | `live_updates.py`, `worker.py`, `controller.py` | `refresh_smoke.py` |
 | `updates*.py`, `update_*.py` | `updates_smoke.py` |
 | `window_header.py` | `window_header_smoke.py` |

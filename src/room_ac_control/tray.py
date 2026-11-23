@@ -1,12 +1,15 @@
-"""The notification-area icon: its menu, quick actions and notifications.
+"""The notification-area icon: its clicks, quick-action state and notifications.
 
-pystray runs the icon on its own thread. Menu choices are queued for Tk's main thread,
-where the app sends the same commands as its window does. The menu reads a small state
-the app sets after each status refresh: the AC's name and reading, power, Eco and the
-top presets from Everyday use.
+pystray runs the icon on its own thread. A left-click asks Tk's main thread to show the
+window; a right-click sends the cursor position, and the app opens its own Ambient menu
+there (tray_menu.py) instead of a Windows menu. The menu reads a small state the app sets
+after each status refresh: the AC's name, reading and mode, power, Eco and the top presets
+from Everyday use.
 """
 
+import ctypes
 import queue
+from ctypes import wintypes
 from pathlib import Path
 
 import pystray
@@ -14,70 +17,46 @@ from PIL import Image
 
 from .diagnostics import diagnostics
 
+WM_LBUTTONUP = 0x0202
+WM_RBUTTONUP = 0x0205
+
+
+class Icon(pystray.Icon):  # type: ignore[valid-type,misc]
+    """pystray's Windows icon, with its clicks sent to the app instead of a Windows menu."""
+
+    def __init__(self, events, *args, **kwargs):
+        self.events = events
+        super().__init__(*args, **kwargs)
+
+    def _on_notify(self, wparam, lparam):
+        if lparam == WM_LBUTTONUP:
+            self.events.put("restore")
+        elif lparam == WM_RBUTTONUP:
+            # The shell lets the icon's owner take the foreground now, so the menu can take focus.
+            ctypes.windll.user32.SetForegroundWindow(self._hwnd)
+            point = wintypes.POINT()
+            ctypes.windll.user32.GetCursorPos(ctypes.byref(point))
+            self.events.put(("menu", point.x, point.y))
+
 
 class SystemTray:
     def __init__(self, language=None):
         self.language = language
         self.events = queue.Queue()
         self.ready = False
-        # Set by the app on Tk's thread and read by pystray's menu; replaced, never changed in place.
+        # Set by the app on Tk's thread and read by the menu; replaced, never changed in place.
         self.state = {}
         with Image.open(Path(__file__).resolve().parent / "assets" / "app-icon.png") as source:
             image = source.convert("RGBA").resize((64, 64), Image.Resampling.LANCZOS)
-        self.icon = pystray.Icon("room_ac_control", image, "Room AC Control for hOn", pystray.Menu(self.items))
+        self.icon = Icon(self.events, "room_ac_control", image, "Room AC Control for hOn")
         self.icon.run_detached(setup=lambda icon: self.events.put("ready"))
 
-    def text(self, value):
-        return self.language.translate(value) if self.language else value
-
-    def send(self, *event):
-        return lambda icon, item: self.events.put(event if len(event) > 1 else event[0])
-
-    def items(self):
-        """The menu, built each time it opens from the latest state."""
-        state = self.state
-        yield pystray.MenuItem(self.text("Open Room AC Control"), self.send("restore"), default=True)
-        if state:
-            yield pystray.Menu.SEPARATOR
-            yield pystray.MenuItem(state["summary"], None, enabled=False)
-            available = not state.get("busy")
-            power = "Turn off" if state.get("power") == "On" else "Turn on"
-            yield pystray.MenuItem(self.text(power), self.send("power"), enabled=available)
-            if state.get("eco") is not None:
-                yield pystray.MenuItem(
-                    self.text("Eco"),
-                    self.send("eco"),
-                    checked=lambda item: bool(self.state.get("eco")),
-                    enabled=available and state.get("power") == "On",
-                )
-            presets = state.get("presets") or []
-            if presets:
-                yield pystray.MenuItem(
-                    self.text("Presets"),
-                    pystray.Menu(
-                        *(
-                            pystray.MenuItem(label, self.send("preset", key), enabled=available)
-                            for key, label in presets
-                        )
-                    ),
-                )
-        yield pystray.Menu.SEPARATOR
-        yield pystray.MenuItem(self.text("Exit"), self.send("exit"))
-
     def set_state(self, state):
-        """Show the AC's latest status in the menu; refreshes it only when something changed."""
+        """Keep the AC's latest status for the menu; True when something changed."""
         if state == self.state:
-            return
+            return False
         self.state = state
-        if self.ready:
-            try:
-                self.icon.update_menu()
-            except Exception as error:
-                diagnostics.record("tray_show_failed", error)
-
-    def refresh_language(self):
-        if self.ready:
-            self.icon.update_menu()
+        return True
 
     def show(self):
         if not self.ready:
