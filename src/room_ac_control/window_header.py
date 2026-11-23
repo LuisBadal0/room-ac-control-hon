@@ -8,7 +8,7 @@ from pathlib import Path
 
 from .i18n import localized, refresh_on_language, tr
 from .smooth import aa_oval, aa_text
-from .theme import C, font, icon, measure, paint, refresh_on_theme, rounded
+from .theme import ASSETS, C, font, icon, measure, paint, refresh_on_theme, rounded
 
 
 class WindowsFrame:
@@ -49,6 +49,8 @@ class WindowsFrame:
         self.user.GetWindowRect.restype = wintypes.BOOL
         self.user.RedrawWindow.argtypes = [wintypes.HWND, ctypes.c_void_p, wintypes.HRGN, wintypes.UINT]
         self.user.RedrawWindow.restype = wintypes.BOOL
+        self.icon_hwnd = None
+        self.icons = []
 
     def apply(self):
         """Restyle the native frame; False until Windows has created it."""
@@ -68,7 +70,45 @@ class WindowsFrame:
             # Recalculate the non-client region without moving or hiding the window.
             self.user.SetWindowPos(self.hwnd, None, 0, 0, 0, 0, 0x0027)
         self.apply_colors()
+        self.apply_icon()
         return True
+
+    def apply_icon(self):
+        """Give Windows the .ico image drawn at each size it shows, so the
+        taskbar and Alt+Tab icons stay sharp at any display scale."""
+        if self.icon_hwnd == self.hwnd:
+            return
+        try:
+            user = self.user
+            user.LoadImageW.argtypes = [
+                wintypes.HINSTANCE,
+                wintypes.LPCWSTR,
+                wintypes.UINT,
+                ctypes.c_int,
+                ctypes.c_int,
+                wintypes.UINT,
+            ]
+            user.LoadImageW.restype = wintypes.HANDLE
+            user.SendMessageW.argtypes = [wintypes.HWND, wintypes.UINT, wintypes.WPARAM, wintypes.LPARAM]
+            user.SendMessageW.restype = ctypes.c_ssize_t
+            try:
+                dpi = user.GetDpiForWindow(self.hwnd) or 96
+                metric = lambda index: user.GetSystemMetricsForDpi(index, dpi)  # noqa: E731
+            except AttributeError:
+                metric = user.GetSystemMetrics
+            path = str(ASSETS / "app.ico")
+            icons = []
+            for kind, index in ((1, 11), (0, 49)):  # ICON_BIG / SM_CXICON, ICON_SMALL / SM_CXSMICON
+                size = metric(index)
+                handle = user.LoadImageW(None, path, 1, size, size, 0x0010)  # IMAGE_ICON, LR_LOADFROMFILE
+                if not handle:
+                    return
+                user.SendMessageW(self.hwnd, 0x0080, kind, handle)  # WM_SETICON
+                icons.append(handle)
+        except OSError:
+            return
+        # Keep the handles: the window draws from them for as long as it exists.
+        self.icons, self.icon_hwnd = icons, self.hwnd
 
     def apply_colors(self):
         if not self.hwnd:
