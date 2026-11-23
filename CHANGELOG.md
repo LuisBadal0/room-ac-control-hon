@@ -10,6 +10,8 @@ section above it.
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-11-23
+
 ### Changed
 
 - The tray icon's right-click menu now matches the app: light or dark with the app, a status card with the room temperature, mode and an on/off switch, an Eco switch, your top presets as buttons, and Exit. Left-click the icon to open the window.
