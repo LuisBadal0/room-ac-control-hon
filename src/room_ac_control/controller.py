@@ -221,7 +221,8 @@ class Controller:
                     self.remember(describe(device))
             if self.on_change:
                 self.watch_task = asyncio.create_task(self.watch_updates())
-            snapshots = [await self.snapshot(device) for device in self.devices.values()]
+            # Each AC's timers and weather are read together, so more ACs do not add up their waits.
+            snapshots = list(await asyncio.gather(*(self.snapshot(device) for device in self.devices.values())))
             if self.memory:
                 for snapshot in snapshots:
                     self.memory.record_reading(snapshot)
@@ -388,10 +389,16 @@ class Controller:
             listener = None
             retry = 60
             try:
+                # Read the session under the lock, but do not hold it while hOn answers:
+                # commands would wait behind the token request.
                 async with self.lock:
-                    signature = await asyncio.wait_for(self.api.load_aws_token(), timeout=12)
-                    token = self.api.auth.id_token
-                    devices = list(self.devices.values())
+                    api, devices = self.api, list(self.devices.values())
+                if api is None:
+                    break
+                signature = await asyncio.wait_for(api.load_aws_token(), timeout=12)
+                if api is not self.api:
+                    break  # Signed out or in again meanwhile; that session starts its own watch.
+                token = api.auth.id_token
 
                 own: list[CloudUpdates] = []
 

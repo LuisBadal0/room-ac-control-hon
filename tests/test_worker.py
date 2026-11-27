@@ -1,13 +1,16 @@
 """The background worker reports each cloud operation's result or a safe message."""
 
+import asyncio
 import gc
 import unittest
+from unittest.mock import patch
 
 import aiohttp
 from pyhon.exceptions import HonAuthenticationError
 
+from room_ac_control import worker as worker_module
 from room_ac_control.controller import ControlError
-from room_ac_control.worker import Worker, degrees
+from room_ac_control.worker import BUSY, Worker, degrees
 
 
 async def returns(value):
@@ -86,6 +89,31 @@ class WorkerTests(unittest.TestCase):
         self.worker.submit(coroutine, self.done, "refresh")  # Ignored once closed.
         self.assertIsNone(coroutine.cr_frame)  # Closed, so it never warns "never awaited".
         self.assertTrue(self.worker.results.empty())
+
+    def test_an_operation_stuck_behind_a_slow_one_gives_up_without_running(self):
+        ran = []
+
+        async def slow():
+            await asyncio.sleep(0.5)
+            return "slow"
+
+        async def later():
+            ran.append("later")
+
+        with patch.object(worker_module, "QUEUE_TIMEOUT", 0.05):
+            self.worker.submit(slow(), self.done, "refresh")
+            self.worker.submit(later(), self.done, "command", on_error=self.failed)
+            first = self.worker.results.get(timeout=10)
+            second = self.worker.results.get(timeout=10)
+        self.assertEqual(first, (self.failed, None, BUSY, "command"))  # It never waited for its turn.
+        self.assertEqual(second[1], "slow")
+        self.assertEqual(ran, [])
+        self.assertEqual(self.result(returns("next")), (self.done, "next", None, "refresh"))  # The lock is free.
+
+    def test_a_slow_sign_in_says_so(self):
+        error = self.result(fails(TimeoutError()), "login")[2]
+        self.assertIn("Signing in took too long", error)
+        self.assertGreater(worker_module.TIMEOUTS["login"], worker_module.TIMEOUT)
 
     def test_operations_run_one_at_a_time_in_order(self):
         for number in range(5):
