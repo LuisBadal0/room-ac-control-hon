@@ -4,8 +4,8 @@ import tkinter as tk
 from datetime import timedelta
 
 from ..controller import code
-from ..i18n import tr
-from ..routine_history import item_routine
+from ..i18n import tr, translator
+from ..routine_history import item_routine, parse_time, self_clean_due
 from ..theme import C, accent, blend, font, icon, measure, rounded
 from ..widgets import section_label
 from .model import (
@@ -69,6 +69,8 @@ class MaintenanceTabMixin:
             self.history_state = "queued"
             self.window.after_idle(self.load_routine_history)
         runs = self.app.memory.routine_runs(self.app.selected["id"])
+        loading = self.history_state in {"queued", "loading"}
+        enrolled = parse_time(self.app.selected["enrolled"]) if self.app.selected.get("enrolled") else None
         width = (WIDTH - 10) / 2
         palette = ("cool", "heat", "dry", "fan", "auto")
         for index, item in enumerate(items):
@@ -78,6 +80,11 @@ class MaintenanceTabMixin:
             rounded(c, bx, by, bx + width, by + ROUTINE_STEP - 10, 20, fill=C.CARD, outline="")
             rounded(c, bx + 16, by + 16, bx + 72, by + 72, 16, fill=tint, outline="")
             icon(c, glyph_for(item["label"]), bx + 44, by + 44, color, scale=1.1, bg=tint)
+            # No countdown from the enrollment date while hOn's history may still hold a run.
+            known = runs.get(item_routine(item))
+            due = self_clean_due(item_routine(item), known, None if loading and not known else enrolled)
+            if due:
+                self.draw_self_clean_due(c, bx + 86, by + 26, width - 102, *due)
             self.text(c, bx + 16, by + 92, item["label"], -15, weight="black", width=width - 32)
             if item["kind"] == "setting":
                 detail = item.get("description") or tr(c, option_label(item["spec"], self.app.current(item["key"])))
@@ -86,8 +93,8 @@ class MaintenanceTabMixin:
             self.text(c, bx + 16, by + 108, detail, -12, C.MUTED, "nw", width=width - 32)
             # How long since the routine last ran: hOn's history, runs started or seen here, or a
             # date the person set. Selecting the line sets the date.
-            when = runs.get(item_routine(item))
-            if when is None and self.history_state in {"queued", "loading"}:
+            when = known
+            if when is None and loading:
                 elapsed = tr(c, "Checking the last run…")
             else:
                 elapsed = last_run_label(c, when)
@@ -122,6 +129,24 @@ class MaintenanceTabMixin:
                 self.text(c, bx + width / 2, top + 20, label, -13, C.ON_BRAND, "center", "black")
                 self.hit((bx + 16, top, bx + width - 16, top + 40), lambda item=item: self.start_routine(item))
         return y + ((len(items) + 1) // 2) * ROUTINE_STEP
+
+    def draw_self_clean_due(self, c, x, y, width, left, level):
+        """Days until the next self-clean is due, as hOn counts them, with a bar that empties."""
+        from ..routine_history import SELF_CLEAN_DAYS
+
+        color = {"ok": C.OK, "warning": C.WARN_TEXT, "danger": C.DANGER_TEXT}[level]
+        if left == 0:
+            label = tr(c, "Due now")
+        elif left == 1:
+            label = tr(c, "1 day left")
+        else:
+            label = tr(c, "{count} days left").format(count=translator(c).number(left))
+        self.text(c, x, y + 8, label, -13, color, weight="black", width=width, translate=False)
+        caption = "until the next self-clean" if left else "A self-clean is recommended"
+        self.text(c, x, y + 26, caption, -11, C.MUTED, width=width)
+        rounded(c, x, y + 38, x + width, y + 44, 3, fill=C.SURFACE, outline="")
+        if left:
+            rounded(c, x, y + 38, x + max(6, width * left / SELF_CLEAN_DAYS), y + 44, 3, fill=color, outline="")
 
     def edit_last_run(self, item, color):
         """Set when a routine last ran, for runs this app could not see (hOn does not keep them)."""

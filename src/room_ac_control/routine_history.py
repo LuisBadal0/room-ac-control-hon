@@ -4,7 +4,7 @@ Runs come from hOn's command history, from routines this app starts, and from th
 reporting a self-clean switch as on. hOn keeps only the last few commands, so every run
 seen is also kept in the encrypted local state."""
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from .controller import code, function_group
 
@@ -39,6 +39,49 @@ def parse_time(text):
     except ValueError:
         return None
     return when if when.tzinfo else when.replace(tzinfo=UTC)
+
+
+def runs_from_hon(dates):
+    """hOn's own last self-clean dates (`lastSelfClean`, `lastSelfClean56`) as {routine: datetime}."""
+    runs = {}
+    for routine, text in (dates or {}).items():
+        when = parse_time(text) if routine in SWITCH_ROUTINES and text else None
+        if when is not None:
+            runs[routine] = when
+    return runs
+
+
+# hOn's dates are also kept under this prefix, so each one counts once: a date the person
+# sets by hand stays until hOn reports a different one.
+HON_SEEN = "hon:"
+
+
+def new_hon_runs(dates, saved):
+    """hOn's last self-clean dates not seen before, with the record that marks them seen."""
+    runs = {routine: when for routine, when in runs_from_hon(dates).items() if saved.get(HON_SEEN + routine) != when}
+    return {**runs, **{HON_SEEN + routine: when for routine, when in runs.items()}}
+
+
+# hOn 2.32.11 counts down 30 days from the last self-clean (or from when the AC was added
+# to the account) and colours the count at 10 days or fewer, then at 3 or fewer.
+SELF_CLEAN_DAYS = 30
+SELF_CLEAN_WARNING = 10
+SELF_CLEAN_DANGER = 3
+
+
+def self_clean_due(routine, last_run, enrolled=None, now=None):
+    """Days left until a self-clean is due and how urgent that is, as ({count}, "ok"|"warning"|"danger").
+
+    None for other routines, or when neither a run nor the date the AC was added is known."""
+    from math import ceil
+
+    start = last_run or enrolled
+    if routine not in SWITCH_ROUTINES or start is None:
+        return None
+    now = now or datetime.now(UTC)
+    left = max(0, ceil((start + timedelta(days=SELF_CLEAN_DAYS) - now).total_seconds() / 86400))
+    level = "danger" if left <= SELF_CLEAN_DANGER else "warning" if left <= SELF_CLEAN_WARNING else "ok"
+    return left, level
 
 
 def runs_from_history(history):

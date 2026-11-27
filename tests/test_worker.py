@@ -1,5 +1,6 @@
 """The background worker reports each cloud operation's result or a safe message."""
 
+import gc
 import unittest
 
 import aiohttp
@@ -19,6 +20,9 @@ async def fails(error):
 
 class WorkerTests(unittest.TestCase):
     def setUp(self):
+        # Free Tk objects left by earlier UI tests here, on the main thread. Collected later on
+        # the worker's thread, they make Tcl abort the whole run ("deleted by the wrong thread").
+        gc.collect()
         self.worker = Worker()
         self.addCleanup(self.worker.close)
 
