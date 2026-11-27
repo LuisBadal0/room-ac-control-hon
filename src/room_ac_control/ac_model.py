@@ -172,6 +172,38 @@ def code(value):
         return str(value)
 
 
+# hOn 2.32.11 lets Turbo run alone: turning it on ends Silent mode and Sleep, and
+# turning either of those on, or choosing a fan speed, ends Turbo.
+TURBO_CONFLICTS = {
+    "rapidMode": ("muteStatus", "silentSleepStatus"),
+    "muteStatus": ("rapidMode",),
+    "silentSleepStatus": ("rapidMode",),
+}
+TURBO_NOTICES = {
+    "rapidMode": "Turbo turns off Silent mode and Sleep.",
+    "muteStatus": "Silent mode turns off Turbo.",
+    "silentSleepStatus": "Sleep turns off Turbo.",
+    "windSpeed": "Choosing a fan speed turns off Turbo.",
+}
+
+
+def turbo_conflicts(key, value, current, controls):
+    """The switches to turn off with this change, as hOn does, and why.
+
+    `current(name)` gives a setting's value including unsent changes. Only switches
+    this AC has and that are on now are returned.
+    """
+    off: tuple[str, ...]
+    if key == "windSpeed":
+        off = ("rapidMode",)
+    elif key in TURBO_CONFLICTS and code(value) == "1":
+        off = TURBO_CONFLICTS[key]
+    else:
+        return {}, None
+    changes = {name: "0" for name in off if name in controls and code(current(name)) == "1"}
+    return changes, TURBO_NOTICES[key] if changes else None
+
+
 def choices(parameter, labels):
     if parameter is None:
         return {}

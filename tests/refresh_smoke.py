@@ -159,6 +159,28 @@ assert handled == ["later", "History unavailable", "rows"]
 assert app.busy
 app.busy = False
 
+# Turbo runs alone, as in hOn 2.32.11: the dashboard stages the switches it ends.
+turbo = demo_device()
+for key, label, value in (("rapidMode", "Turbo / rapid mode", "0"), ("muteStatus", "Silent mode", "1")):
+    turbo["controls"][key] = {
+        "key": key,
+        "label": label,
+        "kind": "enum",
+        "value": value,
+        "reported": True,
+        "options": {"Off": "0", "On": "1"},
+    }
+turbo["controls"]["silentSleepStatus"]["value"] = "1"
+app.show_device(turbo)
+app.staged("rapidMode", "1")
+assert app.dirty == {"rapidMode": "1", "muteStatus": "0", "silentSleepStatus": "0"}, app.dirty
+assert app.status.get() == "Turbo turns off Silent mode and Sleep."
+fan = next(value for value in turbo["fans"].values() if value != turbo["controls"]["windSpeed"]["value"])
+app.staged("windSpeed", fan)
+assert "rapidMode" not in app.dirty and app.dirty["windSpeed"] == fan, app.dirty  # Back to the reported Off.
+assert app.status.get() == "Choosing a fan speed turns off Turbo."
+app.discard()
+
 app.close()
 print(
     "Automatic refresh, edit preservation, event coalescing, retry, stale-result and failed-callback recovery checks passed."

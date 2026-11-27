@@ -5,6 +5,7 @@ import tkinter as tk
 from tkinter import messagebox, ttk
 
 from .. import __version__, updates
+from ..ac_model import turbo_conflicts
 from ..airflow import AirflowAnimation
 from ..button_theme import configure_styles
 from ..canvas_hover import CanvasHover
@@ -367,8 +368,16 @@ class App(SessionMixin, StatusMixin, WindowMixin, PreferencesMixin, CanvasMixin,
             self.fan.set(next((label for label, v in self.selected["fans"].items() if equal(v, value)), "Other"))
         if key == "tempSel":
             self.temp.set(str(value))
+        conflicts, notice = turbo_conflicts(key, value, self.current, self.selected.get("controls", {}))
+        for name, off in conflicts.items():
+            self.staged(name, off)
         self.status.set(
-            "Changes ready. Apply them, or use the power button to turn on." if self.dirty else "No pending changes."
+            notice
+            or (
+                "Changes ready. Apply them, or use the power button to turn on."
+                if self.dirty
+                else "No pending changes."
+            )
         )
         self.set_busy(False)
 
