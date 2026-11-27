@@ -10,6 +10,8 @@ section above it.
 
 ## [Unreleased]
 
+## [0.11.1] - 2026-11-27
+
 ### Fixed
 
 - An AC without a room temperature sensor no longer shows the room at 0° on the dashboard and in the tray, and no longer adds 0° readings to the room temperature history.
