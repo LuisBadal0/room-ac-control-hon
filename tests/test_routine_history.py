@@ -254,8 +254,20 @@ class ControllerTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(snapshot["self_cleans"], {"selfCleaningStatus": "2026-11-02T08:00:00Z"})
         self.assertEqual(snapshot["enrolled"], "2026-01-05T10:00:00.0Z")
         self.controller.remember(snapshot)
+        hon = datetime(2026, 11, 2, 8, tzinfo=UTC)
+        self.assertEqual(self.memory.routine_runs(self.unit)["selfCleaningStatus"], hon)
+
+    async def test_an_earlier_date_set_by_hand_stays_until_hon_reports_a_new_one(self):
+        self.device.info["lastSelfClean"] = "2026-11-02T08:00:00Z"
+        self.controller.remember(describe(self.device))
+        by_hand = datetime(2025, 12, 6, 12, tzinfo=UTC)
+        self.memory.set_routine_run(self.unit, "selfCleaningStatus", by_hand)
+        self.controller.remember(describe(self.device))  # The same hOn date does not undo the edit.
+        self.assertEqual(self.memory.routine_runs(self.unit)["selfCleaningStatus"], by_hand)
+        self.device.info["lastSelfClean"] = "2026-11-20T08:00:00Z"
+        self.controller.remember(describe(self.device))
         self.assertEqual(
-            self.memory.routine_runs(self.unit), {"selfCleaningStatus": datetime(2026, 11, 2, 8, tzinfo=UTC)}
+            self.memory.routine_runs(self.unit)["selfCleaningStatus"], datetime(2026, 11, 20, 8, tzinfo=UTC)
         )
 
     async def test_history_is_read_without_sending_commands(self):

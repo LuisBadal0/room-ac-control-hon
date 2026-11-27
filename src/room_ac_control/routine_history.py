@@ -51,6 +51,17 @@ def runs_from_hon(dates):
     return runs
 
 
+# hOn's dates are also kept under this prefix, so each one counts once: a date the person
+# sets by hand stays until hOn reports a different one.
+HON_SEEN = "hon:"
+
+
+def new_hon_runs(dates, saved):
+    """hOn's last self-clean dates not seen before, with the record that marks them seen."""
+    runs = {routine: when for routine, when in runs_from_hon(dates).items() if saved.get(HON_SEEN + routine) != when}
+    return {**runs, **{HON_SEEN + routine: when for routine, when in runs.items()}}
+
+
 # hOn 2.32.11 counts down 30 days from the last self-clean (or from when the AC was added
 # to the account) and colours the count at 10 days or fewer, then at 3 or fewer.
 SELF_CLEAN_DAYS = 30

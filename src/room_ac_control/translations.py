@@ -486,6 +486,7 @@ PORTUGUESE = {
     "1 day left": "Falta 1 dia",
     "{count} days left": "Faltam {count} dias",
     "until the next self-clean": "até à próxima autolimpeza",
+    "A self-clean is recommended": "Recomenda-se uma autolimpeza",
     "Last run {count} days ago": "Última execução há {count} dias",
     "Last run on {date}": "Última execução em {date}",
     "Last run": "Última execução",

@@ -292,7 +292,8 @@ if __name__ == "__main__":
     saved = app.memory.routine_runs(app.selected["id"])["selfCleaningStatus"].astimezone()
     assert (saved.year, saved.month, saved.day) == (2025, 12, 6)
     texts = [text for item, text in canvas_texts(view.content)]
-    assert "Last run on 06 Dec 2025" in texts and "Due now" in texts, texts
+    assert "Last run on 06 Dec 2025" in texts and "Due now" in texts
+    assert "A self-clean is recommended" in texts, texts
     # Today and Yesterday fill the date in.
     view.edit_last_run(routine, "#3399ff")
     root.update()
