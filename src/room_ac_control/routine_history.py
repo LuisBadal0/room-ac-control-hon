@@ -86,7 +86,7 @@ def self_clean_due(routine, last_run, enrolled=None, now=None):
 
 def runs_from_history(history):
     """The latest start of each maintenance routine in hOn's command history, as {routine: datetime}."""
-    runs = {}
+    runs: dict[str, datetime] = {}
     for entry in history if isinstance(history, list) else []:
         command = entry.get("command") if isinstance(entry, dict) else None
         if not isinstance(command, dict):

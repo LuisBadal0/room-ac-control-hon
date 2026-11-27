@@ -7,6 +7,7 @@ import secrets
 import threading
 from ctypes import wintypes
 from pathlib import Path
+from typing import Any
 
 from .diagnostics import diagnostics
 
@@ -81,7 +82,7 @@ class SecureState:
             else Path(os.environ.get("LOCALAPPDATA", str(Path.home()))) / "RoomACControl" / "state.dpapi"
         )
         self.lock = threading.RLock()
-        self.data = {"version": 1, "profiles": {}}
+        self.data: dict[str, Any] = {"version": 1, "profiles": {}}
         self.load_error = False
         self.dirty = False
         if persistent and self.path.exists():

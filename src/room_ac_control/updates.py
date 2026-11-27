@@ -159,7 +159,7 @@ class Updater:
         self.progress = 0.0
         self.error = None
         self.listeners = []
-        self.events = queue.Queue()
+        self.events: queue.Queue[tuple] = queue.Queue()
         self.thread = None
         self.cancel = threading.Event()
         self.applied = False
@@ -279,7 +279,7 @@ class Updater:
 
         `progress` is (texts, colors, icon) for the window that shows the update
         while the app is closed; see `launch_progress`."""
-        if self.state != "ready" or self.applied:
+        if self.state != "ready" or self.applied or self.release is None:
             return False
         version = self.release["version"]
         if self.installer:

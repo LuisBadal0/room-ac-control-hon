@@ -13,7 +13,7 @@ class CloudUpdates:
     def __init__(self, token, signature, devices, changed, factory=None):
         self.closed = False
         self.changed = changed
-        self.topics = {}
+        self.topics: dict[str, set[str]] = {}
         for device in devices:
             for topic in device.info.get("topics", {}).get("subscribe", []):
                 self.topics.setdefault(topic, set()).add(device.unique_id)

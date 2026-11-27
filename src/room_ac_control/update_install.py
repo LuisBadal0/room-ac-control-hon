@@ -43,7 +43,7 @@ class WindowsRegistry:
         try:
             import winreg
 
-            names = []
+            names: list[str] = []
             with winreg.OpenKey(winreg.HKEY_CURRENT_USER, key) as handle:
                 while True:
                     try:
