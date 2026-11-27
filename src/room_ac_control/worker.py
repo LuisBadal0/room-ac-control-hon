@@ -30,8 +30,8 @@ class Worker:
         self.loop.set_exception_handler(
             lambda loop, context: diagnostics.record("background_task_failed", context.get("exception"))
         )
-        self.results = queue.Queue()
-        self.changes = queue.Queue()
+        self.results: queue.Queue[tuple] = queue.Queue()
+        self.changes: queue.Queue[str] = queue.Queue()
         self.controller = Controller(on_change=self.changes.put, memory=memory)
         # Started by the first cloud operation, so an offline preview never runs it.
         self.thread = threading.Thread(target=self.run, daemon=True)

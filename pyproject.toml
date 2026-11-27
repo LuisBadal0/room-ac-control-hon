@@ -54,15 +54,29 @@ known-first-party = ["room_ac_control"]
 
 [tool.mypy]
 python_version = "3.11"
-# The cloud-facing modules are checked strictly first; widen this list as code gains types.
+# The cloud, saved-state and update modules are checked; the Tk interface is not yet.
+# Widen this list as code gains types.
 files = [
     "src/room_ac_control/ac_commands.py",
     "src/room_ac_control/ac_model.py",
-    "src/room_ac_control/controller.py",
-    "src/room_ac_control/energy.py",
-    "src/room_ac_control/schedules.py",
     "src/room_ac_control/cloud_timers.py",
+    "src/room_ac_control/controller.py",
+    "src/room_ac_control/diagnostics.py",
+    "src/room_ac_control/energy.py",
+    "src/room_ac_control/live_updates.py",
+    "src/room_ac_control/notifier.py",
+    "src/room_ac_control/program_memory.py",
+    "src/room_ac_control/room_history.py",
+    "src/room_ac_control/routine_history.py",
+    "src/room_ac_control/schedules.py",
+    "src/room_ac_control/secure_state.py",
+    "src/room_ac_control/single_instance.py",
+    "src/room_ac_control/update_install.py",
+    "src/room_ac_control/update_progress.py",
+    "src/room_ac_control/update_release.py",
+    "src/room_ac_control/updates.py",
     "src/room_ac_control/weather.py",
+    "src/room_ac_control/worker.py",
 ]
 mypy_path = "src"
 check_untyped_defs = true

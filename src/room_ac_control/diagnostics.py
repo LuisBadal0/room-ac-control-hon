@@ -51,7 +51,7 @@ ERROR_TYPES = {
 
 class Diagnostics:
     def __init__(self, limit=100):
-        self.events = deque(maxlen=limit)
+        self.events: deque[dict] = deque(maxlen=limit)
         self.lock = threading.Lock()
 
     def record(self, event, error=None):
