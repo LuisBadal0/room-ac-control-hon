@@ -14,6 +14,10 @@ section above it.
 
 - **Self-clean countdown**, as in the hOn app's Maintenance screen. Each self-clean routine in **All functions › Maintenance** shows how many of its 30 days are left until the next clean is due, with a bar that turns amber at 10 days and red at 3. It counts from the last run, which now also includes the last self-clean date hOn keeps for your AC, or from when the AC was added to your account.
 
+### Changed
+
+- Turbo now runs on its own, as in the hOn app: turning Turbo on also turns off Silent mode and Sleep, and turning on Silent mode or Sleep, or choosing a different fan speed, turns Turbo off. A message on the dashboard says what changed, changing your mind before you apply puts the other switches back, and a mode's remembered settings never turn Turbo off by themselves. Nothing is sent until you apply.
+
 ## [0.10.1] - 2026-11-23
 
 ### Fixed
