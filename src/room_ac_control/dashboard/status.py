@@ -2,6 +2,8 @@
 
 import time
 
+from ..worker import UNKNOWN_OUTCOME
+
 
 class StatusMixin:
     def discard(self):
@@ -115,4 +117,14 @@ class StatusMixin:
             # Allow the unit time to acknowledge; do not present optimistic state as confirmed.
             self.schedule_auto(12000)
 
-        self.worker.submit(self.worker.controller.action(self.selected["id"], action, requested), done, "command")
+        def failed(text):
+            # A refused command changed nothing, so the AC turning on or off is news again.
+            # When the outcome is unknown the command may still have reached the AC.
+            if not text.endswith(UNKNOWN_OUTCOME):
+                self.own_change_until.pop(device_id, None)
+            self.show_error(text)
+
+        device_id = self.selected["id"]
+        self.worker.submit(
+            self.worker.controller.action(device_id, action, requested), done, "command", on_error=failed
+        )

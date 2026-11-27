@@ -139,8 +139,11 @@ def schedule_body(device, action, due, command, existing=None, end_only=False):
     due = due.astimezone()  # Naive wheel selections use the Windows local zone.
     if selected.tzinfo is None and due.replace(tzinfo=None) != selected:
         raise ControlError("That time does not exist after the daylight-saving clock change. Choose another time.")
-    if due <= now or due > now + timedelta(days=2):
-        raise ControlError("Choose a future time within the next day.")
+    if due <= now:
+        raise ControlError("Choose a future time.")
+    # The time wheel offers the next 24 hours; a clock change can stretch that by an hour.
+    if due > now + timedelta(days=2):
+        raise ControlError("Choose a time within the next two days.")
     body = {
         k: deepcopy(v)
         for k, v in (existing or {}).items()

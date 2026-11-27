@@ -160,6 +160,8 @@ def conflicts(rows, start, end, days, ignore=None):
 
 def next_occurrence(hour, minute, days, now=None):
     """The next local time on one of the days; times skipped by a clock change are passed over."""
+    if not days:
+        raise ControlError("Choose at least one day for the schedule.")
     now = now or datetime.now().astimezone()
     for ahead in range(8):
         day = (now + timedelta(days=ahead)).date()
@@ -171,7 +173,7 @@ def next_occurrence(hour, minute, days, now=None):
             continue
         if local > now:
             return local
-    raise ControlError("Choose at least one day for the schedule.")
+    raise ControlError("That time does not exist after the daylight-saving clock change. Choose another time.")
 
 
 def validate_request(start, end, days):

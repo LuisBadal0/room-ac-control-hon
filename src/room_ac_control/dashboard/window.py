@@ -127,6 +127,8 @@ class WindowMixin:
                 self.tray.close()
             except Exception as error:
                 diagnostics.record("tray_close_failed", error)
+        # The cloud session can take a few seconds to close; do not show a frozen window meanwhile.
+        self.root.withdraw()
         self.worker.close()
         if self.instance:
             self.instance.close()

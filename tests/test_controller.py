@@ -316,6 +316,15 @@ class CommandTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual([float(v) for v in snapshot["temperatures"]], list(range(16, 31)))
         self.assertEqual(snapshot["sensors"], {})  # Nothing reported, nothing shown.
 
+    async def test_a_room_sensor_reporting_zero_is_not_a_room_temperature(self):
+        # Sensors a unit lacks report 0; the room card and history must not show 0°.
+        for extra, expected in (({"tempIndoor": "0"}, None), ({"tempIndoor": "-0.0"}, None), ({}, 24.5)):
+            with self.subTest(extra=extra):
+                device, api = make_device()
+                api.extra = extra
+                await device.update(force=True)
+                self.assertEqual(describe(device)["room"], expected)
+
     async def test_sensor_readings_hide_absent_sensors_and_map_air_quality(self):
         # Parameter names and values as in hOn 2.30.7's own AC data.
         for extra, expected in (
