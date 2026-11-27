@@ -324,7 +324,7 @@ def describe(device):
         "name": device.nick_name or device.model_name or "Room AC Control",
         "model": device.model_name,
         "power": {"0": "Off", "1": "On"}.get(power, "Unknown"),
-        "room": device.get("tempIndoor"),
+        "room": reading(device, "tempIndoor", -20, 60),
         "target": device.get("tempSel"),
         "program": device.get("programName"),
         "mode": MODES.get(code(device.get("machMode")), "Unknown"),

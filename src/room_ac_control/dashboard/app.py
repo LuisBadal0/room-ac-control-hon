@@ -221,6 +221,10 @@ class App(SessionMixin, StatusMixin, WindowMixin, PreferencesMixin, CanvasMixin,
             if not self.closing:
                 self.poll_job = self.root.after(100, self.poll)
 
+    def show_error(self, text):
+        self.status.set(text)
+        messagebox.showerror("Room AC Control", tr(self.root, text), parent=self.root)
+
     def handle_events(self):
         try:
             while True:
@@ -232,8 +236,7 @@ class App(SessionMixin, StatusMixin, WindowMixin, PreferencesMixin, CanvasMixin,
                 elif callback is not None:
                     callback(error)  # The operation has its own error handler.
                 else:
-                    self.status.set(error)
-                    messagebox.showerror("Room AC Control", tr(self.root, error), parent=self.root)
+                    self.show_error(error)
         except queue.Empty:
             pass
         try:

@@ -70,6 +70,23 @@ class WorkerTests(unittest.TestCase):
             self.assertNotIn("outcome is unknown", self.result(fails(ControlError("Refused.")), operation)[2])
         self.assertNotIn("outcome is unknown", self.result(fails(TimeoutError()), "refresh")[2])
 
+    def test_a_worker_that_never_ran_closes_without_waiting(self):
+        worker = Worker()
+        self.assertIsNone(worker.thread.ident)  # An offline preview never starts the thread.
+        worker.close()
+        self.assertTrue(worker.loop.is_closed())
+        worker.close()  # Closing twice is harmless.
+
+    def test_closing_stops_the_thread_and_closes_its_loop(self):
+        self.result(returns(1))
+        self.worker.close()
+        self.assertFalse(self.worker.thread.is_alive())
+        self.assertTrue(self.worker.loop.is_closed())
+        coroutine = returns(2)
+        self.worker.submit(coroutine, self.done, "refresh")  # Ignored once closed.
+        self.assertIsNone(coroutine.cr_frame)  # Closed, so it never warns "never awaited".
+        self.assertTrue(self.worker.results.empty())
+
     def test_operations_run_one_at_a_time_in_order(self):
         for number in range(5):
             self.worker.submit(returns(number), self.done, "refresh")

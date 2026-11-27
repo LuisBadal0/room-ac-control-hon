@@ -212,8 +212,10 @@ class NativeTimerTests(unittest.IsolatedAsyncioTestCase):
     async def test_invalid_settings_and_past_time_never_write(self):
         with self.assertRaises(ControlError):
             await self.service.change(self.device, "on", self.due, None, {"tempSel": "70"})
-        with self.assertRaises(ControlError):
+        with self.assertRaisesRegex(ControlError, r"Choose a future time\.$"):
             await self.service.change(self.device, "off", datetime.now() - timedelta(minutes=1), None)
+        with self.assertRaisesRegex(ControlError, "within the next two days"):
+            await self.service.change(self.device, "off", datetime.now() + timedelta(days=3), None)
         self.assertEqual(self.handler.writes, [])
         self.assertEqual(self.api.sent, [])
 

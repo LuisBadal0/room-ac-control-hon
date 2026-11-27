@@ -10,6 +10,9 @@ from pyhon.exceptions import HonAuthenticationError, NoAuthenticationException
 from .controller import ControlError, Controller
 from .diagnostics import diagnostics, quiet_library_logs
 
+# Added to a failed command, timer or schedule whose request may still have reached hOn.
+UNKNOWN_OUTCOME = " The request outcome is unknown. Refresh and check hOn before retrying."
+
 # Third-party authentication errors can include token-bearing URLs. Do not log them.
 quiet_library_logs()
 
@@ -23,8 +26,14 @@ class Worker:
         self.results = queue.Queue()
         self.changes = queue.Queue()
         self.controller = Controller(on_change=self.changes.put, memory=memory)
+        # Started by the first cloud operation, so an offline preview never runs it.
         self.thread = threading.Thread(target=self.run, daemon=True)
-        self.thread.start()
+        self.starting = threading.Lock()
+
+    def start(self):
+        with self.starting:
+            if self.thread.ident is None and not self.loop.is_closed():
+                self.thread.start()
 
     def run(self):
         asyncio.set_event_loop(self.loop)
@@ -47,13 +56,23 @@ class Worker:
                     else:
                         text = f"The cloud service returned an unexpected response ({type(error).__name__}). The community integration may need updating."
                     if operation in {"command", "timer", "schedule"} and not isinstance(error, ControlError):
-                        text += " The request outcome is unknown. Refresh and check hOn before retrying."
+                        text += UNKNOWN_OUTCOME
                     # Without an error handler the callback is None and the app shows the message.
                     self.results.put((on_error, None, text, operation))
 
+        if self.loop.is_closed():
+            coroutine.close()  # The app is closing; nothing runs any more.
+            return
+        self.start()
         asyncio.run_coroutine_threadsafe(perform(), self.loop)
 
     def close(self):
+        if self.loop.is_closed():
+            return
+        if self.thread.ident is None:
+            self.loop.close()  # Nothing ever ran on it.
+            return
+
         async def finish():
             for task in asyncio.all_tasks():
                 if task is not asyncio.current_task():
@@ -65,6 +84,9 @@ class Worker:
         except Exception as error:
             diagnostics.record("worker_shutdown_failed", error)
         self.loop.call_soon_threadsafe(self.loop.stop)
+        self.thread.join(timeout=1)
+        if not self.thread.is_alive():
+            self.loop.close()
 
 
 def degrees(value):

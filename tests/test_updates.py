@@ -450,6 +450,20 @@ class UpdaterTests(unittest.TestCase):
             self.assertEqual(self.wait(updater, {"idle", "failed"}), "failed")
         self.assertIn("internet", updater.error)
 
+    def test_a_check_that_finds_nothing_forgets_the_earlier_release(self):
+        updater = updates.Updater("0.1.23", Path("runtime/RoomACControl"))
+        with patch.object(updates, "check", return_value=release()):
+            updater.check()
+            self.assertEqual(self.wait(updater, {"available"}), "available")
+        with patch.object(updates, "check", return_value=None):
+            updater.check()
+            self.assertEqual(self.wait(updater, {"current"}), "current")
+        self.assertIsNone(updater.release)
+        with patch.object(updates, "check", side_effect=OSError("offline")):
+            updater.check()
+            self.assertEqual(self.wait(updater, {"failed"}), "failed")
+        self.assertFalse(updater.install())  # The release it no longer offers is never installed.
+
     def test_source_checkouts_and_previews_never_update(self):
         for updater in (updates.Updater("0.1.23", None), updates.Updater("0.1.23", Path("x"), demo=True)):
             self.assertFalse(updater.supported)

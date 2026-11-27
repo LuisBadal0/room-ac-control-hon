@@ -10,6 +10,14 @@ section above it.
 
 ## [Unreleased]
 
+### Fixed
+
+- An AC without a room temperature sensor no longer shows the room at 0° on the dashboard and in the tray, and no longer adds 0° readings to the room temperature history.
+- A command the cloud service refuses no longer keeps the AC turning on or off quietly for the next three minutes: those notifications appear again.
+- Timer messages now say what is wrong: a time in the past, or a time more than two days ahead. A repeating schedule whose time is skipped by the clock change now says so, instead of asking you to choose a day.
+- After a check that finds no newer version, the Updates window no longer offers a release it found earlier.
+- Closing the app hides the window at once instead of leaving it unresponsive for a few seconds while the cloud session closes.
+
 ## [0.11.0] - 2026-11-27
 
 ### Added

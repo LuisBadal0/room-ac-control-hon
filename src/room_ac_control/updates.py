@@ -317,7 +317,7 @@ class Updater:
             elif kind == "done":
                 result, payload = value
                 if result == "checked":
-                    self.release = payload or self.release
+                    self.release = payload
                     self.state = "available" if payload else "current"
                     self.checked = datetime.now()
                 elif result == "installed":
