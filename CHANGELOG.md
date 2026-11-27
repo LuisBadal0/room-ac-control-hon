@@ -10,6 +10,10 @@ section above it.
 
 ## [Unreleased]
 
+### Added
+
+- **Self-clean countdown**, as in the hOn app's Maintenance screen. Each self-clean routine in **All functions › Maintenance** shows how many of its 30 days are left until the next clean is due, with a bar that turns amber at 10 days and red at 3. It counts from the last run, which now also includes the last self-clean date hOn keeps for your AC, or from when the AC was added to your account.
+
 ## [0.10.1] - 2026-11-23
 
 ### Fixed

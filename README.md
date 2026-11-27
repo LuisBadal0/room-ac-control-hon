@@ -42,7 +42,7 @@ Keep the `runtime/` folder next to the launcher: it contains the application, Py
 - The Manrope typeface, bundled with the app.
 - A room card showing the selected AC, with a chooser for multiple units.
 - Auto, Cool, Dry, Heat and Fan modes when supported by your AC. Cool Night and Heat Night use the unit's Sleep feature.
-- All functions in four tabs: **Settings** (comfort controls and feature switches), **Everyday use** (presets that list what they apply, up to four of your choice shown first with the rest under More, and what each mode remembers), **Maintenance** (filter status and cleaning routines, each showing how long ago it last ran) and **Schedules** (a week view of every timer in hOn).
+- All functions in four tabs: **Settings** (comfort controls and feature switches), **Everyday use** (presets that list what they apply, up to four of your choice shown first with the rest under More, and what each mode remembers), **Maintenance** (filter status and cleaning routines, each showing how long ago it last ran, with self-clean counting down 30 days to the next clean as hOn does) and **Schedules** (a week view of every timer in hOn).
 - Draggable temperature number wheels in setting editors and preset forms, following the unit's range and step.
 - Blue, amber or neutral animated airflow based on the AC's reported operating mode.
 - Automatic status refresh through cloud events, with a periodic backup check.

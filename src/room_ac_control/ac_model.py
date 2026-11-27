@@ -310,6 +310,18 @@ def describe(device):
         "commands": commands,
         "sensors": sensors(device),
         "alerts": alerts(device),
+        **self_clean_dates(device),
+    }
+
+
+def self_clean_dates(device):
+    """hOn's record of the last self-clean runs and when the AC was added to the account."""
+    info = getattr(device, "info", None)
+    info = info if isinstance(info, dict) else {}
+    fields = {"selfCleaningStatus": "lastSelfClean", "selfCleaning56Status": "lastSelfClean56"}
+    return {
+        "self_cleans": {routine: info[field] for routine, field in fields.items() if info.get(field)},
+        "enrolled": info.get("enrollmentDate"),
     }
 
 

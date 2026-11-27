@@ -17,6 +17,8 @@ from room_ac_control.routine_history import (
     parse_day,
     running_programs,
     runs_from_history,
+    runs_from_hon,
+    self_clean_due,
 )
 from room_ac_control.secure_state import SecureState
 from tests.test_controller import make_device
@@ -164,6 +166,36 @@ class StorageTests(unittest.TestCase):
             )
 
 
+class SelfCleanDueTests(unittest.TestCase):
+    now = datetime(2026, 11, 27, 12, tzinfo=UTC)
+
+    def test_thirty_days_count_down_from_the_last_run_as_hon_counts_them(self):
+        for days_ago, expected in ((0, (30, "ok")), (19.5, (11, "ok")), (20, (10, "warning")), (27, (3, "danger"))):
+            with self.subTest(days_ago=days_ago):
+                when = self.now - timedelta(days=days_ago)
+                self.assertEqual(self_clean_due("selfCleaningStatus", when, now=self.now), expected)
+        self.assertEqual(
+            self_clean_due("selfCleaning56Status", self.now - timedelta(days=90), now=self.now), (0, "danger")
+        )
+
+    def test_the_date_the_ac_was_added_counts_when_no_run_is_known(self):
+        added = self.now - timedelta(days=5)
+        self.assertEqual(self_clean_due("selfCleaningStatus", None, added, now=self.now), (25, "ok"))
+        self.assertIsNone(self_clean_due("selfCleaningStatus", None, None, now=self.now))
+
+    def test_other_routines_have_no_countdown(self):
+        self.assertIsNone(self_clean_due("startProgram:iot_filter", self.now, now=self.now))
+
+    def test_hon_dates_are_read_only_for_self_clean_routines(self):
+        dates = {
+            "selfCleaningStatus": "2026-11-02T08:00:00Z",
+            "selfCleaning56Status": "not a date",
+            "other": "2026-11-01",
+        }
+        self.assertEqual(runs_from_hon(dates), {"selfCleaningStatus": datetime(2026, 11, 2, 8, tzinfo=UTC)})
+        self.assertEqual(runs_from_hon(None), {})
+
+
 class ControllerTests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
         self.memory = ProgramMemory(SecureState(persistent=False))
@@ -213,6 +245,18 @@ class ControllerTests(unittest.IsolatedAsyncioTestCase):
         snapshot.update(power="On", program="PROGRAMS.AC.IOT_SELF_CLEAN")
         self.controller.remember(snapshot)
         self.assertIn("selfCleaningStatus", self.memory.routine_runs(self.unit))
+
+    async def test_hons_own_last_self_clean_dates_count_as_runs(self):
+        self.device.info.update(
+            lastSelfClean="2026-11-02T08:00:00Z", lastSelfClean56="", enrollmentDate="2026-01-05T10:00:00.0Z"
+        )
+        snapshot = describe(self.device)
+        self.assertEqual(snapshot["self_cleans"], {"selfCleaningStatus": "2026-11-02T08:00:00Z"})
+        self.assertEqual(snapshot["enrolled"], "2026-01-05T10:00:00.0Z")
+        self.controller.remember(snapshot)
+        self.assertEqual(
+            self.memory.routine_runs(self.unit), {"selfCleaningStatus": datetime(2026, 11, 2, 8, tzinfo=UTC)}
+        )
 
     async def test_history_is_read_without_sending_commands(self):
         async def history(device):
