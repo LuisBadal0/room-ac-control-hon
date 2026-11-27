@@ -5,6 +5,7 @@ import tkinter as tk
 from tkinter import messagebox, ttk
 
 from .. import __version__, updates
+from ..ac_model import turbo_conflicts
 from ..airflow import AirflowAnimation
 from ..button_theme import configure_styles
 from ..canvas_hover import CanvasHover
@@ -86,6 +87,7 @@ class App(SessionMixin, StatusMixin, WindowMixin, PreferencesMixin, CanvasMixin,
                 diagnostics.record("tray_start_failed", error)
         self.devices, self.selected = [], None
         self.busy, self.dirty = False, {}
+        self.turbo_staged: dict[str, dict[str, str]] = {}
         self.pending_changes = {}
         self.hits = []
         self.dialog = None
@@ -354,23 +356,59 @@ class App(SessionMixin, StatusMixin, WindowMixin, PreferencesMixin, CanvasMixin,
             self.refresh()
 
     def staged(self, key, value):
-        if self.busy:
+        """Stage one setting the user chose."""
+        self.stage_patch({key: value}, cause=key)
+
+    def stage_patch(self, patch, cause=None):
+        """Stage settings chosen together, such as a mode with its remembered settings.
+
+        Turbo's rule follows only `cause`, the setting the user picked. Settings restored
+        from a mode's memory are staged as saved, so a mode never turns Turbo off by itself.
+        """
+        if self.busy or not patch:
             return
+        if not self.dirty:
+            self.turbo_staged.clear()  # A new draft: nothing staged earlier can be undone.
+        before = self.current(cause) if cause in patch else None
+        for key, value in patch.items():
+            self.stage_value(key, value)
+        notice = None
+        if cause in patch and not (cause == "windSpeed" and equal(before, patch[cause])):
+            conflicts, notice = turbo_conflicts(cause, patch[cause], self.current, self.selected.get("controls", {}))
+            for name, off in conflicts.items():
+                self.stage_value(name, off)
+            if conflicts:
+                self.turbo_staged.setdefault(cause, {}).update(conflicts)
+        self.status.set(
+            notice
+            or (
+                "Changes ready. Apply them, or use the power button to turn on."
+                if self.dirty
+                else "No pending changes."
+            )
+        )
+        self.set_busy(False)
+
+    def stage_value(self, key, value):
         spec = self.selected.get("controls", {}).get(key)
         if spec and spec.get("reported") and equal(value, self.pending_changes.get(key, spec["value"])):
-            self.dirty.pop(key, None)
+            if self.dirty.pop(key, None) is not None:
+                # Back to what the AC reports: undo the switches Turbo's rule turned off for it.
+                for name, off in self.turbo_staged.pop(key, {}).items():
+                    if self.dirty.get(name) == off:
+                        self.dirty.pop(name)
+                        self.show_staged(name, self.current(name))
         else:
             self.dirty[key] = str(value)
+        self.show_staged(key, value)
+
+    def show_staged(self, key, value):
         if key in {"machMode", "silentSleepStatus"}:
             self.mode.set(mode_label(self.selected, {**self.pending_changes, **self.dirty}))
         if key == "windSpeed":
             self.fan.set(next((label for label, v in self.selected["fans"].items() if equal(v, value)), "Other"))
         if key == "tempSel":
             self.temp.set(str(value))
-        self.status.set(
-            "Changes ready. Apply them, or use the power button to turn on." if self.dirty else "No pending changes."
-        )
-        self.set_busy(False)
 
     def current(self, key):
         if key in self.dirty:

@@ -10,6 +10,10 @@ section above it.
 
 ## [Unreleased]
 
+### Changed
+
+- Turbo now runs on its own, as in the hOn app: turning Turbo on also turns off Silent mode and Sleep, and turning on Silent mode or Sleep, or choosing a different fan speed, turns Turbo off. A message on the dashboard says what changed, changing your mind before you apply puts the other switches back, and a mode's remembered settings never turn Turbo off by themselves. Nothing is sent until you apply.
+
 ## [0.10.1] - 2026-11-23
 
 ### Fixed
