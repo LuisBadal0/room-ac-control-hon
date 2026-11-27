@@ -10,7 +10,6 @@ Windows user like the rest of the app's saved state, and never leave this comput
 import json
 import math
 import os
-import secrets
 import threading
 import time
 from pathlib import Path
@@ -94,19 +93,9 @@ class RoomHistory:
     def write(self):
         if not self.persistent:
             return
-        from .secure_state import protect
+        from .secure_state import write_protected
 
-        encrypted = protect(json.dumps(self.data, separators=(",", ":")).encode("utf-8"))
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        temporary = self.path.with_name(self.path.name + "." + secrets.token_hex(6) + ".tmp")
-        try:
-            with temporary.open("xb") as handle:
-                handle.write(encrypted)
-                handle.flush()
-                os.fsync(handle.fileno())
-            os.replace(temporary, self.path)
-        finally:
-            temporary.unlink(missing_ok=True)
+        write_protected(self.path, json.dumps(self.data, separators=(",", ":")).encode("utf-8"))
 
     def record(self, account, device, snapshot, now=None):
         """Keep a reading if the last one is at least ten minutes old; True when kept."""

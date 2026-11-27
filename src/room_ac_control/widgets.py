@@ -145,10 +145,6 @@ class PillButton(tk.Canvas):
     def label(self):
         return tr(self, self.text) if self.translate else self.text
 
-    def set_text(self, text):
-        self.text = text
-        self.draw()
-
     def set_badge(self, value):
         self.badge = value
         self.draw()

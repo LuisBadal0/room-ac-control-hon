@@ -203,7 +203,6 @@ PORTUGUESE = {
     "The cloud service did not accept the command. Sign in again.": "O serviço não aceitou o comando. Inicie sessão novamente.",
     "This AC does not expose settings controls.": "Este ar condicionado não disponibiliza controlos de definições.",
     "Unsupported setting requested.": "Foi pedida uma definição não suportada.",
-    "The AC is off. Use Turn on with these settings.": "O ar condicionado está desligado. Ligue-o com estas definições.",
     "Power status is unknown. Refresh or use the phone app.": "O estado de funcionamento é desconhecido. Atualize ou use a aplicação do telemóvel.",
     "No supported settings to apply.": "Sem definições suportadas para aplicar.",
     "A requested control is unavailable for this AC.": "Um dos controlos pedidos não está disponível neste ar condicionado.",

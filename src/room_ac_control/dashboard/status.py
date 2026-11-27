@@ -92,7 +92,7 @@ class StatusMixin:
         if action == "on":
             requested = self.memory.mode_values(self.selected, requested)
         if action == "apply":
-            action = "configure"
+            action = "configure"  # Settings change with the AC on or off, as in hOn.
         # Results requested before this command must not overwrite its selection.
         self.refresh_epoch += 1
         # The AC turning on or off in the next minutes is this command, not news.

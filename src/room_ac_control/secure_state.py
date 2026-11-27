@@ -5,7 +5,6 @@ import json
 import os
 import secrets
 import threading
-from copy import deepcopy
 from ctypes import wintypes
 from pathlib import Path
 
@@ -57,6 +56,22 @@ def protect(data, decrypt=False):
         kernel.LocalFree(ctypes.cast(result.data, ctypes.c_void_p))
 
 
+def write_protected(path, data):
+    """Encrypt data for this Windows user and replace the file in one step, so a crash
+    or full disk leaves the previous file whole."""
+    encrypted = protect(data)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_name(path.name + "." + secrets.token_hex(6) + ".tmp")
+    try:
+        with temporary.open("xb") as handle:
+            handle.write(encrypted)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary, path)
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
 class SecureState:
     def __init__(self, path=None, persistent=True):
         self.persistent = persistent
@@ -74,8 +89,6 @@ class SecureState:
                 self.data = json.loads(protect(self.path.read_bytes(), decrypt=True).decode("utf-8"))
                 if self.data.get("version") != 1 or not isinstance(self.data.get("profiles"), dict):
                     raise ValueError("Unsupported saved state")
-                if not isinstance(self.data.get("schedules", {}), dict):
-                    raise ValueError("Invalid saved timers")
                 login = self.data.get("login")
                 if login is not None and (
                     not isinstance(login, dict) or not all(isinstance(login.get(k), str) for k in ("email", "password"))
@@ -98,18 +111,8 @@ class SecureState:
         if not self.persistent:
             self.dirty = False
             return
-        encrypted = protect(json.dumps(self.data, ensure_ascii=False).encode("utf-8"))
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        temporary = self.path.with_name(self.path.name + "." + secrets.token_hex(6) + ".tmp")
-        try:
-            with temporary.open("xb") as handle:
-                handle.write(encrypted)
-                handle.flush()
-                os.fsync(handle.fileno())
-            os.replace(temporary, self.path)
-            self.dirty = False
-        finally:
-            temporary.unlink(missing_ok=True)
+        write_protected(self.path, json.dumps(self.data, ensure_ascii=False).encode("utf-8"))
+        self.dirty = False
 
     def credentials(self):
         with self.lock:
@@ -117,6 +120,22 @@ class SecureState:
             if login.get("email") and login.get("password"):
                 return login["email"], login["password"]
         return None
+
+    def save_preference(self, key, value):
+        """Save one setting; if Windows cannot write it, the previous one stays."""
+        with self.lock:
+            missing = object()
+            previous, dirty = self.data.get(key, missing), self.dirty
+            self.data[key], self.dirty = value, True
+            try:
+                self.write()
+            except OSError:
+                if previous is missing:
+                    self.data.pop(key, None)
+                else:
+                    self.data[key] = previous
+                self.dirty = dirty
+                raise
 
     def language(self):
         with self.lock:
@@ -126,18 +145,7 @@ class SecureState:
     def save_language(self, value):
         if not isinstance(value, str) or value not in {"system", "en", "pt-PT"}:
             raise ValueError("Unsupported language")
-        with self.lock:
-            previous, dirty = self.data.get("language"), self.dirty
-            self.data["language"], self.dirty = value, True
-            try:
-                self.write()
-            except OSError:
-                if previous is None:
-                    self.data.pop("language", None)
-                else:
-                    self.data["language"] = previous
-                self.dirty = dirty
-                raise
+        self.save_preference("language", value)
 
     def theme(self):
         with self.lock:
@@ -147,18 +155,7 @@ class SecureState:
     def save_theme(self, value):
         if not isinstance(value, str) or value not in {"system", "light", "dark"}:
             raise ValueError("Unsupported theme")
-        with self.lock:
-            previous, dirty = self.data.get("theme"), self.dirty
-            self.data["theme"], self.dirty = value, True
-            try:
-                self.write()
-            except OSError:
-                if previous is None:
-                    self.data.pop("theme", None)
-                else:
-                    self.data["theme"] = previous
-                self.dirty = dirty
-                raise
+        self.save_preference("theme", value)
 
     def auto_update(self):
         """Whether to look for app updates automatically (on unless turned off)."""
@@ -169,18 +166,7 @@ class SecureState:
     def save_auto_update(self, value):
         if not isinstance(value, bool):
             raise ValueError("Unsupported update preference")
-        with self.lock:
-            previous, dirty = self.data.get("auto_update"), self.dirty
-            self.data["auto_update"], self.dirty = value, True
-            try:
-                self.write()
-            except OSError:
-                if previous is None:
-                    self.data.pop("auto_update", None)
-                else:
-                    self.data["auto_update"] = previous
-                self.dirty = dirty
-                raise
+        self.save_preference("auto_update", value)
 
     def notifications(self):
         """Whether to show Windows notifications while the app is in the notification area (on unless turned off)."""
@@ -191,18 +177,7 @@ class SecureState:
     def save_notifications(self, value):
         if not isinstance(value, bool):
             raise ValueError("Unsupported notification preference")
-        with self.lock:
-            previous, dirty = self.data.get("notifications"), self.dirty
-            self.data["notifications"], self.dirty = value, True
-            try:
-                self.write()
-            except OSError:
-                if previous is None:
-                    self.data.pop("notifications", None)
-                else:
-                    self.data["notifications"] = previous
-                self.dirty = dirty
-                raise
+        self.save_preference("notifications", value)
 
     def top_presets(self, account, device):
         """The presets chosen to show first for one AC, or None if none were ever chosen."""
@@ -287,27 +262,6 @@ class SecureState:
             accounts[account][device][routine] = when.isoformat()
             self.dirty = True
             self.write()
-
-    def schedules(self, account):
-        with self.lock:
-            accounts = self.data.get("schedules", {})
-            records = accounts.get(account, {}) if isinstance(accounts, dict) else {}
-            return deepcopy(records) if isinstance(records, dict) else {}
-
-    def save_schedules(self, account, records):
-        if not account:
-            raise ValueError("Sign in before saving timers.")
-        with self.lock:
-            previous = deepcopy(self.data.get("schedules", {}))
-            dirty = self.dirty
-            self.data.setdefault("schedules", {})[account] = deepcopy(records)
-            self.dirty = True
-            try:
-                self.write()
-            except OSError:
-                self.data["schedules"] = previous
-                self.dirty = dirty
-                raise
 
     def save_credentials(self, email, password):
         with self.lock:
