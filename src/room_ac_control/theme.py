@@ -6,8 +6,7 @@ import math
 from pathlib import Path
 from tkinter import font as tkfont
 
-from .i18n import tr
-from .smooth import Recorder, aa_arc, aa_line, aa_oval, aa_polygon, aa_rounded, aa_text, sprite, text_width
+from .smooth import Recorder, aa_arc, aa_line, aa_oval, aa_polygon, aa_rounded, sprite, text_width
 
 ASSETS = Path(__file__).resolve().parent / "assets"
 THEMES = ("system", "light", "dark")
@@ -628,67 +627,3 @@ def icon(canvas, name, x, y, color=None, scale=1, bg=None, tags=(), rotate=0):
     canvas.transform(x, y, scale, rotate)
     sprite(target, canvas.ops, tags)
     return tag
-
-
-def control_card(canvas, x, y, width, label, value, glyph, scale=1, active=True, pending=False, height=104):
-    """The same compact control surface on both screens."""
-    surface = rounded(
-        canvas,
-        x,
-        y,
-        x + width,
-        y + height,
-        12,
-        fill=C.CARD,
-        outline=C.BRAND if pending else C.EDGE,
-        width=1.5 if pending else 1,
-    )
-    circle = C.SOFT if active else C.SURFACE
-    aa_oval(canvas, x + 14, y + 14, x + 50, y + 50, fill=circle, outline="")
-    icon(canvas, glyph, x + 32, y + 32, C.ON_SOFT if active else C.MUTED, scale=0.74, bg=circle)
-    if pending:
-        aa_text(
-            canvas, x + width - 14, y + 24, text=tr(canvas, "Changed"), anchor="e", fill=C.BRAND, font=font(8, "bold")
-        )
-        left = canvas.bbox(canvas.find_all()[-1])[0]
-        aa_oval(canvas, left - 12, y + 20, left - 5, y + 27, fill=C.BRAND, outline="")
-    value = tr(canvas, value)
-    multiline = tkfont.Font(canvas, font=font(11, "bold")).measure(value) > (width - 28) * scale
-    aa_text(
-        canvas,
-        x + 14,
-        y + (60 if multiline else height - 36),
-        text=tr(canvas, label),
-        anchor="w",
-        width=width - 28,
-        fill=C.MUTED,
-        font=font(9),
-    )
-    aa_text(
-        canvas,
-        x + 14,
-        y + (70 if multiline else height - 17),
-        text=value,
-        anchor="nw" if multiline else "w",
-        width=width - 24,
-        fill=C.TEXT,
-        font=font(10 if multiline else 11, "bold"),
-    )
-    return surface
-
-
-def ac_art(canvas, x, y, running=False, target="23", photo=None):
-    """Original appliance illustration; airflow is rendered separately."""
-    if photo is not None:
-        canvas.create_image(x, y, image=photo)
-        return
-    aa_polygon(
-        canvas, x + 108, y - 22, x + 121, y - 15, x + 121, y + 31, x + 107, y + 37, fill="#c7cbc5", outline="#929a90"
-    )
-    rounded(canvas, x - 108, y - 30, x + 111, y + 37, 7, fill="#f1f3ee", outline="#c6cdc2", width=1)
-    aa_polygon(canvas, x - 100, y + 14, x + 105, y + 22, x + 102, y + 35, x - 100, y + 27, fill="#171b17")
-    for n in range(28):
-        lx = x - 94 + n * 7
-        aa_line(canvas, lx, y + 18, lx, y + 30, fill="#7e877b", width=0.7)
-    aa_line(canvas, x - 103, y - 18, x + 103, y - 10, fill="#ffffff", width=2)
-    aa_text(canvas, x + 79, y - 15, text=tr(canvas, target), fill="#a1a89b", font=font(8))

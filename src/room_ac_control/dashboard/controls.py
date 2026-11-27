@@ -223,22 +223,6 @@ class ControlsMixin:
 
         self.choice_panel = ChoicePanel(self.root, spec["label"], options, current, selected)
 
-    def airflow_label(self):
-        controls = self.selected.get("controls", {})
-        if not any(k in controls for k in ("windDirectionVertical", "windDirectionHorizontal")):
-            return "Unavailable"
-        if all(self.current(k) is None for k in ("windDirectionVertical", "windDirectionHorizontal")):
-            return "Unknown"
-        vertical = code(self.current("windDirectionVertical")) == "8"
-        horizontal = code(self.current("windDirectionHorizontal")) == "7"
-        if vertical and horizontal:
-            return "Both"
-        if vertical:
-            return "Vertical"
-        if horizontal:
-            return "Horizontal"
-        return "Fixed"
-
     def airflow_menu(self):
         options = []
         current = {}

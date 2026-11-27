@@ -5,7 +5,7 @@ from .ac_model import INTERNAL, ControlError, capabilities, code, validate
 
 async def send_action(device, action, requested=None):
     """Refresh first; change only explicitly selected parameters."""
-    if action not in {"on", "off", "apply", "configure", "execute"}:
+    if action not in {"on", "off", "configure", "execute"}:
         raise ControlError("Unknown action.")
     # Clear pyhOn's optimistic attribute locks before reading actual cloud status.
     device.attributes.clear()
@@ -29,10 +29,9 @@ async def send_action(device, action, requested=None):
     allowed = set(capabilities(device)[0]) - {"onOffStatus"}
     if not set(changes).issubset(allowed):
         raise ControlError("Unsupported setting requested.")
+    # "configure" changes settings with the AC on or off, as hOn does; only "on" powers it on.
     if action == "on":
         changes["onOffStatus"] = "1"
-    elif action == "apply" and code(device.get("onOffStatus")) == "0":
-        raise ControlError("The AC is off. Use Turn on with these settings.")
     elif code(device.get("onOffStatus")) not in {"0", "1"}:
         raise ControlError("Power status is unknown. Refresh or use the phone app.")
     if not changes:

@@ -263,12 +263,18 @@ class CommandTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_temperature_change_preserves_power_and_omits_unrequested_features(self):
         device, api = make_device()
-        await send_action(device, "apply", {"tempSel": "25"})
+        await send_action(device, "configure", {"tempSel": "25"})
         self.assertEqual(api.sent, [("settings", {"onOffStatus": "1", "tempSel": 25.0})])
 
     async def test_settings_do_not_start_an_ac_that_is_off(self):
         device, api = make_device("0")
-        with self.assertRaisesRegex(ControlError, "AC is off"):
+        await send_action(device, "configure", {"tempSel": "25"})
+        self.assertEqual(api.sent, [("settings", {"onOffStatus": "0", "tempSel": 25.0})])
+
+    async def test_the_cloud_layer_has_no_apply_action(self):
+        # The dashboard's Apply sends "configure"; an unknown action never sends anything.
+        device, api = make_device()
+        with self.assertRaisesRegex(ControlError, "Unknown action"):
             await send_action(device, "apply", {"tempSel": "25"})
         self.assertEqual(api.sent, [])
 
@@ -288,7 +294,7 @@ class CommandTests(unittest.IsolatedAsyncioTestCase):
         for request in ({"tempSel": "31"}, {"tempSel": "23.5"}, {"onOffStatus": "1"}, {"windSpeed": "9"}):
             device, api = make_device()
             with self.assertRaises(ControlError):
-                await send_action(device, "apply", request)
+                await send_action(device, "configure", request)
             self.assertEqual(api.sent, [])
 
     async def test_rejection_is_not_reported_as_success(self):
@@ -301,9 +307,9 @@ class CommandTests(unittest.IsolatedAsyncioTestCase):
         device, api = make_device("0")
         device.attributes["parameters"] = {"onOffStatus": HonAttribute("1")}
         device.attributes["parameters"]["onOffStatus"].update("1", shield=True)
-        with self.assertRaisesRegex(ControlError, "AC is off"):
-            await send_action(device, "apply", {"tempSel": "25"})
-        self.assertEqual(api.sent, [])
+        await send_action(device, "configure", {"tempSel": "25"})
+        # The power reported after the fresh read is sent back, not the optimistic "1".
+        self.assertEqual(api.sent, [("settings", {"onOffStatus": "0", "tempSel": 25.0})])
 
     async def test_live_capabilities_and_float_sensor_values(self):
         device, api = make_device()

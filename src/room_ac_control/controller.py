@@ -182,7 +182,7 @@ class Controller:
                 [routine_for(requested["command"], requested.get("category", "_"))] if group == "maintenance" else []
             )
         else:
-            routines = switched_on(requested) if action in {"configure", "apply", "on"} else []
+            routines = switched_on(requested) if action in {"configure", "on"} else []
         if routines:
             now = datetime.now(UTC)
             self.memory.record_routine_runs(device_id, {routine: now for routine in routines})
@@ -344,10 +344,10 @@ class Controller:
         device = self.devices[device_id]
         await send_action(device, action, requested)
         snapshot = describe(device)
-        self.remember(snapshot, requested if action in {"on", "apply", "configure"} else None)
+        self.remember(snapshot, requested if action in {"on", "configure"} else None)
         if action != "execute":
             self.record_started_routine(device_id, action, requested)
-        if action in {"on", "apply", "configure"} and requested:
+        if action in {"on", "configure"} and requested:
             previous = self.pending_changes.get(device_id, {}).get("values", {})
             self.pending_changes[device_id] = {
                 "values": {
