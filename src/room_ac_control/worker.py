@@ -13,6 +13,13 @@ from .diagnostics import diagnostics, quiet_library_logs
 # Added to a failed command, timer or schedule whose request may still have reached hOn.
 UNKNOWN_OUTCOME = " The request outcome is unknown. Refresh and check hOn before retrying."
 
+# Seconds one cloud operation may take. Signing in reads every AC, its timers and weather.
+TIMEOUT = 90
+TIMEOUTS = {"login": 180}
+# Seconds an operation may wait for the ones before it to finish.
+QUEUE_TIMEOUT = 120
+BUSY = "An earlier cloud request is still running. Nothing was sent. Try again in a moment."
+
 # Third-party authentication errors can include token-bearing URLs. Do not log them.
 quiet_library_logs()
 
@@ -41,9 +48,16 @@ class Worker:
 
     def submit(self, coroutine, callback, operation, on_error=None):
         async def perform():
-            async with self.controller.lock:
+            # Operations run one at a time; one waiting behind a slow request gets a deadline too.
+            try:
+                await asyncio.wait_for(self.controller.lock.acquire(), timeout=QUEUE_TIMEOUT)
+            except TimeoutError:
+                coroutine.close()
+                self.results.put((on_error, None, BUSY, operation))
+                return
+            try:
                 try:
-                    result = await asyncio.wait_for(coroutine, timeout=90)
+                    result = await asyncio.wait_for(coroutine, timeout=TIMEOUTS.get(operation, TIMEOUT))
                     self.results.put((callback, result, None, operation))
                 except Exception as error:
                     diagnostics.record("cloud_operation_failed", error)
@@ -51,6 +65,8 @@ class Worker:
                         text = str(error)
                     elif isinstance(error, (HonAuthenticationError, NoAuthenticationException)):
                         text = "Cloud sign-in failed. Check your email and password. Social sign-in may require an hOn email/password account."
+                    elif operation == "login" and isinstance(error, TimeoutError):
+                        text = "Signing in took too long. Check internet access and try again."
                     elif isinstance(error, (aiohttp.ClientError, TimeoutError, OSError)):
                         text = "Could not reach the cloud service. Check internet access and try again."
                     else:
@@ -59,6 +75,8 @@ class Worker:
                         text += UNKNOWN_OUTCOME
                     # Without an error handler the callback is None and the app shows the message.
                     self.results.put((on_error, None, text, operation))
+            finally:
+                self.controller.lock.release()
 
         if self.loop.is_closed():
             coroutine.close()  # The app is closing; nothing runs any more.

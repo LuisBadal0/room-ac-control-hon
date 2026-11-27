@@ -17,6 +17,9 @@ section above it.
 - Timer messages now say what is wrong: a time in the past, or a time more than two days ahead. A repeating schedule whose time is skipped by the clock change now says so, instead of asking you to choose a day.
 - After a check that finds no newer version, the Updates window no longer offers a release it found earlier.
 - Closing the app hides the window at once instead of leaving it unresponsive for a few seconds while the cloud session closes.
+- Signing in with several ACs no longer fails as "Could not reach the cloud service" when hOn is slow: each AC's timers and weather are read at the same time, signing in gets more time, and a slow sign-in says so.
+- A change waiting behind a slow cloud request no longer waits without limit. After two minutes it stops with a message, and nothing is sent.
+- Renewing the live-update connection every 30 minutes no longer holds up changes you apply at that moment.
 
 ## [0.11.0] - 2026-11-27
 
