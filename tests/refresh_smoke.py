@@ -8,6 +8,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from room_ac_control.dashboard import App
+from room_ac_control.dashboard.layout import equal
 from tests.ui_smoke import demo_device
 
 root = tk.Tk()
@@ -175,10 +176,32 @@ app.show_device(turbo)
 app.staged("rapidMode", "1")
 assert app.dirty == {"rapidMode": "1", "muteStatus": "0", "silentSleepStatus": "0"}, app.dirty
 assert app.status.get() == "Turbo turns off Silent mode and Sleep."
-fan = next(value for value in turbo["fans"].values() if value != turbo["controls"]["windSpeed"]["value"])
+app.staged("rapidMode", "0")  # Changing one's mind undoes what Turbo turned off.
+assert app.dirty == {} and app.status.get() == "No pending changes.", app.dirty
+reported_fan = turbo["controls"]["windSpeed"]["value"]
+fan = next(value for value in turbo["fans"].values() if not equal(value, reported_fan))
+app.staged("rapidMode", "1")
 app.staged("windSpeed", fan)
 assert "rapidMode" not in app.dirty and app.dirty["windSpeed"] == fan, app.dirty  # Back to the reported Off.
 assert app.status.get() == "Choosing a fan speed turns off Turbo."
+app.discard()
+
+running = copy.deepcopy(turbo)
+running["controls"]["rapidMode"]["value"] = "1"
+running["controls"]["muteStatus"]["value"] = "0"
+running["controls"]["silentSleepStatus"]["value"] = "0"
+app.show_device(running)
+app.staged("windSpeed", reported_fan)  # The fan speed already set does not end Turbo.
+assert app.dirty == {}, app.dirty
+app.memory.mode_values = lambda device, patch: {**patch, "windSpeed": fan, "tempSel": "24"}
+app.pick_mode({"value": {"machMode": "1"}})  # A mode's remembered fan speed does not end Turbo.
+assert "rapidMode" not in app.dirty and app.dirty["windSpeed"] == fan, app.dirty
+app.discard()
+app.toggle_sleep()  # Sleep, staged with the mode's remembered settings, says why Turbo is off.
+assert app.dirty["rapidMode"] == "0" and app.dirty["silentSleepStatus"] == "1", app.dirty
+assert app.status.get() == "Sleep turns off Turbo."
+app.toggle_sleep()
+assert "rapidMode" not in app.dirty and "silentSleepStatus" not in app.dirty, app.dirty
 app.discard()
 
 app.close()

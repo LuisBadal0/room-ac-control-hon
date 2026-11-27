@@ -30,8 +30,9 @@ class ControlsMixin:
         self.action("off" if self.selected["power"] == "On" else "on")
 
     def pick_mode(self, option):
-        for name, value in self.memory.mode_values(self.selected, dict(option["value"])).items():
-            self.staged(name, value)
+        chosen = dict(option["value"])
+        cause = "silentSleepStatus" if "silentSleepStatus" in chosen else None
+        self.stage_patch(self.memory.mode_values(self.selected, chosen), cause)
 
     def airflow_spec(self):
         controls = self.selected.get("controls", {})
@@ -107,8 +108,7 @@ class ControlsMixin:
         if code(self.current("machMode")) in {"1", "4"}:
             patch["machMode"] = code(self.current("machMode"))
             patch = self.memory.mode_values(self.selected, patch)
-        for name, new_value in patch.items():
-            self.staged(name, new_value)
+        self.stage_patch(patch, "silentSleepStatus")
 
     def scale(self):
         return max(self.canvas.winfo_width(), 480) / WIDTH
@@ -205,8 +205,8 @@ class ControlsMixin:
             current.update(self.dirty)
 
             def selected(patch):
-                for name, value in self.memory.mode_values(self.selected, patch).items():
-                    self.staged(name, value)
+                cause = "silentSleepStatus" if "silentSleepStatus" in patch else None
+                self.stage_patch(self.memory.mode_values(self.selected, patch), cause)
         else:
             options = [
                 {"label": label, "value": value, "glyph": "fan" if key == "windSpeed" else "moon"}
@@ -219,8 +219,7 @@ class ControlsMixin:
                 if key == "silentSleepStatus" and code(self.current("machMode")) in {"1", "4"}:
                     patch["machMode"] = code(self.current("machMode"))
                     patch = self.memory.mode_values(self.selected, patch)
-                for name, new_value in patch.items():
-                    self.staged(name, new_value)
+                self.stage_patch(patch, key)
 
         self.choice_panel = ChoicePanel(self.root, spec["label"], options, current, selected)
 
